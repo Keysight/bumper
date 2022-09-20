@@ -2,6 +2,8 @@
 // The representation is ported from the CompCert CParser elaborated AST.
 package com.riscure.langs.c
 
+import java.util.*
+
 typealias Name  = String
 typealias Ident = String
 
@@ -57,7 +59,7 @@ sealed class Type(private val _attrs: Attrs) {
     data class Int    (val kind: IKind, val attrs: Attrs = listOf()): Type(attrs)
     data class Float  (val kind: FKind, val attrs: Attrs = listOf()): Type(attrs)
     data class Ptr    (val type: Type, val attrs: Attrs = listOf()): Type(attrs)
-    data class Array  (val type: Type, val size: Int?, val attrs: Attrs = listOf()): Type(attrs)
+    data class Array  (val type: Type, val size: Optional<Int> = Optional.empty(), val attrs: Attrs = listOf()): Type(attrs)
     data class Fun    (val retType: Type, val args: List<Pair<Ident, Type>>, val vararg: Boolean, val attrs: Attrs = listOf()): Type(attrs)
     data class Named  (val id: Ident, val attrs: Attrs = listOf()): Type(attrs)
     data class Struct (val id: Ident, val attrs: Attrs = listOf()): Type(attrs)
@@ -157,7 +159,8 @@ sealed class Stmt
 //  { gdesc: globdecl_desc; gloc: location }
 
 data class Param(
-    val name: Ident
+    val name: Ident,
+    val type: Type
 )
 
 sealed class GlobalDecl {

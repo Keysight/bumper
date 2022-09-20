@@ -98,20 +98,33 @@ fun CXCursor.asGlobalDecl(): Result<GlobalDecl> {
     }
 }
 
+fun CXCursor.getResultType(): Result<Type> {
+    val typ = clang_getCursorResultType(this)
+    return typ.asType()
+}
+
+fun CXCursor.getParameters(): Result<List<Param>> {
+    val nargs = clang_Cursor_getNumArguments(this)
+    return (0 until nargs)
+        .map { clang_Cursor_getArgument(this, it) }
+        .map { it.asParam() }
+        .sequenceEither()
+}
+
 fun CXCursor.asFunctionDecl(): Result<GlobalDecl.Fun> {
     if (kind() != CXCursor_FunctionDecl) {
         return "Expected function declaration, got cursor of kind ${kind()}".left()
     }
 
     val nargs = clang_Cursor_getNumArguments(this)
-    return (0 until nargs)
-        .map { clang_Cursor_getArgument(this, it) }
-        .map { it.asParam() }
-        .sequenceEither()
-        .map { params ->
-            GlobalDecl.Fun(false, spelling(), Type.Void(), params)
+    return this
+        .getResultType()
+        .flatMap { resultType ->
+            this.getParameters()
+                .map { params ->
+                    GlobalDecl.Fun(false, spelling(), resultType, params)
+                }
         }
-
 }
 
 fun CXCursor.asParam(): Result<Param> {
@@ -119,5 +132,43 @@ fun CXCursor.asParam(): Result<Param> {
         return "Exepected parameter declaration".left()
     }
 
-    return Param(spelling()).right()
+    return clang_getCursorType(this)
+        .asType()
+        .map { type -> Param(spelling(), type) }
 }
+
+// CXType extensions
+
+fun CXType.asType(): Result<Type> =
+    when (this.kind()) {
+        CXType_Void -> Type.Void().right()
+        CXType_Bool -> Type.Int(IKind.IBoolean).right()
+        CXType_Char_U -> Type.Int(IKind.IUChar).right() // correct?
+        CXType_UChar  -> Type.Int(IKind.IUChar).right() // correct?
+        CXType_UShort  -> Type.Int(IKind.IUShort).right()
+        CXType_UInt  -> Type.Int(IKind.IUInt).right()
+        CXType_ULong  -> Type.Int(IKind.IULong).right()
+        CXType_ULongLong  -> Type.Int(IKind.IULongLong).right()
+        CXType_Char_S -> Type.Int(IKind.IChar).right() // correct?
+        CXType_SChar -> Type.Int(IKind.ISChar).right() // correct?
+        CXType_Short -> Type.Int(IKind.IShort).right()
+        CXType_Int -> Type.Int(IKind.IInt).right()
+        CXType_Long -> Type.Int(IKind.ILong).right()
+        CXType_LongLong -> Type.Int(IKind.ILongLong).right()
+
+        CXType_Float -> Type.Float(FKind.FFloat).right()
+        CXType_Double -> Type.Float(FKind.FDouble).right()
+        CXType_LongDouble -> Type.Float(FKind.FLongDouble).right()
+
+        CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
+        CXType_Record  -> TODO()
+        CXType_Enum    -> TODO()
+        CXType_Typedef -> TODO()
+        CXType_ConstantArray -> TODO()
+        CXType_IncompleteArray ->
+            clang_getArrayElementType(this).asType().map { Type.Array(it) }
+
+        // others that could occur in C?
+
+        else -> "Could not parse type of kind '${this.kind()}'".left()
+    }
