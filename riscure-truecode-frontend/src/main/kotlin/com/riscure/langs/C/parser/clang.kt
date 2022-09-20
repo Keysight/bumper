@@ -9,6 +9,7 @@ import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 import org.bytedeco.llvm.global.clang.clang_parseTranslationUnit2 as clang_parse
 import java.io.File
+import java.util.*
 
 /**
  * This implements the parser interface using the Bytedeco library to call
@@ -77,8 +78,21 @@ fun CXCursor.children(): List<CXCursor> {
     return cs
 }
 
+// getters
+
 fun CXCursor.kind() = clang_getCursorKind(this)
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
+
+// utility functions
+fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>): Result<T> {
+    if (kind() != k) {
+        return "Expected ${expectation}. Got cursor of kind ${kind()}".left()
+    }
+
+    return whenMatch()
+}
+
+// AST translation functions
 
 fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
     if (this.kind() != CXCursor_TranslationUnit) {
@@ -111,20 +125,36 @@ fun CXCursor.getParameters(): Result<List<Param>> {
         .sequenceEither()
 }
 
+fun CXCursor.getFunctionBody(): Result<Stmt> {
+    val children = this.children()
+    if (children.size != 1) {
+        return "Expected single child representing function body, got ${children.size} children.".left()
+    }
+
+    return children[0].asStmt()
+}
+
 fun CXCursor.asFunctionDecl(): Result<GlobalDecl.Fun> {
     if (kind() != CXCursor_FunctionDecl) {
         return "Expected function declaration, got cursor of kind ${kind()}".left()
     }
 
     val nargs = clang_Cursor_getNumArguments(this)
-    return this
-        .getResultType()
-        .flatMap { resultType ->
-            this.getParameters()
-                .map { params ->
-                    GlobalDecl.Fun(false, spelling(), resultType, params)
-                }
-        }
+    return (
+        this.getResultType().flatMap { resultType ->
+        this.getFunctionBody().flatMap { body ->
+        this.getParameters().map { params ->
+            GlobalDecl.Fun(
+                false,  // TODO
+                spelling(),
+                resultType,
+                params,
+                false, // TODO
+                listOf(),     // TODO
+                body
+            )
+        }}}
+    )
 }
 
 fun CXCursor.asParam(): Result<Param> {
@@ -135,6 +165,43 @@ fun CXCursor.asParam(): Result<Param> {
     return clang_getCursorType(this)
         .asType()
         .map { type -> Param(spelling(), type) }
+}
+
+fun CXCursor.asStmt(): Result<Stmt> {
+    if (clang_isStatement(kind()) == 0) {
+        return "Expected statement, got cursor of kind ${kind()}".left()
+    }
+
+    return when (kind()) {
+        CXCursor_DeclStmt -> asDecl()
+        CXCursor_CompoundStmt -> asBlock()
+        else -> "Unrecognized statement of cursor kind ${kind()}".left()
+    }
+}
+
+fun CXCursor.asDecl(): Result<Stmt.Decl> = ifKind(CXCursor_DeclStmt, "declaration statement") {
+    val children = this.children()
+
+    if (children.size != 1) {
+        "Expected single declaration, got ${children.size} children.".left()
+    } else {
+        this.children()[0].asVarDecl()
+    }
+}
+
+fun CXCursor.asVarDecl(): Result<Stmt.Decl> = ifKind(CXCursor_VarDecl, "variable declaration") {
+    clang_getCursorType(this)
+        .asType()
+        .map { type ->
+            Stmt.Decl(this.spelling(), type)
+        }
+}
+
+fun CXCursor.asBlock(): Result<Stmt.Block> = ifKind(CXCursor_CompoundStmt, "block") {
+    children()
+        .map { it.asStmt() }
+        .sequenceEither()
+        .map { Stmt.Block(it) }
 }
 
 // CXType extensions
@@ -164,9 +231,14 @@ fun CXType.asType(): Result<Type> =
         CXType_Record  -> TODO()
         CXType_Enum    -> TODO()
         CXType_Typedef -> TODO()
-        CXType_ConstantArray -> TODO()
+        CXType_ConstantArray ->
+            clang_getArrayElementType(this)
+                .asType()
+                .map { Type.Array(it, Optional.of(clang_getArraySize(this))) }
         CXType_IncompleteArray ->
-            clang_getArrayElementType(this).asType().map { Type.Array(it) }
+            clang_getArrayElementType(this)
+                .asType()
+                .map { Type.Array(it) }
 
         // others that could occur in C?
 

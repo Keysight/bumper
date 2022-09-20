@@ -59,7 +59,7 @@ sealed class Type(private val _attrs: Attrs) {
     data class Int    (val kind: IKind, val attrs: Attrs = listOf()): Type(attrs)
     data class Float  (val kind: FKind, val attrs: Attrs = listOf()): Type(attrs)
     data class Ptr    (val type: Type, val attrs: Attrs = listOf()): Type(attrs)
-    data class Array  (val type: Type, val size: Optional<Int> = Optional.empty(), val attrs: Attrs = listOf()): Type(attrs)
+    data class Array  (val type: Type, val size: Optional<Long> = Optional.empty(), val attrs: Attrs = listOf()): Type(attrs)
     data class Fun    (val retType: Type, val args: List<Pair<Ident, Type>>, val vararg: Boolean, val attrs: Attrs = listOf()): Type(attrs)
     data class Named  (val id: Ident, val attrs: Attrs = listOf()): Type(attrs)
     data class Struct (val id: Ident, val attrs: Attrs = listOf()): Type(attrs)
@@ -96,20 +96,22 @@ sealed class Exp
 //
 //typealias FieldInitializer = Pair<Field, Initializer>
 //
-//sealed class Initializer
-//data class InitSingle(val exp: Exp): Initializer()
-//data class InitArray(val exps: List<Exp>): Initializer()
-//data class InitStruct(val struct: Ident, val fieldInitializers: List<FieldInitializer>): Initializer()
-//data class InitUnion(val union: Ident, val fieldInitializer: FieldInitializer): Initializer()
-//
-///*
+sealed class Initializer {
+    data class InitSingle(val exp: Exp): Initializer()
+    data class InitArray(val exps: List<Exp>): Initializer()
+    // data class InitStruct(val struct: Ident, val fieldInitializers: List<FieldInitializer>): Initializer()
+    // data class InitUnion(val union: Ident, val fieldInitializer: FieldInitializer): Initializer()
+}
+
 //(** GCC extended asm *)
 //
 //type asm_operand = string option * string * exp
-//*/
-//
-///* Statements */
-sealed class Stmt
+
+/* Statements */
+sealed class Stmt {
+    data class Decl(val name: Name, val type: Type, val init: Optional<Initializer> = Optional.empty()): Stmt()/* val storage: Storage */
+    data class Block(val stmts: List<Stmt>): Stmt()
+}
 //object Sskip: Stmt()
 //data class Sdo(val todo: Exp): Stmt()
 //data class Sseq(val first: Stmt, val snd: Stmt): Stmt()
@@ -123,40 +125,16 @@ sealed class Stmt
 //data class Slabeled(val label: StmtLabel, val stmt: Stmt): Stmt()
 //data class Sgoto(val label: Label): Stmt()
 //data class Sreturn(val value: Exp?): Stmt()
-//data class Sblock(val stmts: List<Stmt>): Stmt()
-//data class Sdecl(val declaration: Decl): Stmt()
 //// data class Sasm of attributes * string * asm_operand list * asm_operand list * string list(): Stmt
 //
 //sealed class StmtLabel
 //data class Label(val label: String): StmtLabel()
 //data class Case(val case: Exp, val num: Int): StmtLabel()
 //object DefaultCase: StmtLabel()
-//
-//class Decl(val storage: Storage, val name: Name, val type: Type, val init: Initializer?)
-//
-///*
-//(** Function definitions *)
-//
-// data class FunDef(val name: String)
-//    fd_storage: storage;
-//    fd_inline: bool;
-//    fd_name: ident;
-//    fd_attrib: attributes;
-//    fd_ret: typ;                   (* return type *)
-//    fd_params: (ident * typ) list; (* formal parameters *)
-//    fd_vararg: bool;               (* variable arguments? *)
-//    fd_locals: decl list;          (* local variables *)
-//    fd_body: stmt
-//}
-//
+
 //(** Element of an enumeration *)
 //
 //type enumerator = ident * int64 * exp option
-//
-//(** Global declarations *)
-//
-//type globdecl =
-//  { gdesc: globdecl_desc; gloc: location }
 
 data class Param(
     val name: Ident,
@@ -168,8 +146,12 @@ sealed class GlobalDecl {
         val inline: Boolean,
         val name: String,
         val ret: Type,
-        val params: List<Param>
+        val params: List<Param>,
+        val vararg: Boolean,
+        val locals: List<Stmt.Decl>,
+        val body: Stmt
     ) : GlobalDecl()
+    /* fun possibly missing attributes and and storage fields */
 }
 //  | Gdecl of decl           (* variable declaration, function prototype *)
 //  | Gfundef of fundef                   (* function definition *)
