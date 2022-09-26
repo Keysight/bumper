@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("plugin.serialization") version "1.7.10"
+
+    antlr
 }
 
 group = "com.riscure"
@@ -29,6 +31,9 @@ dependencies {
 
     // test deps
     testImplementation(kotlin("test"))
+
+    // Use Antlr 4 for the parser generation
+    antlr("org.antlr:antlr4:4.10.1")
 }
 
 tasks.test {
@@ -36,5 +41,18 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile> {
+    dependsOn(tasks.generateGrammarSource)
+
     kotlinOptions.jvmTarget = "1.8"
+}
+
+// ANTLR plugin configuration.
+// This plugin really behaves meh.
+
+tasks.generateGrammarSource {
+    arguments   = arguments + listOf(
+        "-lib", "./src/main/antlr/com/riscure/lang/shell/",
+        "-no-visitor",
+        "-no-listener"
+    )
 }
