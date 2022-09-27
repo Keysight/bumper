@@ -78,7 +78,8 @@ object Parser {
         val (opts, rem) = clang11Trie.longestPrefix(arg)
 
         return if (opts.isEmpty()) {
-            "Failed to parse option from input '${arg}'".left()
+            // No options for options
+            return tryPositional(arg)
         } else {
             // now we have to parse the option arguments
             for (opt in opts) {
@@ -92,10 +93,14 @@ object Parser {
                 }
             }
 
-            // No matches, better be a positional arg.
-            return PartialArg.Positional(arg).right()
+            // Did not manage to succesfully parse an option
+            return tryPositional(arg)
         }
     }
+
+    private fun tryPositional(input: String): Either<String, PartialArg.Positional> =
+        if (input.startsWith("-")) "Unrecognized option $input".left()
+        else PartialArg.Positional(input).right()
 
     /**
      * Parse a list of arguments, as specified by the compilation database reference, but

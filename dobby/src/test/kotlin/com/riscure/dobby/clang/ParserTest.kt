@@ -17,13 +17,13 @@ internal class ParserTest {
 
     @Test
     fun optimizationToggle02() {
-        val O1 = Parser.parseClangArguments(listOf("-O 1"))
-        assertTrue(O1.isRight())
+        val line = Parser.parseClangArguments(listOf("-O", "1"))
+        assertTrue(line.isRight())
 
-        val args = (O1 as Either.Right).value.optArgs
-        assertEquals(1, args.size)
-        assertEquals("O", args[0].opt.name)
-        assertEquals(listOf("1"), args[0].values)
+        val cmd = (line as Either.Right).value
+        assertEquals(listOf("O"), cmd.optArgs.map { it.opt.name })
+        cmd.optArgs.map { it.values }.forEach { assertTrue(it[0].isEmpty()) }
+        assertEquals(listOf("1"), cmd.positionalArgs)
     }
 
     @Test
@@ -65,7 +65,7 @@ internal class ParserTest {
 
     @Test
     fun mcpuSeparate() {
-        val ugh = Parser.parseClangArguments(listOf("-mcpu hexagonv5"))
+        val ugh = Parser.parseClangArguments(listOf("-mcpu", "hexagonv5"))
         assertTrue(ugh.isLeft())
     }
 }
