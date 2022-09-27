@@ -144,7 +144,10 @@ private object SpecReader {
                 "KIND_SEPARATE" -> OptionType.Separate.some()
                 "KIND_FLAG" -> OptionType.Toggle.some()
                 "KIND_JOINED_OR_SEPARATE" -> OptionType.JoinedOrSeparate.some()
-                "KIND_MULTIARG" -> OptionType.MultiArg(0).some() // TODO
+                "KIND_MULTIARG" -> {
+                    val num = json.jsonObject["NumArgs"]!!.jsonPrimitive.content
+                    OptionType.MultiArg(num.toInt(10)).some()
+                }
                 else -> None
             }
         }

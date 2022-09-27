@@ -54,7 +54,9 @@ object Parser {
                 PartialArg.Whole(Arg(spec, listOf(input))).right()
             OptionType.JoinedAndSeparate ->
                 PartialArg.Partial(Arg(spec, listOf(input)), 1).right()
-            OptionType.JoinedOrSeparate -> TODO()
+            OptionType.JoinedOrSeparate ->
+                if (input.isBlank()) PartialArg.Partial(Arg(spec), 1).right()
+                else PartialArg.Whole(Arg(spec, listOf(input))).right()
             OptionType.Separate ->
                 if (input.isBlank()) PartialArg.Partial(Arg(spec), 1).right()
                 else "Unexpected joined value $input for option with separate argument ${spec.name}".left()
@@ -79,7 +81,7 @@ object Parser {
 
         return if (opts.isEmpty()) {
             // No options for options
-            return tryPositional(arg)
+            tryPositional(arg)
         } else {
             // now we have to parse the option arguments
             for (opt in opts) {
@@ -94,7 +96,7 @@ object Parser {
             }
 
             // Did not manage to succesfully parse an option
-            return tryPositional(arg)
+            tryPositional(arg)
         }
     }
 

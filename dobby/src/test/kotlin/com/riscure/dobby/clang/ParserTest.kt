@@ -68,4 +68,44 @@ internal class ParserTest {
         val ugh = Parser.parseClangArguments(listOf("-mcpu", "hexagonv5"))
         assertTrue(ugh.isLeft())
     }
+
+    // some "real life" tests
+
+    // https://jira.riscure.com/browse/TC-2572
+    @Test
+    fun tc2572() {
+        val args = listOf("-c", "-o", "src/ArrayBoundaries.o", "-mv5", "/home/arjen/true-code/Demo/codebase/ArrayBoundaries.c")
+        val result = Parser.parseClangArguments(args)
+
+        assertTrue(result.isRight())
+        val cmd = (result as Either.Right).value
+
+        assertEquals(3, cmd.optArgs.size)
+        assertEquals(1, cmd.positionalArgs.size)
+    }
+
+    // https://jira.riscure.com/browse/TC-2574
+    @Test
+    fun tc2574() {
+        val args = listOf(
+            "-c", "--output", "src/ArrayBoundaries.o", "--prefix", "wolla",
+            "-sectcreate", "<arg1>", "<arg2>", "<arg3>", "src/ArrayBoundaries.c")
+
+        val result = Parser.parseClangArguments(args)
+
+        assertTrue(result.isRight())
+        val cmd = (result as Either.Right).value
+
+        assertEquals(4, cmd.optArgs.size)
+        assertEquals(1, cmd.positionalArgs.size)
+
+        val sectcreate = cmd.optArgs[3]
+        assertEquals(listOf("<arg1>", "<arg2>", "<arg3>"), sectcreate.values)
+    }
+
+    // https://jira.riscure.com/browse/TC-2573
+    @Test
+    fun tc2573() {
+        TODO() //...
+    }
 }
