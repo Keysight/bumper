@@ -1,7 +1,6 @@
 package com.riscure.dobby.clang
 
 import arrow.core.*
-import com.riscure.dobby.clang.parser.Parser
 import kotlin.test.*
 
 internal class ParserTest {
@@ -84,7 +83,9 @@ internal class ParserTest {
         assertEquals(listOf("bjcmt-migrate-literal"), cmd2.optArgs[0].values)
     }
 
+    //----------------------------------------------------------------------------------
     // some "real life" tests
+    //----------------------------------------------------------------------------------
 
     // https://jira.riscure.com/browse/TC-2572
     @Test

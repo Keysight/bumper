@@ -1,6 +1,4 @@
-package com.riscure.dobby.clang.parser
-
-import com.riscure.dobby.clang.spec.*
+package com.riscure.dobby.clang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
@@ -19,9 +17,6 @@ import stdlibpp.*
  * If we succeed, we can determine from the spec how many arguments
  * we still expect in as. We peel the arguments off the list, and
  * attempt to parse the next option.
- *
- * At some point we will fail to parse an option where one is expected.
- * At that point, we conclude we have reached the positional arguments.
  */
 
 private typealias Result<T> = Either<String,T>
@@ -48,7 +43,7 @@ object Parser {
     private fun parseOptionArguments(input: String, spec: OptionSpec): Result<PartialArg> =
         when (spec.type) {
             OptionType.CommaJoined ->
-                // for now we do not need to parse commajoined values
+                // for now we do not need to parse comma-joined values
                 PartialArg.Whole(Arg(spec, listOf(input))).right()
             OptionType.Joined ->
                 PartialArg.Whole(Arg(spec, listOf(input))).right()
@@ -68,13 +63,16 @@ object Parser {
                 else "Unexpected joined value for option with separate argument ${spec.name}".left()
         }
 
+    /**
+     * Represents a possibly partially parsed option with its values or a positional argument.
+     */
     private sealed class PartialArg {
         data class Positional(val value: String): PartialArg()
         data class Whole(val arg: Arg): PartialArg()
         data class Partial(val arg: Arg, val expectValues: Int): PartialArg()
     }
 
-    private fun parseClangArgument(arg: String): Either<String,PartialArg> {
+    private fun parseClangArgument(arg: String): Either<String, PartialArg> {
         // The longest prefix parser finds all possible options
         // that match the input.
         val opts = clang11Trie.longestPrefix(arg)
@@ -95,7 +93,7 @@ object Parser {
                 }
             }
 
-            // Did not manage to succesfully parse an option
+            // Did not manage to successfully parse an option
             tryPositional(arg)
         }
     }
@@ -112,7 +110,7 @@ object Parser {
      * If you have a shell-quoted line instead, you first have to parse it and evaluate
      * the quotes/escapes using com.riscure.dobby.shell.
      */
-    fun parseClangArguments(arguments: List<String>): Either<String,Command> = when (arguments.size) {
+    fun parseClangArguments(arguments: List<String>): Either<String, Command> = when (arguments.size) {
         0    -> CommandMonoid.empty().right()
         else -> {
             // parse the head
@@ -142,7 +140,7 @@ object Parser {
     }
 }
 
-/* Mutable Trie datastructure */
+/* Every spec that matches the input is paired with the remaining input */
 private typealias Matches = Set<Pair<OptionSpec,String>>
 
 /**
@@ -186,13 +184,13 @@ private class Trie(
         }
     }
 
-    fun insert(opt: OptionSpec): Either<String,Trie> =
+    fun insert(opt: OptionSpec): Either<String, Trie> =
         opt.allAppearances().foldM(this) { acc, appearance -> acc.insert(appearance, opt) }
 
     private fun insertLeaf(opt: OptionSpec): Trie =
         this.match.add(opt).let { this }
 
-    private fun insert(nameSuffix: String, opt: OptionSpec): Either<String,Trie> {
+    private fun insert(nameSuffix: String, opt: OptionSpec): Either<String, Trie> {
         // base step
         if (nameSuffix.isEmpty()) {
             return insertLeaf(opt).right()

@@ -1,4 +1,4 @@
-package com.riscure.dobby.clang.spec
+package com.riscure.dobby.clang
 
 import arrow.core.*
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -28,11 +28,11 @@ sealed class OptionType {
 data class OptionSpec(
     /* Unique name that the clang spec uses to reference this option */
     val key       : String,
-    /* Human readable name */
+    /* Human-readable name */
     val name      : String,
     /* a list of valid prefixes, e.g. [ "-", "--", "/" ] */
     val prefixes  : Set<String>,
-    /* the type specfies how it is parsable */
+    /* the type specifies how it is parsable */
     val type      : OptionType = OptionType.Toggle,
     /* which option it aliases, if any */
     val aliasFor  : Option<String> = None,
@@ -113,7 +113,6 @@ private object SpecReader {
 
         // some meta-keys are prefixed with an exclamation mark
         // the rest are option defs
-        val cats = jobj["!instanceof"]
         val opts = jobj
             .filterKeys { !it.startsWith("!") }
             .filterValues {
@@ -137,7 +136,7 @@ private object SpecReader {
         val err = "Could not decode json for clang kind %s"
         return try {
             val kindEl = json.jsonObject["Kind"]!!.jsonObject["def"]!!
-            when (val kind = kindEl.jsonPrimitive.content) {
+            when (kindEl.jsonPrimitive.content) {
                 "KIND_COMMAJOINED" -> OptionType.CommaJoined.some()
                 "KIND_JOINED_AND_SEPARATE" -> OptionType.JoinedAndSeparate.some()
                 "KIND_JOINED" -> OptionType.Joined.some()
