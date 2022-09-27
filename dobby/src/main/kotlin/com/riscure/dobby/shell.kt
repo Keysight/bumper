@@ -51,15 +51,25 @@ sealed class Val {
  */
 object Shell {
 
+    private fun mkParser(stream: CharStream) =
+        ShellParser(CommonTokenStream(ShellLexer(stream)))
+            .apply {
+                // make sure errors are escalated instead of printed.
+                errorHandler = object : DefaultErrorStrategy() {
+                    override fun reportError(recognizer: Parser?, e: RecognitionException?) {
+                        throw e!!;
+                    }
+                }
+            }
+
     /**
      * Parse the whole input as a commandline line.
      */
     fun line(line: String): Result<Line> {
         val s = CharStreams.fromString(line)
-        val parser = ShellParser(CommonTokenStream(ShellLexer(s)))
-        val result = parser.line()
-
-        return result.ast()
+        return Either
+            .catch { mkParser(s).line() }
+            .map { it.ast() }
     }
 
     /**
@@ -68,43 +78,34 @@ object Shell {
      */
     fun arg(line: String): Result<Pair<Arg, String>> {
         val s = CharStreams.fromString(line)
-        val parser = ShellParser(CommonTokenStream(ShellLexer(s)))
-        val result = parser.arg()
-
-        // TODO the unwind is not super performant
-        return result.ast().map { Pair(it, s.unwind().trim()) }
+        return Either
+            .catch { mkParser(s).arg() }
+            .map { it.ast() }
+            .map { Pair(it, s.unwind().trim()) }
     }
 
-    private fun ShellParser.LineContext.ast(): Result<Line> =
-        this.shellargs().ast().map { Line(it) }
+    private fun ShellParser.LineContext.ast(): Line =
+        Line(this.shellargs().ast())
 
-    private fun ShellParser.ShellargsContext.ast(): Result<List<Arg>> = when (this) {
+    private fun ShellParser.ShellargsContext.ast(): List<Arg> = when (this) {
         is ConsContext   -> tail
             .ast()
-            .flatMap { args ->
-                head.ast().map { head -> args.toMutableList().apply { add(0, head) } }
+            .let { args ->
+                head.ast().let { head -> args.toMutableList().apply { add(0, head) } }
             }
-        is SingleContext -> single.ast().map { listOf(it) }
-        is NilContext    -> listOf<Arg>().right()
-        else -> escalate()
+        is SingleContext -> listOf(single.ast())
+        is NilContext    -> listOf<Arg>()
+        else -> throw RuntimeException("This should never happen. Please report a bug.")
     }
 
-    private fun <T> ParserRuleContext.escalate(): Result<T> =
-        if (exception == null)
-            throw RuntimeException("This should never happen. Please report a bug.")
-        else exception.left()
+    private fun ArgContext.ast(): Arg =
+        Arg(`val`().map { it.ast() })
 
-    private fun ArgContext.ast(): Result<Arg> =
-        `val`()
-            .map { it.ast() }
-            .sequenceEither()
-            .map { Arg(it) }
-
-    private fun ValContext.ast(): Result<Val> = when (this) {
-        is SingleQuotedContext -> Val.SingleQuoted(CHAR().map { Symbol(it.text) }).right()
-        is DoubleQuotedContext -> Val.DoubleQuoted(CHAR().map { Symbol(it.text) }).right()
-        is UnquotedContext     -> Val.Unquoted(CHAR().map { Symbol(it.text) }).right()
-        else -> escalate()
+    private fun ValContext.ast(): Val = when (this) {
+        is SingleQuotedContext -> Val.SingleQuoted(CHAR().map { Symbol(it.text) })
+        is DoubleQuotedContext -> Val.DoubleQuoted(CHAR().map { Symbol(it.text) })
+        is UnquotedContext     -> Val.Unquoted(CHAR().map { Symbol(it.text) })
+        else -> throw RuntimeException("This should never happen. Please report a bug.")
     }
 
     /**
