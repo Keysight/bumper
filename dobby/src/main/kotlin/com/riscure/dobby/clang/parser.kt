@@ -2,9 +2,6 @@ package com.riscure.dobby.clang.parser
 
 import com.riscure.dobby.clang.spec.*
 
-import org.typemeta.funcj.parser.*
-import org.typemeta.funcj.parser.Result as FResult
-import org.typemeta.funcj.parser.Combinators.*
 import arrow.core.*
 import stdlibpp.*
 

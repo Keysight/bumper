@@ -7,22 +7,37 @@ import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 
-data class Commandline(val parts: List<String>) {
-    fun toShell() {
-        parts.joinToString(separator = " ") { Shell.escape(it) }
-    }
-
+data class Symbol(val value: String) {
     companion object {
-        fun ofArguments(parts: List<String>): Commandline =
-            Commandline(parts)
-
-        fun ofShell(cmd: String): Commandline {
-            TODO()
-        }
-
-        fun ofShell(escapedParts: List<String>): Commandline =
-            Commandline(escapedParts.map { Shell.unescape(it) })
+        val escapedDouble = Symbol("\\\"")
+        val escapedSingle = Symbol("\\'")
+        val escapedEscape = Symbol("\\\\")
+        val escapedSpace  = Symbol("\\ ")
     }
+    fun eval(): String = when (this) {
+        escapedDouble -> "\""
+        escapedSingle -> "'"
+        escapedEscape -> "\\"
+        escapedSpace  -> " "
+        else          -> value
+    }
+}
+
+data class Line(val args: List<Arg>) {
+    fun eval(): List<String> = args.map { it.eval() }
+}
+data class Arg(val parts: List<Val>) {
+    fun eval(): String = parts.joinToString(separator="") { it.eval() }
+}
+
+sealed class Val {
+    abstract val content: List<Symbol>
+    fun eval(): String = content.joinToString(separator="") { it.eval() }
+
+    data class DoubleQuoted(override val content: List<Symbol>) : Val()
+    data class SingleQuoted(override val content: List<Symbol>) : Val()
+
+    data class Unquoted(override val content: List<Symbol>) : Val()
 }
 
 /**
@@ -31,15 +46,7 @@ data class Commandline(val parts: List<String>) {
  */
 object Shell {
 
-    fun unescape(s: String): String {
-        TODO()
-    }
-
-    fun escape(s: String): String {
-        TODO()
-    }
-
-    fun line(line: String): List<String> {
+    fun line(line: String): Line {
         val s = CharStreams.fromString(line)
         val parser = ShellParser(CommonTokenStream(ShellLexer(s)))
         val result = parser.line()
@@ -53,21 +60,30 @@ object Shell {
         val result = parser.arg()
 
         // TODO the unwind is not super performant
-        return Pair(result.text, s.unwind().trim())
+        TODO()
+        // return Pair(result.ast(), s.unwind().trim())
     }
 
-    private fun ShellParser.LineContext.ast(): List<String> =
-        this.shellargs().ast()
+    private fun ShellParser.LineContext.ast(): Line =
+        Line(this.shellargs().ast())
 
-    private fun ShellParser.ShellargsContext.ast(): List<String> = when (this) {
+    private fun ShellParser.ShellargsContext.ast(): List<Arg> = when (this) {
         is ConsContext   -> tail.ast().toMutableList().apply { add(0, head.ast()) }
         is SingleContext -> listOf(single.ast())
         is NilContext    -> listOf()
         else -> throw RuntimeException("This should never happen. Please report a bug.")
     }
 
-    private fun ArgContext.ast(): String =
-        `val`().joinToString(separator="") { it.text }
+    private fun ArgContext.ast(): Arg =
+        Arg(`val`().map { it.ast() })
+        // `val`().joinToString(separator="") { it.text }
+
+    private fun ValContext.ast(): Val = when (this) {
+        is SingleQuotedContext -> Val.SingleQuoted(CHAR().map { Symbol(it.text) })
+        is DoubleQuotedContext -> Val.DoubleQuoted(CHAR().map { Symbol(it.text) })
+        is UnquotedContext     -> Val.Unquoted(CHAR().map { Symbol(it.text) })
+        else -> throw RuntimeException("This should never happen. Please report a bug.")
+    }
 
     /**
      * Utility to unwind the remainder of a charstream onto a string.

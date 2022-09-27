@@ -15,10 +15,9 @@ shellargs : head=arg WS tail=shellargs # cons
           |                            # nil
           ;
 
-arg : val+;
+arg : parts=val+;
 
-val : D_QUOTEDSTRING
-    | S_QUOTEDSTRING
-    | rawstring;
-
-rawstring : CHAR+;
+val : OPEN_DOUBLE value=CHAR* CLOSE_DOUBLE   # doubleQuoted
+    | OPEN_SINGLE value=CHAR* CLOSE_SINGLE   # singleQuoted
+    | value=CHAR+                            # unquoted
+    ;
