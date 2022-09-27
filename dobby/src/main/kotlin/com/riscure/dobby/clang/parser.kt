@@ -3,6 +3,7 @@ package com.riscure.dobby.clang.parser
 import com.riscure.dobby.clang.spec.*
 
 import arrow.core.*
+import arrow.typeclasses.Monoid
 import stdlibpp.*
 
 /* Clang command parser.
@@ -23,11 +24,20 @@ import stdlibpp.*
  * At that point, we conclude we have reached the positional arguments.
  */
 
-private typealias Result<T> = Either<String, Pair<T, String>>
-data class Arg(val opt: OptionSpec, val values: Option<String> = None)
+private typealias Result<T> = Either<String,T>
+data class Arg(val opt: OptionSpec, val values: List<String> = listOf())
 data class Command(val optArgs: List<Arg>, val positionalArgs: List<String>)
 
+object CommandMonoid: Monoid<Command> {
+    override fun empty(): Command = Command(listOf(), listOf())
+    override fun Command.combine(b: Command): Command =
+        Command(optArgs.plus(b.optArgs), positionalArgs.plus(b.positionalArgs))
+}
+
 object Parser {
+    /**
+     * This is the trie built from the parsed clang spec.
+     */
     private val clang11Trie: Trie by lazy {
         when (val trie = Trie.create(Spec.clang11.options())) {
             is Either.Left -> throw RuntimeException("Failed to construct parse-trie for clang 11 option spec: ${trie.value}")
@@ -35,71 +45,104 @@ object Parser {
         }
     }
 
-    fun maybeSpace(input: String): Result<Unit> = input
-        .dropWhile { it.isWhitespace() }
-        .let { Pair(Unit, it) }
-        .right()
-
-    fun space(input: String): Result<Unit> {
-        val (ws, remains) = input.partition { it.isWhitespace() }
-        return if (ws.isEmpty()) {
-            "Expected whitespace, got '$input'".left()
-        } else {
-            Pair(Unit, remains).right()
+    private fun parseOptionArguments(input: String, spec: OptionSpec): Result<PartialArg> =
+        when (spec.type) {
+            OptionType.CommaJoined ->
+                // for now we do not need to parse commajoined values
+                PartialArg.Whole(Arg(spec, listOf(input))).right()
+            OptionType.Joined ->
+                PartialArg.Whole(Arg(spec, listOf(input))).right()
+            OptionType.JoinedAndSeparate ->
+                PartialArg.Partial(Arg(spec, listOf(input)), 1).right()
+            OptionType.JoinedOrSeparate -> TODO()
+            OptionType.Separate ->
+                if (input.isBlank()) PartialArg.Partial(Arg(spec), 1).right()
+                else "Unexpected joined value $input for option with separate argument ${spec.name}".left()
+            OptionType.Toggle ->
+                if (input.isBlank()) PartialArg.Whole(Arg(spec)).right()
+                else "Unexpected value $input for toggle option ${spec.name}".left()
+            is OptionType.MultiArg ->
+                if (input.isBlank()) PartialArg.Partial(Arg(spec), spec.type.num).right()
+                else "Unexpected joined value for option with separate argument ${spec.name}".left()
         }
+
+    private sealed class PartialArg {
+        data class Positional(val value: String): PartialArg()
+        data class Whole(val arg: Arg): PartialArg()
+        data class Partial(val arg: Arg, val expectValues: Int): PartialArg()
     }
 
-    fun untilUnescapedWhitespace(input: String): Result<String> = TODO()
-
-    private fun parseOptionArguments(input: String, spec: OptionSpec): Result<Arg> = TODO()
-//    {
-//        when (spec.type) {
-//            OptionType.CommaJoined ->
-//                maybeSpace(input)
-//                    .flatMap { ignored -> untilUnescapedWhitespace(ignored.second) }
-//            OptionType.Joined -> untilUnescapedWhitespace(input)
-//            OptionType.JoinedAndSeparate -> TODO()
-//            OptionType.JoinedOrSeparate ->
-//                maybeSpace(input)
-//                    .flatMap { ignored -> untilUnescapedWhitespace(ignored.second) }
-//            OptionType.Separate ->
-//                space(input)
-//                    .flatMap { ignored -> untilUnescapedWhitespace(ignored.second) }
-//            OptionType.Toggle ->
-//                space(input)
-//                    .map { Pair(Arg(spec), input).right() }
-//            is OptionType.MultiArg -> TODO()
-//        }
-//    }
-
-    fun parseClangOption(input: String): Result<Arg> {
+    private fun parseClangArgument(arg: String): Either<String,PartialArg> {
         // The longest prefix parser finds all possible options
         // that match the input.
-        val (opts, rem) = clang11Trie.longestPrefix(input)
+        val (opts, rem) = clang11Trie.longestPrefix(arg)
 
         return if (opts.isEmpty()) {
-            "Failed to parse option from input '${input}'".left()
+            "Failed to parse option from input '${arg}'".left()
         } else {
             // now we have to parse the option arguments
             for (opt in opts) {
-                when (val arg = parseOptionArguments(rem, opt)) {
+                when (val result = parseOptionArguments(rem, opt)) {
                     is Either.Left -> continue // try next
                     is Either.Right ->
                         // We assume than any match is a good match.
                         // We don't try to find out if the option arg
                         // has other successful parses
-                        return arg
+                        return result
                 }
             }
 
-            // No matches
-            return "Failed to parse option argument from input '${rem}'".left()
+            // No matches, better be a positional arg.
+            return PartialArg.Positional(arg).right()
+        }
+    }
+
+    /**
+     * Parse a list of arguments, as specified by the compilation database reference, but
+     * without the name of the executable at the head position.
+     *
+     * As per the specification, arguments are not shell-quoted.
+     * If you have a shell-quoted line instead, you first have to parse it and evaluate
+     * the quotes/escapes using com.riscure.dobby.shell.
+     */
+    fun parseClangArguments(arguments: List<String>): Either<String,Command> = when (arguments.size) {
+        0    -> CommandMonoid.empty().right()
+        else -> {
+            // parse the head
+            val other = arguments.drop(1)
+            parseClangArgument(arguments[0])
+                .flatMap { arg ->
+                    when (arg) {
+                        // depending on what we parse,
+                        // we parse the tail differently
+                        is PartialArg.Positional ->
+                            parseClangArguments(other)
+                                .map { tail -> tail.copy(positionalArgs = listOf(arg.value).plus(tail.positionalArgs)) }
+                        is PartialArg.Whole ->
+                            parseClangArguments(other)
+                                .map { tail -> tail.copy(optArgs = listOf(arg.arg).plus(tail.optArgs)) }
+                        is PartialArg.Partial ->
+                            if (other.size < arg.expectValues) {
+                                "Expected at least ${arg.expectValues} more arguments".left()
+                            } else {
+                                val a = arg.arg.copy(values = arg.arg.values.plus(other.take(arg.expectValues)))
+                                parseClangArguments(other.drop(arg.expectValues))
+                                    .map { tail -> tail.copy(optArgs = listOf(a).plus(tail.optArgs)) }
+                            }
+                    }
+                }
         }
     }
 }
 
 /* Mutable Trie datastructure */
 private typealias Matches = Set<OptionSpec>
+
+/**
+ * This trie represents a collection of prefixes with possible overlap
+ * in such a way that we can efficiently find the longest matching prefix
+ * given an input string.
+ */
 private class Trie(
     private var match: MutableSet<OptionSpec> = mutableSetOf(),
     private val children: MutableMap<Char, Trie> = mutableMapOf()
@@ -125,13 +168,12 @@ private class Trie(
             .find { (k, v) -> input.startsWith(k) }
             .toOption()
 
-        val remainingInput = input.drop(1)
         return when (edge) {
             // If we found a transition, traverse it
             // There cannot be multiple, because edges have disjoint labels.
-            is Some -> edge.value.value.longestPrefix(remainingInput, longest)
+            is Some -> edge.value.value.longestPrefix(input.drop(1), longest)
             // if we didn't, then we return the longest match so far
-            else    -> Pair(longest, remainingInput)
+            else    -> Pair(longest, input)
         }
     }
 

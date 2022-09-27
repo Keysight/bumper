@@ -53,6 +53,11 @@ Every option has a unique key and a non-unique name. The name is what we see at 
 When the spec references another option (for example when specifying the aliases), then it uses
 the key.
 
+## Option names
+
+Some option names are separated from their arguments by a "=" or a ",".
+In that case, the "=" or "," will be part of the name of the option in the spec.
+
 ## CC1Options (TODO)
 
 Some options in the spec are intended to be passed as -Xclang <option..>, I think.
