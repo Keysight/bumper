@@ -7,6 +7,10 @@ import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 
+/**
+ * A symbol is an abstraction of a char in the context of possible
+ * quotation. Escaped characters are represented as a single symbol.
+ */
 data class Symbol(val value: String) {
     companion object {
         val escapedDouble = Symbol("\\\"")
@@ -46,6 +50,9 @@ sealed class Val {
  */
 object Shell {
 
+    /**
+     * Parse the whole input as a commandline line.
+     */
     fun line(line: String): Line {
         val s = CharStreams.fromString(line)
         val parser = ShellParser(CommonTokenStream(ShellLexer(s)))
@@ -54,14 +61,17 @@ object Shell {
         return result.ast()
     }
 
-    fun arg(line: String): Pair<String, String> {
+    /**
+     * Parse a single argument from the string, and return the result
+     * and the unparsed remainder.
+     */
+    fun arg(line: String): Pair<Arg, String> {
         val s = CharStreams.fromString(line)
         val parser = ShellParser(CommonTokenStream(ShellLexer(s)))
         val result = parser.arg()
 
         // TODO the unwind is not super performant
-        TODO()
-        // return Pair(result.ast(), s.unwind().trim())
+        return Pair(result.ast(), s.unwind().trim())
     }
 
     private fun ShellParser.LineContext.ast(): Line =
