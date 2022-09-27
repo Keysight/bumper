@@ -69,6 +69,21 @@ internal class ParserTest {
         assertTrue(ugh.isLeft())
     }
 
+    @Test
+    fun objcmt() {
+        val objcmt = Parser.parseClangArguments(listOf("-objcmt-migrate-literals"))
+        assertTrue(objcmt.isRight())
+
+        val cmd = (objcmt as Either.Right).value
+        assertEquals("objcmt-migrate-literals", cmd.optArgs[0].opt.name)
+
+        val o = Parser.parseClangArguments(listOf("-objcmt-migrate-literal"))
+        assertTrue(o.isRight())
+        val cmd2 = (o as Either.Right).value
+        assertEquals("o", cmd2.optArgs[0].opt.name)
+        assertEquals(listOf("bjcmt-migrate-literal"), cmd2.optArgs[0].values)
+    }
+
     // some "real life" tests
 
     // https://jira.riscure.com/browse/TC-2572

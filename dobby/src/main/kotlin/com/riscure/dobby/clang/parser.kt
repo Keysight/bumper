@@ -77,14 +77,14 @@ object Parser {
     private fun parseClangArgument(arg: String): Either<String,PartialArg> {
         // The longest prefix parser finds all possible options
         // that match the input.
-        val (opts, rem) = clang11Trie.longestPrefix(arg)
+        val opts = clang11Trie.longestPrefix(arg)
 
         return if (opts.isEmpty()) {
             // No options for options
             tryPositional(arg)
         } else {
             // now we have to parse the option arguments
-            for (opt in opts) {
+            for ((opt, rem) in opts) {
                 when (val result = parseOptionArguments(rem, opt)) {
                     is Either.Left -> continue // try next
                     is Either.Right ->
@@ -143,7 +143,7 @@ object Parser {
 }
 
 /* Mutable Trie datastructure */
-private typealias Matches = Set<OptionSpec>
+private typealias Matches = Set<Pair<OptionSpec,String>>
 
 /**
  * This trie represents a collection of prefixes with possible overlap
@@ -159,14 +159,16 @@ private class Trie(
             opts.foldM(Trie()) { acc, opt -> acc.insert(opt) }
     }
 
-    fun longestPrefix(input: String, longestSoFar: Matches = setOf()): Pair<Matches, String> {
+    fun longestPrefix(input: String, longestSoFar: Matches = setOf()): Matches {
         // found new longest match?
         val longest: Matches = match
+            .map { Pair(it, input) }
+            .toSet()
             .ifEmpty { longestSoFar }
 
         // when we're out of input then we are done
         if (input.isEmpty()) {
-            return Pair(longest, "")
+            return longest
         }
 
         // if we still have input, we try to find a longer match
@@ -180,7 +182,7 @@ private class Trie(
             // There cannot be multiple, because edges have disjoint labels.
             is Some -> edge.value.value.longestPrefix(input.drop(1), longest)
             // if we didn't, then we return the longest match so far
-            else    -> Pair(longest, input)
+            else    -> longest
         }
     }
 
