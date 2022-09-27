@@ -31,10 +31,8 @@ CLOSE_DOUBLE   : ["]  -> popMode;
 // Anything else in string mode we eat.
 D_CHAR         : . -> type(CHAR);
 
-// similar, but for single quotes
+// similar, single quotes have no escapes
 mode S_STRINGS ;
-S_ESC_ESC      : '\\\\'-> type(CHAR);
-S_ESC_QUOTE    : '\\\'' -> type(CHAR);
 CLOSE_SINGLE   : [']  -> popMode;
 S_CHAR         : . -> type(CHAR);
 
