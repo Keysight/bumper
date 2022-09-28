@@ -16,7 +16,7 @@ import java.util.*
  * This implements the parser interface using the Bytedeco library to call
  * into libclang to parse a C file.
  *
- * This is *not* thread-safe.
+ * This is *not* thread-safe, as far as we know because Bytedeco is not thread-safe.
  */
 class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): Parser {
 
@@ -66,16 +66,15 @@ class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): 
 
 fun CXCursor.children(): List<CXCursor> {
     val cs = mutableListOf<CXCursor>()
+    val visitor = object: CXCursorVisitor() {
+        override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
+            cs.add(self!!)
+            return CXChildVisit_Continue
+        }
+    }
 
-    clang_visitChildren(
-        this,
-        object: CXCursorVisitor() {
-            override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
-                cs.add(self!!)
-                return CXChildVisit_Continue
-            }
-        },
-        null)
+    clang_visitChildren(this, visitor, null)
+    visitor.deallocate()
 
     return cs
 }
@@ -90,9 +89,12 @@ fun CXString.get(): String = clang_getCString(this).string
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
 fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
 
+/**
+ * Combinator to fail with a consistent message if we have an unexpected cursor kind.
+ */
 fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>): Result<T> {
     if (kind() != k) {
-        return "Expected ${expectation}. Got cursor of kind ${kind()}".left()
+        return "Expected ${expectation}. Got cursor of kind ${kindName()}".left()
     }
 
     return whenMatch()
@@ -210,11 +212,9 @@ fun CXCursor.asTypeDeclType(): Result<Type> =
     }
 
 /* Typedefs yield an assignable type */
-fun CXCursor.asTypedefType(): Result<Type> =
-    when(kind()) {
-        CXCursor_TypedefDecl -> clang_getTypedefDeclUnderlyingType(this).asType()
-        else -> "Expected a typedef, got ${kindName()}".left()
-    }
+fun CXCursor.asTypedefType(): Result<Type> = ifKind(CXCursor_TypedefDecl, "typedef") {
+    clang_getTypedefDeclUnderlyingType(this).asType()
+}
 
 fun CXType.asType(): Result<Type> =
     when (this.kind()) {

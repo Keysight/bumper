@@ -73,7 +73,7 @@ class ClangParserTest() {
     @Test
     fun test006() {
         parsed("/parser-tests/006-anonymous-struct.c") { tu ->
-            assertEquals(1, tu.decls.size)
+            assertEquals(2, tu.decls.size)
             assertTrue(tu.decls[0] is TopLevel.Composite)
             assertEquals(StructOrUnion.Struct, (tu.decls[0] as TopLevel.Composite).structOrUnion)
         }
