@@ -1,6 +1,7 @@
-package com.riscure.langs.c
+package com.riscure.langs.c.parser
 
 import arrow.core.*
+import com.riscure.langs.c.ast.*
 import com.riscure.tc.codeanalysis.clang.ast.loader.ClangParsingResult
 import com.riscure.tc.codeanalysis.clang.compiler2.loader.CompileCommandMapping
 import org.bytedeco.javacpp.*
@@ -19,7 +20,7 @@ import java.util.*
  */
 class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): Parser {
 
-    override fun parse(file: File): Result<TranslationUnit> {
+    fun <T> load(file: File, handler: (tuCursor: CXCursor) -> Result<T>): Result<T> {
         val args: Array<String> = arrayOf("")
 
         // We allocate the arguments.
@@ -51,16 +52,17 @@ class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): 
                 result.message.left()
             } else {
                 // transform the translation unit outputted by clang to a real Java AST object
-                val c_tuCursor = clang.clang_getTranslationUnitCursor(c_tu)
-                return c_tuCursor.asTranslationUnit()
+                val cursor = clang_getTranslationUnitCursor(c_tu)
+                return handler(cursor)
             }
         } finally { free() }
     }
-}
 
-// We define extension functions for CXCursors that translate to the AST
-// All these translations are partial, because they validate structure that is
-// not apparent through the visitor API of libclang.
+    override fun parse(file: File): Result<TranslationUnit> =
+        load(file) { cursor ->
+            cursor.asTranslationUnit()
+        }
+}
 
 fun CXCursor.children(): List<CXCursor> {
     val cs = mutableListOf<CXCursor>()
@@ -78,12 +80,16 @@ fun CXCursor.children(): List<CXCursor> {
     return cs
 }
 
-// getters
+/**
+ * A function that turns a CXString into a Java string,
+ * *without* freeing the underlying memory!
+ * Use with caution.
+ */
+fun CXString.get(): String = clang_getCString(this).string
 
-fun CXCursor.kind() = clang_getCursorKind(this)
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
+fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
 
-// utility functions
 fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>): Result<T> {
     if (kind() != k) {
         return "Expected ${expectation}. Got cursor of kind ${kind()}".left()
@@ -92,11 +98,9 @@ fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>)
     return whenMatch()
 }
 
-// AST translation functions
-
 fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
     if (this.kind() != CXCursor_TranslationUnit) {
-        return "Expected translation unit, got cursor of kind $this.kind()".left()
+        return "Expected translation unit, got cursor of kind ${this.kindName()}".left()
     }
 
     return this.children()
@@ -105,12 +109,41 @@ fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
         .map { TranslationUnit(it) }
 }
 
-fun CXCursor.asGlobalDecl(): Result<GlobalDecl> {
-    return when (this.kind()) {
-        CXCursor_FunctionDecl -> this.asFunctionDecl()
+fun CXCursor.asGlobalDecl(): Result<TopLevel> {
+    return when (kind()) {
+        CXCursor_FunctionDecl ->
+            if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
+                asFunctionDef()
+            else asFunctionDecl()
+        CXCursor_StructDecl   -> this.asStructDecl()
+        CXCursor_VarDecl      -> this.asVarDecl()
+        CXCursor_TypedefDecl  -> this.asTypedef()
         else -> "Expected global declaration".left()
     }
 }
+
+fun CXCursor.asTypedef(): Result<TopLevel.Typedef> =
+    ifKind (CXCursor_TypedefDecl, "typedef") {
+        clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
+            TopLevel.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
+        }
+    }
+
+fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
+    ifKind (CXCursor_StructDecl, "struct declaration") {
+        TopLevel.Composite(
+            this.spelling(),
+            StructOrUnion.Struct,
+            listOf() // TODO
+        ).right()
+    }
+
+fun CXCursor.asVarDecl(): Result<TopLevel.VarDecl> =
+    ifKind (CXCursor_VarDecl, "variable declaration") {
+        clang_getCursorType(this)
+            .asType()
+            .map { TopLevel.VarDecl(this.spelling(), it) }
+    }
 
 fun CXCursor.getResultType(): Result<Type> {
     val typ = clang_getCursorResultType(this)
@@ -125,36 +158,32 @@ fun CXCursor.getParameters(): Result<List<Param>> {
         .sequenceEither()
 }
 
-fun CXCursor.getFunctionBody(): Result<Stmt> {
-    val children = this.children()
-    if (children.size != 1) {
-        return "Expected single child representing function body, got ${children.size} children.".left()
-    }
-
-    return children[0].asStmt()
-}
-
-fun CXCursor.asFunctionDecl(): Result<GlobalDecl.Fun> {
-    if (kind() != CXCursor_FunctionDecl) {
-        return "Expected function declaration, got cursor of kind ${kind()}".left()
-    }
-
-    val nargs = clang_Cursor_getNumArguments(this)
-    return (
-        this.getResultType().flatMap { resultType ->
-        this.getFunctionBody().flatMap { body ->
+fun CXCursor.asFunctionDef(): Result<TopLevel.FunDef> = ifKind(CXCursor_FunctionDecl, "function declaration") {
+    this.getResultType().flatMap { resultType ->
         this.getParameters().map { params ->
-            GlobalDecl.Fun(
+            TopLevel.FunDef(
                 false,  // TODO
                 spelling(),
                 resultType,
                 params,
                 false, // TODO
-                listOf(),     // TODO
-                body
             )
-        }}}
-    )
+        }
+    }
+}
+
+fun CXCursor.asFunctionDecl(): Result<TopLevel.FunDecl> = ifKind(CXCursor_FunctionDecl, "function declaration") {
+    this.getResultType().flatMap { resultType ->
+        this.getParameters().map { params ->
+            TopLevel.FunDecl(
+                false,  // TODO
+                spelling(),
+                resultType,
+                params,
+                false, // TODO
+            )
+        }
+    }
 }
 
 fun CXCursor.asParam(): Result<Param> {
@@ -167,44 +196,25 @@ fun CXCursor.asParam(): Result<Param> {
         .map { type -> Param(spelling(), type) }
 }
 
-fun CXCursor.asStmt(): Result<Stmt> {
-    if (clang_isStatement(kind()) == 0) {
-        return "Expected statement, got cursor of kind ${kind()}".left()
-    }
-
-    return when (kind()) {
-        CXCursor_DeclStmt -> asDecl()
-        CXCursor_CompoundStmt -> asBlock()
-        else -> "Unrecognized statement of cursor kind ${kind()}".left()
-    }
-}
-
-fun CXCursor.asDecl(): Result<Stmt.Decl> = ifKind(CXCursor_DeclStmt, "declaration statement") {
-    val children = this.children()
-
-    if (children.size != 1) {
-        "Expected single declaration, got ${children.size} children.".left()
-    } else {
-        this.children()[0].asVarDecl()
-    }
-}
-
-fun CXCursor.asVarDecl(): Result<Stmt.Decl> = ifKind(CXCursor_VarDecl, "variable declaration") {
-    clang_getCursorType(this)
-        .asType()
-        .map { type ->
-            Stmt.Decl(this.spelling(), type)
-        }
-}
-
-fun CXCursor.asBlock(): Result<Stmt.Block> = ifKind(CXCursor_CompoundStmt, "block") {
-    children()
-        .map { it.asStmt() }
-        .sequenceEither()
-        .map { Stmt.Block(it) }
-}
-
 // CXType extensions
+
+fun CXType.spelling(): String = clang_getTypeSpelling(this).string
+
+/* Type declarations yield an assignable type */
+fun CXCursor.asTypeDeclType(): Result<Type> =
+    when(kind()) {
+        CXCursor_EnumDecl   -> Type.Enum(spelling()).right()
+        CXCursor_StructDecl -> Type.Struct(spelling()).right()
+        CXCursor_UnionDecl  -> Type.Union(spelling()).right()
+        else -> "Expected a type declaration, got ${kindName()}".left()
+    }
+
+/* Typedefs yield an assignable type */
+fun CXCursor.asTypedefType(): Result<Type> =
+    when(kind()) {
+        CXCursor_TypedefDecl -> clang_getTypedefDeclUnderlyingType(this).asType()
+        else -> "Expected a typedef, got ${kindName()}".left()
+    }
 
 fun CXType.asType(): Result<Type> =
     when (this.kind()) {
@@ -228,9 +238,10 @@ fun CXType.asType(): Result<Type> =
         CXType_LongDouble -> Type.Float(FKind.FLongDouble).right()
 
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
-        CXType_Record  -> TODO()
+        CXType_Record  -> Type.Struct(spelling()).right()
+        CXType_Elaborated -> clang_getTypeDeclaration(this).asTypeDeclType()
         CXType_Enum    -> TODO()
-        CXType_Typedef -> TODO()
+        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(),it) }
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()
