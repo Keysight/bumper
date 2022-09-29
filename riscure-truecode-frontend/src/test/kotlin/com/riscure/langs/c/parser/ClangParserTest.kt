@@ -4,16 +4,18 @@ import arrow.core.Either
 import arrow.core.None
 import arrow.core.Some
 import arrow.core.getOrElse
+import com.riscure.Failable
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.*
 import kotlin.test.*
 import java.io.File
+import java.io.StringWriter
 import java.nio.file.Path
 
 class ClangParserTest() {
 
     private fun parsed(resource: String, whenOk: (ast: TranslationUnit) -> Unit) =
-        parsed(resource, { ast, unit -> whenOk(ast) })
+        parsed(resource) { ast, _ -> whenOk(ast) }
 
     private fun parsed(resource: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
         val test = File(ClangParserTest::class.java.getResource(resource)!!.file)
@@ -183,6 +185,18 @@ class ClangParserTest() {
                     }
                 }
             }
+        }
+    }
+
+    /* writing source test */
+    @Test
+    fun test013() {
+        parsed("/parser-tests/001-minimal-main.c") { tu, unit ->
+            val ds = tu.decls
+            val writer = object: StringWriter(), Failable by Failable.tantrum {}
+
+            unit.writeSource(ds, writer)
+            assertEquals("\nint main() {\n}\n", writer.toString())
         }
     }
 }

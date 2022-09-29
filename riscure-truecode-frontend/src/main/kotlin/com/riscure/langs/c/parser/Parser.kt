@@ -1,11 +1,12 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
-import com.riscure.langs.c.ast.SourceRange
+import com.riscure.Failable
 import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.ast.TranslationUnit
 import java.io.Closeable
 import java.io.File
+import java.io.Writer
 
 typealias Result<T> = Either<String, T>
 
@@ -13,6 +14,8 @@ typealias Result<T> = Either<String, T>
  * The interface of an abstract state representing a translation unit.
  */
 interface UnitState : Closeable {
+    class NoSource(val name: String): Exception("Failed to get source for top-level declaration '$name'")
+
     /**
      * Given a top-level declaration *in the unit that this state belongs to*
      * we can reproduce the source-code.
@@ -20,23 +23,19 @@ interface UnitState : Closeable {
     fun getSource(decl: TopLevel): Option<String>
 
     /**
-     * Generates the source for a set of toplevel declarations from this
+     * Writes the source for a collection of toplevel declarations from this
      * translation unit.
      */
-    fun getSource(ast: List<TopLevel>): Option<String> {
-        val result = StringBuilder()
-
+    fun <T> writeSource(ast: List<TopLevel>, writer: T) where T : Writer, T : Failable {
         ast.forEach { tld ->
             when (val src = getSource(tld)) {
                 is Some -> {
-                    result.append("\n")
-                    result.append(src)
+                    writer.write("\n")
+                    writer.write(src.value)
                 }
-                None -> return None
+                None -> writer.fail(NoSource(tld.name))
             }
         }
-
-        return result.toString().some()
     }
 
     /**
