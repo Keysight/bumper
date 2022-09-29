@@ -4,7 +4,6 @@ import arrow.core.*
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.tc.codeanalysis.clang.ast.loader.ClangParsingResult
-import com.riscure.tc.codeanalysis.clang.compiler2.loader.CompileCommandMapping
 import com.riscure.toOptional
 import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.*
@@ -25,9 +24,23 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
 
     override fun ast() = _ast
 
-    override fun getSource(range: SourceRange): String {
-        TODO("Not yet implemented")
-    }
+    override fun getSource(dcl: TopLevel): Option<String> =
+        dcl.location.map {
+            val cursor = it.begin.getCursor()
+            clang_getCursorPrettyPrinted(cursor, clang_getCursorPrintingPolicy(cursor)).string
+        }
+
+    fun Location.getCursor()  =
+        clang_getCursor(cxunit, cx())
+
+    fun SourceRange.cx(): CXSourceRange =
+        clang_getRange(this.begin.cx(), this.end.cx())
+
+    fun Location.cx(): CXSourceLocation =
+        clang_getLocation(cxunit, sourceFile.cx(), row, col)
+
+    fun File.cx(): CXFile =
+        clang_getFile(cxunit, absolutePath)
 }
 
 /**
@@ -147,7 +160,7 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
         // collect available meta
         // FIXME?
         val comment = clang_Cursor_getBriefCommentText(this).let { it.getOption() }
-        top.withMeta(comment.toOptional(), getSourceLocation().toOptional())
+        top.withMeta(comment, getSourceLocation())
     }
 
 fun CXCursor.getSourceLocation(): Option<SourceRange> =
@@ -171,7 +184,7 @@ fun CXSourceLocation.asLocation(): Option<Location> {
 
         line.getOption().flatMap {l ->
             col.getOption().map { c ->
-                Location(Path.of(clang_getFileName(file).string), line.get(), col.get())
+                Location(Path.of(clang_getFileName(file).string).toFile(), line.get(), col.get())
             }
         }
     } finally {
@@ -300,7 +313,7 @@ fun CXType.asType(): Result<Type> =
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()
-                .map { Type.Array(it, Optional.of(clang_getArraySize(this))) }
+                .map { Type.Array(it, clang_getArraySize(this).some()) }
         CXType_IncompleteArray ->
             clang_getArrayElementType(this)
                 .asType()

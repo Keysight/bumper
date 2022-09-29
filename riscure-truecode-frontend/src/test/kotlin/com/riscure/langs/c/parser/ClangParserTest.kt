@@ -8,15 +8,19 @@ import java.io.File
 
 class ClangParserTest() {
 
-    private fun parsed(resource: String, whenOk: (result: TranslationUnit) -> Unit) {
+    private fun parsed(resource: String, whenOk: (ast: TranslationUnit) -> Unit) =
+        parsed(resource, { ast, unit -> whenOk(ast) })
+
+    private fun parsed(resource: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
         val test = File(ClangParserTest::class.java.getResource(resource)!!.file)
         ClangParser().parse(test).tap { it.use { unit ->
             when (val ast = unit.ast()) {
                 is Either.Left -> fail("Expected successful parse, got error: ${ast.value}")
-                is Either.Right -> whenOk(ast.value)
+                is Either.Right -> whenOk(ast.value, unit)
             }
         }}
     }
+
 
     @Test
     fun test001() {
