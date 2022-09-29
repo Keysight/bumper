@@ -1,10 +1,13 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.Either
+import arrow.core.None
+import arrow.core.Some
 import com.riscure.langs.c.ast.*
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
+import com.riscure.langs.c.parser.clang.*
+import kotlin.test.*
 import java.io.File
+import java.nio.file.Path
 
 class ClangParserTest() {
 
@@ -91,12 +94,12 @@ class ClangParserTest() {
             assertEquals(3, tu.decls.size)
             assertTrue(tu.decls[0] is TopLevel.Composite)
 
-            assertTrue(tu.decls[1] is TopLevel.VarDecl)
-            val book = tu.decls[1] as TopLevel.VarDecl
+            assertTrue(tu.decls[1] is TopLevel.Var)
+            val book = tu.decls[1] as TopLevel.Var
             assertEquals(Type.Struct("Book"), book.type)
 
-            assertTrue(tu.decls[2] is TopLevel.VarDecl)
-            val another = tu.decls[2] as TopLevel.VarDecl
+            assertTrue(tu.decls[2] is TopLevel.Var)
+            val another = tu.decls[2] as TopLevel.Var
             assertEquals(Type.Struct("Book"), another.type)
 
         }
@@ -109,8 +112,8 @@ class ClangParserTest() {
             assertTrue(tu.decls[0] is TopLevel.Composite)
             assertTrue(tu.decls[1] is TopLevel.Typedef)
 
-            assertTrue(tu.decls[2] is TopLevel.VarDecl)
-            val another = tu.decls[2] as TopLevel.VarDecl
+            assertTrue(tu.decls[2] is TopLevel.Var)
+            val another = tu.decls[2] as TopLevel.Var
             assertEquals(Type.Named("mybook", Type.Struct("Book")), another.type)
         }
     }
@@ -122,4 +125,46 @@ class ClangParserTest() {
         }
     }
 
+    @Test
+    fun test010() {
+        parsed("/parser-tests/010-demo-functions.c") { tu, unit ->
+            val fs = tu.defs.filter { it.name == "func_assign_for_equals" }
+            val f = fs[0]
+            println(unit.getSource(f))
+        }
+    }
+
+    @Test
+    fun test011() {
+        parsed("/parser-tests/011-preprocessed-demo.c") { tu, unit ->
+            val fs = tu.defs.filter { it.name == "func_assign_for_equals" }
+            val f = fs[0]
+            println(unit.getSource(f))
+        }
+    }
+
+    @Test
+    fun test012() {
+        parsed("/parser-tests/012-line-directive.c") { tu, unit ->
+            with (unit) {
+                val fn = tu.decls[0]
+                when (val loc = fn.meta.presumedLocation) {
+                    is None -> fail()
+                    is Some -> {
+                        assertEquals(Path.of("haha.c"), loc.value.sourceFile)
+                        assertEquals(42, loc.value.row)
+                    }
+                }
+
+                val gn = tu.decls[1]
+                when (val loc = gn.meta.presumedLocation) {
+                    is None -> fail()
+                    is Some -> {
+                        assertEquals(Path.of("werktook.c"), loc.value.sourceFile)
+                        assertEquals(19, loc.value.row)
+                    }
+                }
+            }
+        }
+    }
 }

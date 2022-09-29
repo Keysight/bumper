@@ -2,12 +2,12 @@
 // The representation is ported from the CompCert CParser elaborated AST.
 package com.riscure.langs.c.ast
 
-import java.io.File
 import arrow.core.*
+import java.nio.file.Path
 
 typealias Name  = String
 typealias Ident = String
-data class Location(val sourceFile: File, val row: Int, val col: Int)
+data class Location(val sourceFile: Path, val row: Int, val col: Int)
 data class SourceRange(val begin: Location, val end: Location)
 
 enum class IKind {
@@ -77,22 +77,42 @@ data class Enumerator(val name: Ident, val key: Long) // TODO missing optional e
 /* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
 sealed class TopLevel {
     abstract val name: Ident
-    abstract val location: Option<SourceRange>
-    abstract val doc: Option<String>
 
-    sealed interface Typedecl
+    sealed class Decl : TopLevel()
+    sealed class Def : TopLevel()
+    sealed class Typelike : Def()
 
-    abstract fun withMeta(doc: Option<String> = None,
-                          location: Option<SourceRange> = None): TopLevel
+    /**
+     * Metadata for the top-level elements.
+     */
+    data class Meta(
+        /**
+         * The location where this element was parsed.
+         */
+        val location: Option<SourceRange> = None,
+        /**
+         * This location reflects {@code #line} directives,
+         * as for example outputted by the preprocessor, pointing
+         * poking through to the location beneath the {@code #include} directive.
+         */
+        val presumedLocation: Option<Location> = None,
+        val doc: Option<String> = None,
+        val fromMain: Boolean = true
+    ) {
+        companion object {
+            val default = Meta(None, None, None, true)
+        }
+    }
 
-    data class VarDecl(
+    abstract val meta: Meta
+    abstract fun withMeta(meta: Meta): TopLevel
+
+    data class Var(
         override val name: Ident,
         val type: Type,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
+        override val meta: Meta = Meta.default
     ): TopLevel() {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
     data class FunDecl(
@@ -101,11 +121,9 @@ sealed class TopLevel {
         val ret: Type,
         val params: List<Param>,
         val vararg: Boolean,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
-    ) : TopLevel() {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override val meta: Meta = Meta.default
+    ) : Decl() {
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
     data class FunDef(
@@ -114,45 +132,49 @@ sealed class TopLevel {
         val ret: Type,
         val params: List<Param>,
         val vararg: Boolean,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
-    ) : TopLevel() {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override val meta: Meta = Meta.default
+    ) : Def() {
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
     data class Composite(
         override val name: Ident,
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
-    ): TopLevel(), Typedecl {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override val meta: Meta = Meta.default
+    ): Typelike() {
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
     data class Typedef(
         override val name: Ident,
         val typ: Type,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
-    ): TopLevel() {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override val meta: Meta = Meta.default
+    ): Def() {
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
     data class EnumDef(
         override val name: Ident,
         val enumerators: List<Enumerator>,
-        override val location: Option<SourceRange> = None,
-        override val doc: Option<String> = None
-    ): TopLevel(), Typedecl {
-        override fun withMeta(doc: Option<String>, location: Option<SourceRange>) =
-            this.copy(doc = doc, location = location)
+        override val meta: Meta = Meta.default
+    ): Typelike() {
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 }
 
 data class TranslationUnit(
     val decls: List<TopLevel>
-)
+) {
+
+    val defs: List<TopLevel.Def> by lazy {
+        decls.filterIsInstance(TopLevel.Def::class.java)
+    }
+
+    val typelikes: List<TopLevel.Typelike> by lazy {
+        decls.filterIsInstance(TopLevel.Typelike::class.java)
+    }
+
+    fun getByName(name: String) = decls.filter { it.name == name }
+
+}

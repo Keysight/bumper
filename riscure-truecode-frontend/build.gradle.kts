@@ -24,6 +24,7 @@ dependencies {
 
     testRuntimeOnly(files(tasks.getByName("unpackClang")))
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
+    testImplementation(kotlin("test"))
 }
 
 tasks.named<Test>("test") {
@@ -32,4 +33,18 @@ tasks.named<Test>("test") {
     events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
     exceptionFormat = FULL
   }
+}
+
+tasks.compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+        freeCompilerArgs += "-Xcontext-receivers"
+    }
+}
+
+tasks.compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+        freeCompilerArgs += "-Xcontext-receivers"
+    }
 }
