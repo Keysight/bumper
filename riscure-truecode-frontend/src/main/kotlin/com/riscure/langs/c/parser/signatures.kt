@@ -1,15 +1,19 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
+import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.tc.codeanalysis.clang.ast.loader.ClangParsingResult
+import com.riscure.tc.codeanalysis.clang.ast.sourcelocation.SourceLocation
 import com.riscure.tc.codeanalysis.clang.compiler2.loader.CompileCommandMapping
+import com.riscure.toOptional
 import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.*
-import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 import org.bytedeco.llvm.global.clang.clang_parseTranslationUnit2 as clang_parse
 import java.io.File
+import java.nio.IntBuffer
+import java.nio.file.Path
 import java.util.*
 
 /**
@@ -24,25 +28,25 @@ class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): 
         val args: Array<String> = arrayOf("")
 
         // We allocate the arguments.
-        val c_index: CXIndex = clang.clang_createIndex(0, 0)
+        val c_index: CXIndex = clang_createIndex(0, 0)
         val c_tu = CXTranslationUnit()
         val c_sourceFile = BytePointer(file.absolutePath.toString())
         val c_arg_pointers = args.map { BytePointer(it) }
         val c_args = PointerPointer<BytePointer>(args.size.toLong())
-        val c_parseOptions = clang.CXTranslationUnit_SingleFileParse
+        val c_parseOptions = CXTranslationUnit_SingleFileParse
 
         c_arg_pointers.forEach { c_args.put(it) }
 
         // Define the deallocator
         fun free() {
-            clang.clang_disposeIndex(c_index)
-            clang.clang_disposeTranslationUnit(c_tu)
+            clang_disposeIndex(c_index)
+            clang_disposeTranslationUnit(c_tu)
             c_sourceFile.close()
             c_arg_pointers.forEach { it.deallocate() }
             c_args.deallocate()
         }
 
-        // Call into libclang via bytedeco
+        // Parse the given file, storing the result in c_tu
         val code: Int = clang_parse(c_index, c_sourceFile, c_args, args.size, null, 0, c_parseOptions, c_tu)
 
         try {
@@ -79,12 +83,14 @@ fun CXCursor.children(): List<CXCursor> {
     return cs
 }
 
-/**
- * A function that turns a CXString into a Java string,
- * *without* freeing the underlying memory!
- * Use with caution.
- */
 fun CXString.get(): String = clang_getCString(this).string
+
+fun CXString.getOption(): Option<String> =
+    this.some()
+        .filter { it.isNull() }
+        .map { clang_getCString(this) }
+        .filter { it.isNull }
+        .map { it.string }
 
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
 fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
@@ -106,13 +112,13 @@ fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
     }
 
     return this.children()
-        .map { it.asGlobalDecl() }
+        .map { it.asTopLevel() }
         .sequenceEither()
         .map { TranslationUnit(it) }
 }
 
-fun CXCursor.asGlobalDecl(): Result<TopLevel> {
-    return when (kind()) {
+fun CXCursor.asTopLevel(): Result<TopLevel> =
+    (when (kind()) {
         CXCursor_FunctionDecl ->
             if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
                 asFunctionDef()
@@ -121,6 +127,40 @@ fun CXCursor.asGlobalDecl(): Result<TopLevel> {
         CXCursor_VarDecl      -> this.asVarDecl()
         CXCursor_TypedefDecl  -> this.asTypedef()
         else -> "Expected global declaration".left()
+    })
+    .map { top:TopLevel ->
+        // collect available meta
+        // FIXME?
+        val comment = clang_Cursor_getBriefCommentText(this).let { it.getOption() }
+        top.withMeta(comment.toOptional(), getSourceLocation().toOptional())
+    }
+
+fun CXCursor.getSourceLocation(): Option<SourceRange> =
+    clang_getCursorExtent(this).asSourceRange()
+
+fun CXSourceRange.asSourceRange(): Option<SourceRange> =
+    clang_getRangeStart(this).asLocation().flatMap { begin ->
+        clang_getRangeEnd(this).asLocation().map { end ->
+            SourceRange(begin, end)
+        }
+    }
+
+fun CXSourceLocation.asLocation(): Option<Location> {
+    val line   = IntPointer(1)
+    val col    = IntPointer(1)
+    val offset = IntPointer(1)
+    val file   = CXFile()
+
+    return try {
+        clang_getExpansionLocation(this, file, line, col, offset)
+
+        line.getOption().flatMap {l ->
+            col.getOption().map { c ->
+                Location(Path.of(clang_getFileName(file).string), line.get(), col.get())
+            }
+        }
+    } finally {
+        line.close(); col.close(); offset.close(); file.close()
     }
 }
 
@@ -164,8 +204,8 @@ fun CXCursor.asFunctionDef(): Result<TopLevel.FunDef> = ifKind(CXCursor_Function
     this.getResultType().flatMap { resultType ->
         this.getParameters().map { params ->
             TopLevel.FunDef(
-                false,  // TODO
                 spelling(),
+                false,  // TODO
                 resultType,
                 params,
                 false, // TODO
@@ -178,8 +218,8 @@ fun CXCursor.asFunctionDecl(): Result<TopLevel.FunDecl> = ifKind(CXCursor_Functi
     this.getResultType().flatMap { resultType ->
         this.getParameters().map { params ->
             TopLevel.FunDecl(
-                false,  // TODO
                 spelling(),
+                false,  // TODO
                 resultType,
                 params,
                 false, // TODO

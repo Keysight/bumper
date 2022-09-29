@@ -2,10 +2,13 @@
 // The representation is ported from the CompCert CParser elaborated AST.
 package com.riscure.langs.c.ast
 
+import java.nio.file.Path
 import java.util.*
 
 typealias Name  = String
 typealias Ident = String
+data class Location(val sourceFile: Path, val row: Int, val col: Int)
+data class SourceRange(val begin: Location, val end: Location)
 
 enum class IKind {
       IBoolean
@@ -74,45 +77,80 @@ data class Enumerator(val name: Ident, val key: Long) // TODO missing optional e
 /* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
 sealed class TopLevel {
     abstract val name: Ident
+    abstract val location: Optional<SourceRange>
+    abstract val doc: Optional<String>
 
     sealed interface Typedecl
 
+    abstract fun withMeta(doc: Optional<String> = Optional.empty(),
+                          location: Optional<SourceRange> = Optional.empty()): TopLevel
+
     data class VarDecl(
-        override val name: Ident
-        , val type: Type
-    ): TopLevel()
+        override val name: Ident,
+        val type: Type,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ): TopLevel() {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 
     data class FunDecl(
-        val inline: Boolean,
         override val name: Ident,
+        val inline: Boolean,
         val ret: Type,
         val params: List<Param>,
-        val vararg: Boolean
-    ) : TopLevel()
+        val vararg: Boolean,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ) : TopLevel() {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 
     data class FunDef(
-        val inline: Boolean,
         override val name: Ident,
+        val inline: Boolean,
         val ret: Type,
         val params: List<Param>,
-        val vararg: Boolean
-    ) : TopLevel()
+        val vararg: Boolean,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ) : TopLevel() {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 
     data class Composite(
         override val name: Ident,
         val structOrUnion: StructOrUnion,
-        val fields: FieldDecls
-    ): TopLevel(), Typedecl
+        val fields: FieldDecls,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ): TopLevel(), Typedecl {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 
     data class Typedef(
         override val name: Ident,
-        val typ: Type
-    ): TopLevel()
+        val typ: Type,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ): TopLevel() {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 
     data class EnumDef(
         override val name: Ident,
-        val enumerators: List<Enumerator>
-    ): TopLevel(), Typedecl
+        val enumerators: List<Enumerator>,
+        override val location: Optional<SourceRange> = Optional.empty(),
+        override val doc: Optional<String> = Optional.empty()
+    ): TopLevel(), Typedecl {
+        override fun withMeta(doc: Optional<String>, location: Optional<SourceRange>) =
+            this.copy(doc = doc, location = location)
+    }
 }
 
 data class TranslationUnit(

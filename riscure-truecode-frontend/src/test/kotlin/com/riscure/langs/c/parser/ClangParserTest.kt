@@ -109,4 +109,11 @@ class ClangParserTest() {
         }
     }
 
+    @Test
+    fun test009() {
+        parsed("/parser-tests/009-fun-with-doc.c") { tu ->
+            println(tu)
+        }
+    }
+
 }
