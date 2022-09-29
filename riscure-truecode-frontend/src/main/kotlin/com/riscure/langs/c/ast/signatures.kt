@@ -49,7 +49,7 @@ sealed class Type {
     data class Float  (val kind: FKind, override val attrs: Attrs = listOf()): Type()
     data class Ptr    (val type: Type, override val attrs: Attrs = listOf()): Type()
     data class Array  (val type: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
-    data class Fun    (val retType: Type, val args: List<Pair<Ident, Type>>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
+    data class Fun    (val retType: Type, val args: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
     data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type()
     data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type()
     data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type()
@@ -66,75 +66,69 @@ data class Field(
 
 enum class StructOrUnion { Struct, Union }
 
+typealias FieldDecls = List<Field>
+
 data class Param(
     val name: Ident,
     val type: Type
 )
 
-typealias FieldDecls = List<Field>
 data class Enumerator(val name: Ident, val key: Long) // TODO missing optional exp?
 
-/* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
-sealed class TopLevel {
-    abstract val name: Ident
-
-    sealed class Decl : TopLevel()
-    sealed class Def : TopLevel()
-    sealed class Typelike : Def()
-
+/**
+ * Metadata for the top-level elements.
+ */
+data class Meta(
     /**
-     * Metadata for the top-level elements.
+     * The location where this element was parsed.
      */
-    data class Meta(
-        /**
-         * The location where this element was parsed.
-         */
-        val location: Option<SourceRange> = None,
-        /**
-         * This location reflects {@code #line} directives,
-         * as for example outputted by the preprocessor, pointing
-         * poking through to the location beneath the {@code #include} directive.
-         */
-        val presumedLocation: Option<Location> = None,
-        val doc: Option<String> = None,
-        val fromMain: Boolean = true
-    ) {
-        companion object {
-            val default = Meta(None, None, None, true)
-        }
+    val location: Option<SourceRange> = None,
+    /**
+     * This location reflects {@code #line} directives,
+     * as for example outputted by the preprocessor, pointing
+     * poking through to the location beneath the {@code #include} directive.
+     */
+    val presumedLocation: Option<Location> = None,
+    val doc: Option<String> = None,
+    val fromMain: Boolean = true
+) {
+    companion object {
+        val default = Meta(None, None, None, true)
     }
+}
 
-    abstract val meta: Meta
-    abstract fun withMeta(meta: Meta): TopLevel
+/* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
+interface TopLevel {
+    val name: Ident
+
+    val meta: Meta
+    fun withMeta(meta: Meta): TopLevel
+
+    /* Mixin */
+    interface Typelike : TopLevel {
+        fun definesType(): Type
+    }
 
     data class Var(
         override val name: Ident,
         val type: Type,
         override val meta: Meta = Meta.default
-    ): TopLevel() {
+    ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
-    data class FunDecl(
+    data class Fun(
         override val name: Ident,
         val inline: Boolean,
         val ret: Type,
         val params: List<Param>,
         val vararg: Boolean,
-        override val meta: Meta = Meta.default
-    ) : Decl() {
+        val definition: Boolean = false,
+        override val meta: Meta = Meta.default,
+    ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
-    }
 
-    data class FunDef(
-        override val name: Ident,
-        val inline: Boolean,
-        val ret: Type,
-        val params: List<Param>,
-        val vararg: Boolean,
-        override val meta: Meta = Meta.default
-    ) : Def() {
-        override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        fun type(): Type = Type.Fun(ret, params, vararg)
     }
 
     data class Composite(
@@ -142,7 +136,13 @@ sealed class TopLevel {
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
         override val meta: Meta = Meta.default
-    ): Typelike() {
+    ): Typelike {
+        override fun definesType(): Type =
+            when (structOrUnion) {
+                StructOrUnion.Struct -> Type.Struct(name)
+                StructOrUnion.Union  -> Type.Union(name)
+            }
+
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
     }
 
@@ -150,16 +150,18 @@ sealed class TopLevel {
         override val name: Ident,
         val typ: Type,
         override val meta: Meta = Meta.default
-    ): Def() {
+    ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun definesType(): Type = Type.Named(name, typ)
     }
 
     data class EnumDef(
         override val name: Ident,
         val enumerators: List<Enumerator>,
         override val meta: Meta = Meta.default
-    ): Typelike() {
+    ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun definesType(): Type = Type.Enum(name)
     }
 }
 
@@ -169,8 +171,14 @@ data class TranslationUnit(
 
 /* filters for toplevel declarations */
 
-fun List<TopLevel>.definitions(): List<TopLevel.Def> =
-    filterIsInstance(TopLevel.Def::class.java)
+fun List<TopLevel>.functions(): List<TopLevel.Fun> =
+    filterIsInstance(TopLevel.Fun::class.java)
+
+fun List<TopLevel.Fun>.definitions(): List<TopLevel.Fun> =
+    filter { it.definition }
+
+fun List<TopLevel.Fun>.declarations(): List<TopLevel.Fun> =
+    filter { !it.definition }
 
 fun List<TopLevel>.typelike(): List<TopLevel.Typelike> =
     filterIsInstance(TopLevel.Typelike::class.java)

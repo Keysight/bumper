@@ -1,9 +1,6 @@
 package com.riscure.langs.c.parser
 
-import arrow.core.Either
-import arrow.core.None
-import arrow.core.Some
-import arrow.core.getOrElse
+import arrow.core.*
 import com.riscure.Failable
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.*
@@ -12,7 +9,7 @@ import java.io.File
 import java.io.StringWriter
 import java.nio.file.Path
 
-class ClangParserTest() {
+class ClangParserTest {
 
     private fun parsed(resource: String, whenOk: (ast: TranslationUnit) -> Unit) =
         parsed(resource) { ast, _ -> whenOk(ast) }
@@ -32,9 +29,9 @@ class ClangParserTest() {
     fun test001() {
         parsed("/parser-tests/001-minimal-main.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.FunDef)
+            assertTrue(tu.decls[0] is TopLevel.Fun)
 
-            val fn = tu.decls[0] as TopLevel.FunDef
+            val fn = tu.decls[0] as TopLevel.Fun
             assertEquals("main", fn.name)
         }
     }
@@ -43,9 +40,9 @@ class ClangParserTest() {
     fun test002() {
         parsed("/parser-tests/002-main-with-params.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.FunDef)
+            assertTrue(tu.decls[0] is TopLevel.Fun)
 
-            val fn = tu.decls[0] as TopLevel.FunDef
+            val fn = tu.decls[0] as TopLevel.Fun
             assertEquals("main", fn.name)
 
             assertEquals(2, fn.params.size)
@@ -60,7 +57,7 @@ class ClangParserTest() {
     fun test003() {
         parsed("/parser-tests/003-function-decl.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.FunDecl)
+            assertTrue(tu.decls[0] is TopLevel.Fun)
         }
     }
 
@@ -134,11 +131,11 @@ class ClangParserTest() {
     fun test010() {
         parsed("/parser-tests/010-demo-functions.c") { tu, unit ->
             val fs = tu.decls
+                .functions()
                 .definitions()
                 .filter { it.name == "func_assign_for_equals" }
 
             val f = fs[0]
-            // println(unit.getSource(f))
         }
     }
 

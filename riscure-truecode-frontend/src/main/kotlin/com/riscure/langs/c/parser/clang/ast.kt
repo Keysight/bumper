@@ -81,14 +81,14 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
 /**
  * Collects metadata for a toplevel declaration cursor.
  */
-fun CXCursor.getMetadata(): TopLevel.Meta {
+fun CXCursor.getMetadata(): Meta {
     // FIXME? No doc available
     val comment  = clang_Cursor_getBriefCommentText(this).getOption()
     val extent   = getExtent()
     val location = extent.flatMap { it.asSourceRange() }
     val presumed = extent.flatMap { it.getStart().getPresumedLocation() }
 
-    return TopLevel.Meta(
+    return Meta(
         location = location,
         presumedLocation = presumed,
         doc = comment
@@ -182,43 +182,25 @@ fun CXCursor.getParameters(): Result<List<Param>> {
         .sequenceEither()
 }
 
-fun CXCursor.asFunctionDef(): Result<TopLevel.FunDef> = ifKind(CXCursor_FunctionDecl, "function declaration") {
-    this.getResultType().flatMap { resultType ->
-        this.getParameters().map { params ->
-            TopLevel.FunDef(
-                spelling(),
-                false,  // TODO
-                resultType,
-                params,
-                false, // TODO
-            )
+fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
+    asFunctionDecl().map { it.copy(definition = true)}
+
+fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
+    ifKind(CXCursor_FunctionDecl, "function declaration") {
+        this.getResultType().flatMap { resultType ->
+            this.getParameters().map { params ->
+                /* TODO, fill in the constants */
+                TopLevel.Fun(spelling(), false, resultType, params, false)
+            }
         }
     }
-}
 
-fun CXCursor.asFunctionDecl(): Result<TopLevel.FunDecl> = ifKind(CXCursor_FunctionDecl, "function declaration") {
-    this.getResultType().flatMap { resultType ->
-        this.getParameters().map { params ->
-            TopLevel.FunDecl(
-                spelling(),
-                false,  // TODO
-                resultType,
-                params,
-                false, // TODO
-            )
-        }
+fun CXCursor.asParam(): Result<Param> =
+    ifKind(CXCursor_ParmDecl, "parameter declaration") {
+        clang_getCursorType(this)
+            .asType()
+            .map { type -> Param(spelling(), type) }
     }
-}
-
-fun CXCursor.asParam(): Result<Param> {
-    if (kind() != CXCursor_ParmDecl) {
-        return "Exepected parameter declaration".left()
-    }
-
-    return clang_getCursorType(this)
-        .asType()
-        .map { type -> Param(spelling(), type) }
-}
 
 // CXType extensions
 
@@ -234,9 +216,10 @@ fun CXCursor.asTypeDeclType(): Result<Type> =
     }
 
 /* Typedefs yield an assignable type */
-fun CXCursor.asTypedefType(): Result<Type> = ifKind(CXCursor_TypedefDecl, "typedef") {
-    clang_getTypedefDeclUnderlyingType(this).asType()
-}
+fun CXCursor.asTypedefType(): Result<Type> =
+    ifKind(CXCursor_TypedefDecl, "typedef") {
+        clang_getTypedefDeclUnderlyingType(this).asType()
+    }
 
 fun CXType.asType(): Result<Type> =
     when (this.kind()) {
