@@ -165,16 +165,12 @@ sealed class TopLevel {
 
 data class TranslationUnit(
     val decls: List<TopLevel>
-) {
+)
 
-    val defs: List<TopLevel.Def> by lazy {
-        decls.filterIsInstance(TopLevel.Def::class.java)
-    }
+/* filters for toplevel declarations */
 
-    val typelikes: List<TopLevel.Typelike> by lazy {
-        decls.filterIsInstance(TopLevel.Typelike::class.java)
-    }
+fun List<TopLevel>.definitions(): List<TopLevel.Def> =
+    filterIsInstance(TopLevel.Def::class.java)
 
-    fun getByName(name: String) = decls.filter { it.name == name }
-
-}
+fun List<TopLevel>.typelike(): List<TopLevel.Typelike> =
+    filterIsInstance(TopLevel.Typelike::class.java)

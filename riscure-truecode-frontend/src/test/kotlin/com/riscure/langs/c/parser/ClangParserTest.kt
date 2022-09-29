@@ -3,6 +3,7 @@ package com.riscure.langs.c.parser
 import arrow.core.Either
 import arrow.core.None
 import arrow.core.Some
+import arrow.core.getOrElse
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.*
 import kotlin.test.*
@@ -121,25 +122,42 @@ class ClangParserTest() {
     @Test
     fun test009() {
         parsed("/parser-tests/009-fun-with-doc.c") { tu ->
+            // FIXME
             println(tu)
+            fail()
         }
     }
 
     @Test
     fun test010() {
         parsed("/parser-tests/010-demo-functions.c") { tu, unit ->
-            val fs = tu.defs.filter { it.name == "func_assign_for_equals" }
+            val fs = tu.decls
+                .definitions()
+                .filter { it.name == "func_assign_for_equals" }
+
             val f = fs[0]
-            println(unit.getSource(f))
+            // println(unit.getSource(f))
         }
     }
 
+    /**
+     * This is the preprocessed version of AssignForEquals.c from the demo workspace.
+     * It #includes stdio.h, so it is a big file. This shows that we can find
+     * the declarations from the original file, by filtering by presumedLocation.
+     */
     @Test
     fun test011() {
         parsed("/parser-tests/011-preprocessed-demo.c") { tu, unit ->
-            val fs = tu.defs.filter { it.name == "func_assign_for_equals" }
-            val f = fs[0]
-            println(unit.getSource(f))
+            val test = tu.decls.filter { tld ->
+                with (unit) {
+                    tld.meta.presumedLocation
+                        .map { loc -> loc.sourceFile == Path.of("AssignForEquals.c") }
+                        .getOrElse { true }
+                }
+            }
+
+            assertEquals(1, test.size)
+            assertEquals("func_assign_for_equals", test[0].name)
         }
     }
 
