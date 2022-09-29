@@ -4,7 +4,6 @@ import arrow.core.*
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.tc.codeanalysis.clang.ast.loader.ClangParsingResult
-import com.riscure.tc.codeanalysis.clang.ast.sourcelocation.SourceLocation
 import com.riscure.tc.codeanalysis.clang.compiler2.loader.CompileCommandMapping
 import com.riscure.toOptional
 import org.bytedeco.javacpp.*
@@ -12,9 +11,24 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import org.bytedeco.llvm.global.clang.clang_parseTranslationUnit2 as clang_parse
 import java.io.File
-import java.nio.IntBuffer
 import java.nio.file.Path
 import java.util.*
+
+class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
+
+    val cursor = clang_getTranslationUnitCursor(cxunit)
+    val _ast by lazy { cursor.asTranslationUnit() }
+
+    override fun close() {
+        cxunit.close()
+    }
+
+    override fun ast() = _ast
+
+    override fun getSource(range: SourceRange): String {
+        TODO("Not yet implemented")
+    }
+}
 
 /**
  * This implements the parser interface using the Bytedeco library to call
@@ -22,9 +36,9 @@ import java.util.*
  *
  * This is *not* thread-safe, as far as we know because Bytedeco is not thread-safe.
  */
-class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): Parser {
+class ClangParser : Parser<ClangUnitState> {
 
-    fun <T> load(file: File, handler: (tuCursor: CXCursor) -> Result<T>): Result<T> {
+    override fun parse(file: File): Result<ClangUnitState> {
         val args: Array<String> = arrayOf("")
 
         // We allocate the arguments.
@@ -40,10 +54,10 @@ class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): 
         // Define the deallocator
         fun free() {
             clang_disposeIndex(c_index)
-            clang_disposeTranslationUnit(c_tu)
             c_sourceFile.close()
             c_arg_pointers.forEach { it.deallocate() }
             c_args.deallocate()
+            // We don't free c_tu, because that will be part of the unit state.
         }
 
         // Parse the given file, storing the result in c_tu
@@ -54,18 +68,19 @@ class ClangParser(val ccMap : CompileCommandMapping = CompileCommandMapping()): 
             val result = ClangParsingResult.fromCode(code)
             return if (result != ClangParsingResult.Success) {
                 result.message.left()
-            } else {
-                // transform the translation unit outputted by clang to a real Java AST object
-                val cursor = clang_getTranslationUnitCursor(c_tu)
-                return handler(cursor)
-            }
-        } finally { free() }
-    }
-
-    override fun parse(file: File): Result<TranslationUnit> =
-        load(file) { cursor ->
-            cursor.asTranslationUnit()
+            } else ClangUnitState(c_tu).right()
         }
+        catch (e : Exception) {
+            // if something went wrong, we do have to free the tu
+            c_tu.close()
+
+            return "Failed to parse translation unit: ${e.message}".left()
+        }
+        finally {
+            // regardless of success, we free the auxiliary data
+            free()
+        }
+    }
 }
 
 fun CXCursor.children(): List<CXCursor> {

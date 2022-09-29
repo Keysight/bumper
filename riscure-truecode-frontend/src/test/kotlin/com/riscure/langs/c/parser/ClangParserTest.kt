@@ -10,10 +10,12 @@ class ClangParserTest() {
 
     private fun parsed(resource: String, whenOk: (result: TranslationUnit) -> Unit) {
         val test = File(ClangParserTest::class.java.getResource(resource)!!.file)
-        when (val parse = ClangParser().parse(test)) {
-            is Either.Left -> fail("Expected successful parse, got error: ${parse.value}")
-            is Either.Right -> whenOk(parse.value)
-        }
+        ClangParser().parse(test).tap { it.use { unit ->
+            when (val ast = unit.ast()) {
+                is Either.Left -> fail("Expected successful parse, got error: ${ast.value}")
+                is Either.Right -> whenOk(ast.value)
+            }
+        }}
     }
 
     @Test

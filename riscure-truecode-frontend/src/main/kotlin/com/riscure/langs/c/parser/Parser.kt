@@ -1,15 +1,19 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
+import com.riscure.langs.c.ast.SourceRange
 import com.riscure.langs.c.ast.TranslationUnit
+import java.io.Closeable
 import java.io.File
 
 typealias Result<T> = Either<String, T>
 
-fun interface Parser {
+interface UnitState : Closeable {
+    fun getSource(range: SourceRange): String
 
-    /**
-     * Parse a (preprocssed) C file into a Java AST.
-     */
-    fun parse(file: File): Result<TranslationUnit>
+    fun ast(): Result<TranslationUnit>
+}
+
+interface Parser<S : UnitState> {
+    fun parse(file: File) : Result<S>
 }
