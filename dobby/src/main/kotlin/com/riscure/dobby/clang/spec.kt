@@ -34,10 +34,12 @@ data class OptionSpec(
     val prefixes  : Set<String>,
     /* the type specifies how it is parsable */
     val type      : OptionType = OptionType.Toggle,
-    /* which option it aliases, if any */
-    val aliasFor  : Option<String> = None,
-    /*  list of arguments passed to the aliases */
-    val aliasArgs : List<String> = listOf()
+    /**
+     *  Which option it aliases according to the spec, if any.
+     *  This is not always complete. From this specified set of aliases
+     *  we build the full equivalence class in the spec.
+     **/
+    val aliasFor  : Option<Alias> = None,
 ) {
     fun allAppearances(): Set<String> =
         // Empty list of prefixes results in 0 appearances
@@ -47,35 +49,49 @@ data class OptionSpec(
             .toSet()
 }
 
+// FIXME we should distinguish alias for key without any values,
+// from an alias regardless of the value.
+data class Alias(val forKey: String, val withValue: List<String>)
+
 /**
  * Captures the cli specification; i.e., all available options, with their behavior.
  */
 data class Spec(val optionsByKey: Map<String, OptionSpec>) {
 
+    fun get(key: String) = optionsByKey[key].toOption()
+
+//    val byName: Map<String, Set<OptionSpec>> by lazy {
+//        val m = mutableMapOf<String, MutableSet<OptionSpec>>()
+//
+//        this.optionsByKey.forEach { (k, v) ->
+//            val matches = m.getOrDefault(v.name, mutableSetOf<OptionSpec>())
+//            matches.add(v)
+//        }
+//
+//        m
+//    }
+
     fun options() = optionsByKey.values
 
-    // TODO merge options with the same name??
-    val byName: Map<String, OptionSpec> by lazy {
-        options().associateBy { it.name }
-    }
-
     /**
-     * Map of aliases for every option by name.
+     * Map of aliases for every option by their key.
      * An alias may only be an alias in combination with a specific argument.
      * For example, the map should contain an entry: mcpu_EQ to { .., "mv5"},
      * If we look at byName["mv5"], we find that this option is equivalent
-     * to "mcpu=hexagonv5", encoded by the fact that aliasFor = Some("mcpu_EQ") and
-     * aliasArgs = ["hexagonv5"].
+     * to "mcpu=hexagonv5", encoded by the fact that aliasFor = Some(Alias("mcpu_EQ", listOf("hexagonv5"))).
+     *
+     * FIXME: this is not computing the transitive alias closure...
      */
-    val aliasing: Map<String, Set<String>> by lazy {
-        val ali:Map<String,MutableSet<String>> = optionsByKey.mapValues { mutableSetOf() }
+    val aliasing: Map<String, Set<OptionSpec>> by lazy {
+        val ali:Map<String,MutableSet<OptionSpec>> = optionsByKey.mapValues { mutableSetOf() }
 
         // iterate over all options,
         // add a reverse alias mapping to all declared aliases
-        optionsByKey.forEach { (key, opt) ->
-            opt.aliasFor.tap { aliasName ->
-                // only insert if the aliasName exists in our option spec
-                ali[aliasName].toOption().tap { it.add(key) }
+        optionsByKey.forEach { (_, opt) -> // opt =~ mv5
+            opt.aliasFor.tap { alias ->    // alias =~ Alias(mcpu_EQ, listOf("hexagonv5"))
+                ali[opt.key]          // we add
+                    .toOption()
+                    .tap { it.add(opt) }
             }
         }
 
@@ -95,9 +111,20 @@ data class Spec(val optionsByKey: Map<String, OptionSpec>) {
         @OptIn(ExperimentalSerializationApi::class)
         private fun specJSON(): JsonElement = Json.decodeFromStream(specURL.openStream())
 
+        /* A parsed Clang 11 spec */
         val clang11: Spec by lazy { SpecReader.readSpec(specJSON()) }
     }
 }
+
+
+/**
+ * Return the set containing all given options plus their aliases.
+ */
+context(Spec)
+fun Set<OptionSpec>.aliasClosure(): Set<OptionSpec> =
+    this.flatMap {  option -> aliasing.getOrDefault(option.key, setOf()) }
+        .plus(this)
+        .toSet()
 
 /**
  * A not so safe conversion from the JSON option spec for Clang,
@@ -167,13 +194,23 @@ private object SpecReader {
                         jobj["Name"]!!.jsonPrimitive.content,
                         jobj["Prefixes"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet(),
                         kind,
-                        jobj["Alias"]
-                            .toOption()
-                            .flatMap { if (it is JsonNull) { None } else { it.jsonObject.some() }}
-                            .flatMap { it.jsonObject["def"].toOption().map { d -> d.jsonPrimitive.content } }
+                        readsAliasSpec(jobj)
                     )
                 }
         } catch (e : Throwable) {
-            throw RuntimeException("Failed to parse json as clang option spec: ${json.toString()}")
+            throw RuntimeException("Failed to parse json as clang option spec.", e)
         }
+
+    private fun readsAliasSpec(json: JsonObject): Option<Alias> =
+        json["Alias"]
+            .toOption()
+            .filter { it !is JsonNull }
+            .flatMap { it.jsonObject["def"].toOption().map { d -> d.jsonPrimitive.content }}
+            .map { aliasKey ->
+                Alias(aliasKey,
+                    json["AliasArgs"]!!
+                        .jsonArray
+                        .map { el -> el.jsonPrimitive.content }
+                )
+            }
 }

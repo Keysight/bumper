@@ -1,6 +1,7 @@
 package com.riscure.dobby.clang
 
 import arrow.core.*
+import com.riscure.dobby.shell.Shell
 import kotlin.test.*
 
 internal class ParserTest {
@@ -83,9 +84,9 @@ internal class ParserTest {
         assertEquals(listOf("bjcmt-migrate-literal"), cmd2.optArgs[0].values)
     }
 
-    //----------------------------------------------------------------------------------
-    // some "real life" tests
-    //----------------------------------------------------------------------------------
+    //--------------------------------------------------
+    // some tickets that we want to be fixed using dobby
+    //--------------------------------------------------
 
     // https://jira.riscure.com/browse/TC-2572
     @Test
@@ -122,6 +123,30 @@ internal class ParserTest {
     // https://jira.riscure.com/browse/TC-2573
     @Test
     fun tc2573() {
-        TODO() //...
+//        with(Spec.clang11) {
+//            val result = Parser.parseClangArguments(listOf("-osomefile.o"))
+//            assertTrue(result.isRight())
+//            val cmd = (result as Either.Right).value
+//
+//            val cmd4 = cmd.filter(Parser.optionsFromPrefix("/o"))
+//            assertTrue(cmd4.optArgs.isEmpty())
+//
+//            val cmd5 = cmd.filter(Parser.optionsFromPrefix("-o"))
+//            assertTrue(cmd5.optArgs.isEmpty())
+//
+//            val x = Parser.optionsFromPrefix("--output=")
+//            val y = x.aliasClosure()
+//            val cmd2 = cmd.filter(Parser.optionsFromPrefix("--output=").aliasClosure())
+//            assertTrue(cmd2.optArgs.isEmpty())
+//
+//            val cmd3 = cmd.filter(Parser.optionsFromPrefix("--output"))
+//            assertTrue(cmd3.optArgs.isEmpty())
+//
+//            val cmd6 = cmd.filter(Parser.optionsFromPrefix("-f"))
+//            assertTrue(cmd6.optArgs.isNotEmpty())
+//
+//            val cmd7 = cmd.filter(Parser.optionsFromPrefix("-O"))
+//            assertTrue(cmd7.optArgs.isNotEmpty())
+//        }
     }
 }

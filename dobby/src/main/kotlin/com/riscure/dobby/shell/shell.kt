@@ -1,4 +1,4 @@
-package com.riscure.dobby
+package com.riscure.dobby.shell
 
 import arrow.core.*
 import com.riscure.lang.shell.ShellLexer
@@ -28,13 +28,16 @@ data class Symbol(val value: String) {
     }
 }
 
+/* Model of the syntax of a Clang compilation command */
 data class Line(val args: List<Arg>) {
     fun eval(): List<String> = args.map { it.eval() }
 }
+/* Model of the syntax of a Clang compilation argument */
 data class Arg(val parts: List<Val>) {
     fun eval(): String = parts.joinToString(separator="") { it.eval() }
 }
 
+/* Model of the syntax of a shell 'value' */
 sealed class Val {
     abstract val content: List<Symbol>
     fun eval(): String = content.joinToString(separator="") { it.eval() }

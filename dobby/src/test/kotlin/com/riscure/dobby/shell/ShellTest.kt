@@ -1,4 +1,4 @@
-package com.riscure.dobby
+package com.riscure.dobby.shell
 
 import arrow.core.*
 import kotlin.test.*

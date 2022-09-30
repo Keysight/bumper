@@ -20,10 +20,10 @@ dependencies {
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlinx:kotlinx-cli-jvm:0.3.5")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
 
     // third party
-    implementation("io.arrow-kt:arrow-core:1.0.1")
+    implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
 
     // resources
@@ -33,7 +33,7 @@ dependencies {
     testImplementation(kotlin("test"))
 
     // Use Antlr 4 for the parser generation
-    antlr("org.antlr:antlr4:4.10.1")
+    antlr("org.antlr:antlr4:4.11.1")
 }
 
 tasks.test {
@@ -43,7 +43,10 @@ tasks.test {
 tasks.withType<KotlinCompile> {
     dependsOn(tasks.generateGrammarSource)
 
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions {
+        jvmTarget = "1.8"
+        freeCompilerArgs = listOf("-Xcontext-receivers")
+    }
 }
 
 // ANTLR plugin configuration.

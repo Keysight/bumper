@@ -1,7 +1,6 @@
 package com.riscure.dobby.clang
 
 import arrow.core.*
-import arrow.typeclasses.Monoid
 import stdlibpp.*
 
 /* Clang command parser.
@@ -20,14 +19,6 @@ import stdlibpp.*
  */
 
 private typealias Result<T> = Either<String,T>
-data class Arg(val opt: OptionSpec, val values: List<String> = listOf())
-data class Command(val optArgs: List<Arg>, val positionalArgs: List<String>)
-
-object CommandMonoid: Monoid<Command> {
-    override fun empty(): Command = Command(listOf(), listOf())
-    override fun Command.combine(b: Command): Command =
-        Command(optArgs.plus(b.optArgs), positionalArgs.plus(b.positionalArgs))
-}
 
 object Parser {
     /**
@@ -44,35 +35,34 @@ object Parser {
         when (spec.type) {
             OptionType.CommaJoined ->
                 // for now we do not need to parse comma-joined values
-                PartialArg.Whole(Arg(spec, listOf(input))).right()
+                Whole(Arg(spec, listOf(input))).right()
             OptionType.Joined ->
-                PartialArg.Whole(Arg(spec, listOf(input))).right()
+                Whole(Arg(spec, listOf(input))).right()
             OptionType.JoinedAndSeparate ->
-                PartialArg.Partial(Arg(spec, listOf(input)), 1).right()
+                Partial(Arg(spec, listOf(input)), 1).right()
             OptionType.JoinedOrSeparate ->
-                if (input.isBlank()) PartialArg.Partial(Arg(spec), 1).right()
-                else PartialArg.Whole(Arg(spec, listOf(input))).right()
+                if (input.isBlank()) Partial(Arg(spec), 1).right()
+                else Whole(Arg(spec, listOf(input))).right()
             OptionType.Separate ->
-                if (input.isBlank()) PartialArg.Partial(Arg(spec), 1).right()
+                if (input.isBlank()) Partial(Arg(spec), 1).right()
                 else "Unexpected joined value $input for option with separate argument ${spec.name}".left()
             OptionType.Toggle ->
-                if (input.isBlank()) PartialArg.Whole(Arg(spec)).right()
+                if (input.isBlank()) Whole(Arg(spec)).right()
                 else "Unexpected value $input for toggle option ${spec.name}".left()
             is OptionType.MultiArg ->
-                if (input.isBlank()) PartialArg.Partial(Arg(spec), spec.type.num).right()
+                if (input.isBlank()) Partial(Arg(spec), spec.type.num).right()
                 else "Unexpected joined value for option with separate argument ${spec.name}".left()
         }
 
     /**
      * Represents a possibly partially parsed option with its values or a positional argument.
      */
-    private sealed class PartialArg {
-        data class Positional(val value: String): PartialArg()
-        data class Whole(val arg: Arg): PartialArg()
-        data class Partial(val arg: Arg, val expectValues: Int): PartialArg()
-    }
+    sealed class PartialArg
+    data class Positional(val value: String): PartialArg()
+    data class Whole(val arg: Arg): PartialArg()
+    data class Partial(val arg: Arg, val expectValues: Int): PartialArg()
 
-    private fun parseClangArgument(arg: String): Either<String, PartialArg> {
+    private fun parseClangArgument(arg: String): Result<PartialArg> {
         // The longest prefix parser finds all possible options
         // that match the input.
         val opts = clang11Trie.longestPrefix(arg)
@@ -98,9 +88,9 @@ object Parser {
         }
     }
 
-    private fun tryPositional(input: String): Either<String, PartialArg.Positional> =
+    private fun tryPositional(input: String): Result<Positional> =
         if (input.startsWith("-")) "Unrecognized option $input".left()
-        else PartialArg.Positional(input).right()
+        else Positional(input).right()
 
     /**
      * Parse a list of arguments, as specified by the compilation database reference, but
@@ -110,8 +100,8 @@ object Parser {
      * If you have a shell-quoted line instead, you first have to parse it and evaluate
      * the quotes/escapes using com.riscure.dobby.shell.
      */
-    fun parseClangArguments(arguments: List<String>): Either<String, Command> = when (arguments.size) {
-        0    -> CommandMonoid.empty().right()
+    fun parseClangArguments(arguments: List<String>): Result<Command> = when (arguments.size) {
+        0    -> Command.empty().right()
         else -> {
             // parse the head
             val other = arguments.drop(1)
@@ -120,13 +110,13 @@ object Parser {
                     when (arg) {
                         // depending on what we parse,
                         // we parse the tail differently
-                        is PartialArg.Positional ->
+                        is Positional ->
                             parseClangArguments(other)
                                 .map { tail -> tail.copy(positionalArgs = listOf(arg.value).plus(tail.positionalArgs)) }
-                        is PartialArg.Whole ->
+                        is Whole ->
                             parseClangArguments(other)
                                 .map { tail -> tail.copy(optArgs = listOf(arg.arg).plus(tail.optArgs)) }
-                        is PartialArg.Partial ->
+                        is Partial ->
                             if (other.size < arg.expectValues) {
                                 "Expected at least ${arg.expectValues} more arguments".left()
                             } else {
@@ -138,6 +128,27 @@ object Parser {
                 }
         }
     }
+
+    /**
+     * Try to get a (possibly unstable) choice from the set of matching
+     * options from a given prefix that should at least contain the option name.
+     *
+     * Example: optionFromPrefix(-O) may return spec.clang11["_SLASH_O"] or
+     * spec.clang1["O"] depending on the orientation of the moon.
+     */
+    fun optionFromPrefix(prefix: String): Option<OptionSpec> =
+        optionsFromPrefix(prefix).firstOrNone()
+
+
+    /**
+     * Get all possible matching option specs
+     * for a given prefix that should at least contain the option name.
+     *
+     * This will not include aliases.
+     * @see com.riscure.dobby.clang.Spec.aliasClosureOf
+     */
+    fun optionsFromPrefix(prefix: String): Set<OptionSpec> =
+        clang11Trie.longestPrefix(prefix).map { it.first }.toSet()
 }
 
 /* Every spec that matches the input is paired with the remaining input */
@@ -153,7 +164,7 @@ private class Trie(
     private val children: MutableMap<Char, Trie> = mutableMapOf()
 ) {
     companion object {
-        fun create(opts: Iterable<OptionSpec>): Either<String, Trie> =
+        fun create(opts: Iterable<OptionSpec>): Result<Trie> =
             opts.foldM(Trie()) { acc, opt -> acc.insert(opt) }
     }
 
@@ -184,13 +195,13 @@ private class Trie(
         }
     }
 
-    fun insert(opt: OptionSpec): Either<String, Trie> =
+    fun insert(opt: OptionSpec): Result<Trie> =
         opt.allAppearances().foldM(this) { acc, appearance -> acc.insert(appearance, opt) }
 
     private fun insertLeaf(opt: OptionSpec): Trie =
         this.match.add(opt).let { this }
 
-    private fun insert(nameSuffix: String, opt: OptionSpec): Either<String, Trie> {
+    private fun insert(nameSuffix: String, opt: OptionSpec): Result<Trie> {
         // base step
         if (nameSuffix.isEmpty()) {
             return insertLeaf(opt).right()
