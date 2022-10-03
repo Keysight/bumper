@@ -162,24 +162,22 @@ class ClangParserTest {
 
     @Test
     fun test012() {
-        parsed("/parser-tests/012-line-directive.c") { tu, unit ->
-            with (unit) {
-                val fn = tu.decls[0]
-                when (val loc = fn.meta.presumedLocation) {
-                    is None -> fail()
-                    is Some -> {
-                        assertEquals(Path.of("haha.c"), loc.value.sourceFile)
-                        assertEquals(42, loc.value.row)
-                    }
+        parsed("/parser-tests/012-line-directive.c") { tu ->
+            val fn = tu.decls[0]
+            when (val loc = fn.meta.presumedLocation) {
+                is None -> fail()
+                is Some -> {
+                    assertEquals(Path.of("haha.c"), loc.value.sourceFile)
+                    assertEquals(42, loc.value.row)
                 }
+            }
 
-                val gn = tu.decls[1]
-                when (val loc = gn.meta.presumedLocation) {
-                    is None -> fail()
-                    is Some -> {
-                        assertEquals(Path.of("werktook.c"), loc.value.sourceFile)
-                        assertEquals(19, loc.value.row)
-                    }
+            val gn = tu.decls[1]
+            when (val loc = gn.meta.presumedLocation) {
+                is None -> fail()
+                is Some -> {
+                    assertEquals(Path.of("werktook.c"), loc.value.sourceFile)
+                    assertEquals(19, loc.value.row)
                 }
             }
         }
