@@ -25,15 +25,15 @@ data class PlainCompilationDb(val entries: List<Entry>) {
         val arguments: List<String>? = null,
         /* Raw shell-quoted/escaped command */
         val command: String? = null,
-        val output: Path? = null
+        val output: String? = null
     )
 }
 
 /* Semantic model of a compilation database */
 data class CompilationDb(val entries: List<Entry>) {
     data class Entry(
-        val workingDirectory: String,
-        val mainSource: String,
+        val workingDirectory: Path,
+        val mainSource: Path,
         val command: Command
     )
 
@@ -66,7 +66,7 @@ data class CompilationDb(val entries: List<Entry>) {
                     args
                         .map { it.drop(1) } // drop executable name
                         .flatMap { Parser.parseClangArguments(it).mapLeft { IllegalArgumentException(it) } }
-                        .map { Entry(entry.directory, entry.file, it) }
+                        .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
 
                 }
                 .sequence()

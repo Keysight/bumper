@@ -165,7 +165,16 @@ private class Trie(
 ) {
     companion object {
         fun create(opts: Iterable<OptionSpec>): Result<Trie> =
-            opts.foldM(Trie()) { acc, opt -> acc.insert(opt) }
+            Trie().let { result ->
+                for (opt in opts) {
+                    when (val r = result.insert(opt)) {
+                        is Either.Left  -> return r
+                        is Either.Right -> continue
+                    }
+                }
+
+                return result.right()
+            }
     }
 
     fun longestPrefix(input: String, longestSoFar: Matches = setOf()): Matches {
