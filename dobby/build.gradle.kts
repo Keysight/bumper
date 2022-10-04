@@ -1,4 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
+import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 
 plugins {
     kotlin("jvm") version "1.7.10"
@@ -38,6 +40,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    testLogging {
+        events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
+        exceptionFormat = FULL
+    }
 }
 
 tasks.withType<KotlinCompile> {
