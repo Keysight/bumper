@@ -20,11 +20,9 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
         }
 
         // TODO
-        val cliArgs: Array<String> = arrayOf(
-            "-O0", "-nostdinc",
-            "-idirafter", "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include",
-            "-idirafter", "/nix/store/f5k2sz6bm05cxg8hnlmij7pc5f4i1zaj-clang-11.1.0-lib/lib/clang/11.1.0/include/",
-            "-E", main.absolutePath, "-o", out.absolutePath)
+        // We add -O0, which really should be implied by -E, but it isn't.
+        // It seems that in clang-16 it is.
+        val cliArgs: Array<String> = arrayOf("-O0", "-E", main.absolutePath, "-o", out.absolutePath)
 
         // Preprocess the input, writing to the output
         // FIXME do we need to worry about input/output encodings?

@@ -60,36 +60,39 @@ internal class FrontendTest {
         }
     }
 
+    /**
+     * This tests a useful invariant. The following square commutes:
+     *
+     *    source ------ clange -E ---------> B
+     *      |                                |
+     *   process           o              process
+     *      |                                |
+     *      A ----------- id --------------> ast minus metadata/prettyprinted source
+     *
+     */
     @Test
     fun test010() {
         processed("/parser-tests/010-demo-functions.c") { tu, unit ->
             val ds = tu.decls
-            val writer = object: StringWriter(), Fallable by Fallable.tantrum {}
 
-            // This ast now contains a lot of stuff.
-            // Compare that with the corresponding ast from ClangParserTest,
-            // which only contains the stuff from the source file.
-            assertTrue(ds.size > 50)
+            processed("/parser-tests/011-preprocessed-demo.c") { tup, unitp ->
+                val dsp = tup.decls
 
-            unit.writeSource(ds, writer)
+                assertTrue(dsp.size > 50, "Expected a bunch of declarations")
+                assertEquals(dsp.size, ds.size)
 
-            // The following is very similar, but slightly different.
-            // It looks like a different stddef/stdio/... were used when producing the 011-preprocessed-demo.c
-            // then when we process using the frontend.
-            // Would be interesting to figure out the exact story...
-            /*
-            fun pred(it: String) = ! (it.isBlank() || it.startsWith("# "))
-            val ls1 = writer.toString()
-                .lines()
-                .filter { pred(it) }
-                .joinToString("\n") { it }
-            val ls2 = File(this.javaClass.getResource("/parser-tests/011-preprocessed-demo.c")!!.file)
-                .readLines()
-                .filter { pred(it) }
-                .joinToString("\n") { it }
+                val zipped = ds.zip(dsp)
+                for (el in zipped) {
+                    val (got, expected) = el
 
-            assertEquals(ls2, ls1)
-            */
+                    // compare the asts
+                    // overwrite metadata, because those will differ
+                    assertEquals(expected, got.withMeta(expected.meta))
+
+                    // compare the pretty-printed sources
+                    assertEquals(unitp.getSource(expected), unit.getSource(got))
+                }
+            }
         }
     }
 
