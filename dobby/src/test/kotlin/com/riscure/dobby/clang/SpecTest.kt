@@ -22,35 +22,42 @@ internal class SpecTest {
 
 
     @Test
-    fun outputFilter() {
-        with (s) {
-            val c = Command(listOf(
+    fun outputFilter() = with(s) {
+        val c = Command(
+            listOf(
                 Arg(o, "hi"),
                 Arg(output, "another"),
                 Arg(s.get("mv5")),
-            ), listOf())
-            println(c.filter(setOf(output2)))
-        }
+            ), listOf()
+        )
+
+        val d = c.filter(setOf(output2))
+        assertEquals(1, d.optArgs.size)
+
+        val e = c.filter(setOf(s.get("mv5")))
+        assertEquals(2, e.optArgs.size)
     }
 
     @Test
-    fun mv5Filter() {
-        with (s) {
-            val c = Command(listOf(
+    fun mv5Filter() = with(s) {
+        val c = Command(
+            listOf(
                 Arg(o, "hi"),
                 Arg(output, "another"),
                 Arg(s.get("mv5")),
-            ), listOf())
+            ), listOf()
+        )
 
-            println(c.filter(setOf(s.get("mcpu_EQ"))))
+        assertEquals(2, c.filter(setOf(s.get("mcpu_EQ"))).optArgs.size)
 
-            val d = Command(listOf(
+        val d = Command(
+            listOf(
                 Arg(o, "hi"),
                 Arg(output, "another"),
                 Arg(s.get("mcpu_EQ"), "arm"),
-            ), listOf())
+            ), listOf()
+        )
 
-            println(c.filter(setOf(s.get("mv5"))))
-        }
+        assertEquals(2, c.filter(setOf(s.get("mv5"))).optArgs.size)
     }
 }

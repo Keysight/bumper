@@ -8,7 +8,6 @@ typealias Options = List<Arg>
 data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     /**
      * Return a command without [opt] or any of its aliases.
-     * This requires a spec as context.
      */
     context(Spec)
     fun filter(opts: Set<OptionSpec>): Command {
@@ -19,12 +18,39 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 
     /**
      * Check if this command contains [opt] or any of its aliases.
-     * This requires a spec as context.
      */
     context(Spec)
     fun contains(opts: Set<OptionSpec>): Boolean {
         return optArgs.any { (argSpec, _) -> opts.any { listed -> equal(listed, argSpec)} }
     }
+
+    /**
+     * Returns this command without [opt] or any of its aliases.
+     */
+    context(Spec)
+    fun filter(opt: OptionSpec): Command = filter(setOf(opt))
+
+    /**
+     * Returns true iff this command contains [opt] or any of its aliases.
+     */
+    context(Spec)
+    fun contains(opt: OptionSpec): Boolean = contains(setOf(opt))
+
+    /**
+     * Removes any alias of [arg.opt] and then adds [arg].
+     */
+    context(Spec)
+    fun replace(arg: Arg): Command = filter(arg.opt).copy(optArgs = optArgs + arg)
+
+    /**
+     * Adds [arg] to the (rear of) the options of this command
+     */
+    fun plus(arg: Arg) = this.copy(optArgs = optArgs + arg)
+
+    /**
+     * Adds [positional] to the rear of the positional arguments of this command.
+     */
+    fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
 
     companion object : arrow.typeclasses.Monoid<Command> {
         override fun empty(): Command = Command(listOf(), listOf())
