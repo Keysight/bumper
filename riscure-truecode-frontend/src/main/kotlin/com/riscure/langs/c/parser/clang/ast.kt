@@ -9,9 +9,10 @@ import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.*
-import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
+
+private typealias Result<T> = Either<String, T>
 
 /**
  * Get the list of child cursors from a cursor.
@@ -74,7 +75,7 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
         CXCursor_StructDecl   -> this.asStructDecl()
         CXCursor_VarDecl      -> this.asVarDecl()
         CXCursor_TypedefDecl  -> this.asTypedef()
-        else -> "Expected global declaration".left()
+        else -> "Expected toplevel declaration".left()
     })
     .map { it.withMeta(getMetadata()) }
 

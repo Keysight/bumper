@@ -1,11 +1,11 @@
 package com.riscure
 
-interface Failable {
+interface Fallable {
     fun fail(reason: Throwable)
 
     companion object {
         /* Mixing object */
-        val tantrum = object: Failable {
+        val tantrum = object: Fallable {
             override fun fail(reason: Throwable) = throw reason
         }
     }

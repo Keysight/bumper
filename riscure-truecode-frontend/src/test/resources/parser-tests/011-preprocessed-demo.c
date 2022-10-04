@@ -1,10 +1,22 @@
-# 1 "AssignForEquals.c"
+# 1 "010-demo-functions.c"
 # 1 "<built-in>" 1
 # 1 "<built-in>" 3
 # 344 "<built-in>" 3
 # 1 "<command line>" 1
 # 1 "<built-in>" 2
-# 1 "AssignForEquals.c" 2
+# 1 "010-demo-functions.c" 2
+void test_1(int);
+
+
+
+void test_1(int k) {
+    int array[8];
+    if (k >= 0 && k <= 8) {
+        array[k] = 0;
+    }
+}
+
+
 # 1 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 1 3
 # 27 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 # 1 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/libc-header-start.h" 1 3
@@ -351,17 +363,17 @@ extern int renameat (int __oldfd, const char *__old, int __newfd,
 extern int fclose (FILE *__stream);
 # 182 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern FILE *tmpfile (void)
-  __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__malloc__)) ;
 # 199 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
-extern char *tmpnam (char[20]) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern char *tmpnam (char[20]) __attribute__ ((__nothrow__ )) ;
 
 
 
 
-extern char *tmpnam_r (char __s[20]) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern char *tmpnam_r (char __s[20]) __attribute__ ((__nothrow__ )) ;
 # 216 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern char *tempnam (const char *__dir, const char *__pfx)
-   __attribute__ ((__nothrow__ )) __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__)) ;
+   __attribute__ ((__nothrow__ )) __attribute__ ((__malloc__)) ;
 
 
 
@@ -374,26 +386,26 @@ extern int fflush_unlocked (FILE *__stream);
 # 252 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern FILE *fopen (const char *__restrict __filename,
       const char *__restrict __modes)
-  __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__malloc__)) ;
 
 
 
 
 extern FILE *freopen (const char *__restrict __filename,
         const char *__restrict __modes,
-        FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+        FILE *__restrict __stream) ;
 # 287 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern FILE *fdopen (int __fd, const char *__modes) __attribute__ ((__nothrow__ ))
-  __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__malloc__)) ;
 # 302 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern FILE *fmemopen (void *__s, size_t __len, const char *__modes)
-  __attribute__ ((__nothrow__ )) __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__nothrow__ )) __attribute__ ((__malloc__)) ;
 
 
 
 
 extern FILE *open_memstream (char **__bufloc, size_t *__sizeloc) __attribute__ ((__nothrow__ ))
-  __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__malloc__)) ;
 # 322 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern void setbuf (FILE *__restrict __stream, char *__restrict __buf) __attribute__ ((__nothrow__ ));
 
@@ -466,12 +478,12 @@ extern int dprintf (int __fd, const char *__restrict __fmt, ...)
 
 
 extern int fscanf (FILE *__restrict __stream,
-     const char *__restrict __format, ...) __attribute__ ((__warn_unused_result__));
+     const char *__restrict __format, ...) ;
 
 
 
 
-extern int scanf (const char *__restrict __format, ...) __attribute__ ((__warn_unused_result__));
+extern int scanf (const char *__restrict __format, ...) ;
 
 extern int sscanf (const char *__restrict __s,
      const char *__restrict __format, ...) __attribute__ ((__nothrow__ ));
@@ -500,23 +512,23 @@ typedef long double _Float64x;
 
 
 
-extern int fscanf (FILE *__restrict __stream, const char *__restrict __format, ...) __asm__ ("" "__isoc99_fscanf") __attribute__ ((__warn_unused_result__));
+extern int fscanf (FILE *__restrict __stream, const char *__restrict __format, ...) __asm__ ("" "__isoc99_fscanf") ;
 
 
-extern int scanf (const char *__restrict __format, ...) __asm__ ("" "__isoc99_scanf") __attribute__ ((__warn_unused_result__));
+extern int scanf (const char *__restrict __format, ...) __asm__ ("" "__isoc99_scanf") ;
 
 extern int sscanf (const char *__restrict __s, const char *__restrict __format, ...) __asm__ ("" "__isoc99_sscanf") __attribute__ ((__nothrow__ ));
 # 453 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern int vfscanf (FILE *__restrict __s, const char *__restrict __format,
       __gnuc_va_list __arg)
-     __attribute__ ((__format__ (__scanf__, 2, 0))) __attribute__ ((__warn_unused_result__));
+     __attribute__ ((__format__ (__scanf__, 2, 0))) ;
 
 
 
 
 
 extern int vscanf (const char *__restrict __format, __gnuc_va_list __arg)
-     __attribute__ ((__format__ (__scanf__, 1, 0))) __attribute__ ((__warn_unused_result__));
+     __attribute__ ((__format__ (__scanf__, 1, 0))) ;
 
 
 extern int vsscanf (const char *__restrict __s,
@@ -531,10 +543,10 @@ extern int vfscanf (FILE *__restrict __s, const char *__restrict __format, __gnu
 
 
 
-     __attribute__ ((__format__ (__scanf__, 2, 0))) __attribute__ ((__warn_unused_result__));
+     __attribute__ ((__format__ (__scanf__, 2, 0))) ;
 extern int vscanf (const char *__restrict __format, __gnuc_va_list __arg) __asm__ ("" "__isoc99_vscanf")
 
-     __attribute__ ((__format__ (__scanf__, 1, 0))) __attribute__ ((__warn_unused_result__));
+     __attribute__ ((__format__ (__scanf__, 1, 0))) ;
 extern int vsscanf (const char *__restrict __s, const char *__restrict __format, __gnuc_va_list __arg) __asm__ ("" "__isoc99_vsscanf") __attribute__ ((__nothrow__ ))
 
 
@@ -597,14 +609,14 @@ extern int putw (int __w, FILE *__stream);
 
 
 extern char *fgets (char *__restrict __s, int __n, FILE *__restrict __stream)
-     __attribute__ ((__warn_unused_result__)) ;
+                                                         ;
 # 626 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern __ssize_t __getdelim (char **__restrict __lineptr,
                              size_t *__restrict __n, int __delimiter,
-                             FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+                             FILE *__restrict __stream) ;
 extern __ssize_t getdelim (char **__restrict __lineptr,
                            size_t *__restrict __n, int __delimiter,
-                           FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+                           FILE *__restrict __stream) ;
 
 
 
@@ -614,7 +626,7 @@ extern __ssize_t getdelim (char **__restrict __lineptr,
 
 extern __ssize_t getline (char **__restrict __lineptr,
                           size_t *__restrict __n,
-                          FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+                          FILE *__restrict __stream) ;
 
 
 
@@ -643,7 +655,7 @@ extern int ungetc (int __c, FILE *__stream);
 
 
 extern size_t fread (void *__restrict __ptr, size_t __size,
-       size_t __n, FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+       size_t __n, FILE *__restrict __stream) ;
 
 
 
@@ -652,7 +664,7 @@ extern size_t fwrite (const void *__restrict __ptr, size_t __size,
         size_t __n, FILE *__restrict __s);
 # 696 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern size_t fread_unlocked (void *__restrict __ptr, size_t __size,
-         size_t __n, FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
+         size_t __n, FILE *__restrict __stream) ;
 extern size_t fwrite_unlocked (const void *__restrict __ptr, size_t __size,
           size_t __n, FILE *__restrict __stream);
 
@@ -667,7 +679,7 @@ extern int fseek (FILE *__stream, long int __off, int __whence);
 
 
 
-extern long int ftell (FILE *__stream) __attribute__ ((__warn_unused_result__));
+extern long int ftell (FILE *__stream) ;
 
 
 
@@ -679,7 +691,7 @@ extern int fseeko (FILE *__stream, __off_t __off, int __whence);
 
 
 
-extern __off_t ftello (FILE *__stream) __attribute__ ((__warn_unused_result__));
+extern __off_t ftello (FILE *__stream) ;
 # 754 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern int fgetpos (FILE *__restrict __stream, fpos_t *__restrict __pos);
 
@@ -690,15 +702,15 @@ extern int fsetpos (FILE *__stream, const fpos_t *__pos);
 # 780 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern void clearerr (FILE *__stream) __attribute__ ((__nothrow__ ));
 
-extern int feof (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int feof (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 
-extern int ferror (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int ferror (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 
 
 
 extern void clearerr_unlocked (FILE *__stream) __attribute__ ((__nothrow__ ));
-extern int feof_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
-extern int ferror_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int feof_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) ;
+extern int ferror_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 
 
 
@@ -711,12 +723,12 @@ extern void perror (const char *__s);
 
 
 
-extern int fileno (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int fileno (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 
 
 
 
-extern int fileno_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int fileno_unlocked (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 # 817 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern int pclose (FILE *__stream);
 
@@ -725,7 +737,7 @@ extern int pclose (FILE *__stream);
 
 
 extern FILE *popen (const char *__command, const char *__modes)
-  __attribute__ ((__malloc__)) __attribute__ ((__warn_unused_result__));
+  __attribute__ ((__malloc__)) ;
 
 
 
@@ -739,302 +751,33 @@ extern void flockfile (FILE *__stream) __attribute__ ((__nothrow__ ));
 
 
 
-extern int ftrylockfile (FILE *__stream) __attribute__ ((__nothrow__ )) __attribute__ ((__warn_unused_result__));
+extern int ftrylockfile (FILE *__stream) __attribute__ ((__nothrow__ )) ;
 
 
 extern void funlockfile (FILE *__stream) __attribute__ ((__nothrow__ ));
 # 879 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 3
 extern int __uflow (FILE *);
 extern int __overflow (FILE *, int);
-
-
-
-
-
-# 1 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio.h" 1 3
-# 46 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio.h" 3
-extern __inline __attribute__ ((__gnu_inline__)) int
-getchar (void)
-{
-  return getc (stdin);
-}
-
-
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-fgetc_unlocked (FILE *__fp)
-{
-  return (__builtin_expect (((__fp)->_IO_read_ptr >= (__fp)->_IO_read_end), 0) ? __uflow (__fp) : *(unsigned char *) (__fp)->_IO_read_ptr++);
-}
-
-
-
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-getc_unlocked (FILE *__fp)
-{
-  return (__builtin_expect (((__fp)->_IO_read_ptr >= (__fp)->_IO_read_end), 0) ? __uflow (__fp) : *(unsigned char *) (__fp)->_IO_read_ptr++);
-}
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-getchar_unlocked (void)
-{
-  return (__builtin_expect (((stdin)->_IO_read_ptr >= (stdin)->_IO_read_end), 0) ? __uflow (stdin) : *(unsigned char *) (stdin)->_IO_read_ptr++);
-}
-
-
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-putchar (int __c)
-{
-  return putc (__c, stdout);
-}
-
-
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-fputc_unlocked (int __c, FILE *__stream)
-{
-  return (__builtin_expect (((__stream)->_IO_write_ptr >= (__stream)->_IO_write_end), 0) ? __overflow (__stream, (unsigned char) (__c)) : (unsigned char) (*(__stream)->_IO_write_ptr++ = (__c)));
-}
-
-
-
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-putc_unlocked (int __c, FILE *__stream)
-{
-  return (__builtin_expect (((__stream)->_IO_write_ptr >= (__stream)->_IO_write_end), 0) ? __overflow (__stream, (unsigned char) (__c)) : (unsigned char) (*(__stream)->_IO_write_ptr++ = (__c)));
-}
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-putchar_unlocked (int __c)
-{
-  return (__builtin_expect (((stdout)->_IO_write_ptr >= (stdout)->_IO_write_end), 0) ? __overflow (stdout, (unsigned char) (__c)) : (unsigned char) (*(stdout)->_IO_write_ptr++ = (__c)));
-}
-# 127 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio.h" 3
-extern __inline __attribute__ ((__gnu_inline__)) int
-__attribute__ ((__nothrow__ )) feof_unlocked (FILE *__stream)
-{
-  return (((__stream)->_flags & 0x0010) != 0);
-}
-
-
-extern __inline __attribute__ ((__gnu_inline__)) int
-__attribute__ ((__nothrow__ )) ferror_unlocked (FILE *__stream)
-{
-  return (((__stream)->_flags & 0x0020) != 0);
-}
-# 886 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 2 3
-
-
-# 1 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 1 3
-# 26 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern int __sprintf_chk (char *__restrict __s, int __flag, size_t __slen,
-     const char *__restrict __format, ...) __attribute__ ((__nothrow__ ))
-                                          ;
-extern int __vsprintf_chk (char *__restrict __s, int __flag, size_t __slen,
-      const char *__restrict __format,
-      __gnuc_va_list __ap) __attribute__ ((__nothrow__ ))
-                                          ;
-# 48 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) int
-__attribute__ ((__nothrow__ )) vsprintf (char *__restrict __s, const char *__restrict __fmt, __gnuc_va_list __ap)
-
-{
-  return __builtin___vsprintf_chk (__s, 2 - 1,
-       __builtin_object_size (__s, 2 > 1), __fmt, __ap);
-}
-
-
-
-extern int __snprintf_chk (char *__restrict __s, size_t __n, int __flag,
-      size_t __slen, const char *__restrict __format,
-      ...) __attribute__ ((__nothrow__ ))
-                                          ;
-extern int __vsnprintf_chk (char *__restrict __s, size_t __n, int __flag,
-       size_t __slen, const char *__restrict __format,
-       __gnuc_va_list __ap) __attribute__ ((__nothrow__ ));
-# 81 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) int
-__attribute__ ((__nothrow__ )) vsnprintf (char *__restrict __s, size_t __n, const char *__restrict __fmt, __gnuc_va_list __ap)
-
-{
-  return __builtin___vsnprintf_chk (__s, __n, 2 - 1,
-        __builtin_object_size (__s, 2 > 1), __fmt, __ap);
-}
-
-
-
-
-
-extern int __fprintf_chk (FILE *__restrict __stream, int __flag,
-     const char *__restrict __format, ...);
-extern int __printf_chk (int __flag, const char *__restrict __format, ...);
-extern int __vfprintf_chk (FILE *__restrict __stream, int __flag,
-      const char *__restrict __format, __gnuc_va_list __ap);
-extern int __vprintf_chk (int __flag, const char *__restrict __format,
-     __gnuc_va_list __ap);
-# 121 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) int
-vprintf (const char *__restrict __fmt, __gnuc_va_list __ap)
-{
-
-  return __vfprintf_chk (stdout, 2 - 1, __fmt, __ap);
-
-
-
-}
-
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) int
-vfprintf (FILE *__restrict __stream,
-   const char *__restrict __fmt, __gnuc_va_list __ap)
-{
-  return __vfprintf_chk (__stream, 2 - 1, __fmt, __ap);
-}
-
-
-extern int __dprintf_chk (int __fd, int __flag, const char *__restrict __fmt,
-     ...) __attribute__ ((__format__ (__printf__, 3, 4)));
-extern int __vdprintf_chk (int __fd, int __flag,
-      const char *__restrict __fmt, __gnuc_va_list __arg)
-     __attribute__ ((__format__ (__printf__, 3, 0)));
-# 157 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) int
-vdprintf (int __fd, const char *__restrict __fmt, __gnuc_va_list __ap)
-{
-  return __vdprintf_chk (__fd, 2 - 1, __fmt, __ap);
-}
-# 248 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern char *__fgets_chk (char *__restrict __s, size_t __size, int __n,
-     FILE *__restrict __stream)
-    __attribute__ ((__warn_unused_result__)) ;
-extern char *__fgets_alias (char *__restrict __s, int __n, FILE *__restrict __stream) __asm__ ("" "fgets")
-
-
-    __attribute__ ((__warn_unused_result__)) ;
-extern char *__fgets_chk_warn (char *__restrict __s, size_t __size, int __n, FILE *__restrict __stream) __asm__ ("" "__fgets_chk")
-
-
-     __attribute__ ((__warn_unused_result__)) ;
-
-
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) __attribute__ ((__warn_unused_result__)) char *
-fgets (char *__restrict __s, int __n, FILE *__restrict __stream)
-{
-  size_t sz = __builtin_object_size (__s, 2 > 1);
-  if (((sz) == (long unsigned int) -1 || (((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= ((sz)) / ((sizeof (char))))) && (((long unsigned int) (__n)) <= ((sz)) / ((sizeof (char)))))))
-    return __fgets_alias (__s, __n, __stream);
-  if ((((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= (sz) / (sizeof (char)))) && !(((long unsigned int) (__n)) <= (sz) / (sizeof (char)))))
-    return __fgets_chk_warn (__s, sz, __n, __stream);
-  return __fgets_chk (__s, sz, __n, __stream);
-}
-
-extern size_t __fread_chk (void *__restrict __ptr, size_t __ptrlen,
-      size_t __size, size_t __n,
-      FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
-extern size_t __fread_alias (void *__restrict __ptr, size_t __size, size_t __n, FILE *__restrict __stream) __asm__ ("" "fread") __attribute__ ((__warn_unused_result__));
-
-
-
-extern size_t __fread_chk_warn (void *__restrict __ptr, size_t __ptrlen, size_t __size, size_t __n, FILE *__restrict __stream) __asm__ ("" "__fread_chk")
-
-
-
-
-     __attribute__ ((__warn_unused_result__)) ;
-
-
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) __attribute__ ((__warn_unused_result__)) size_t
-fread (void *__restrict __ptr, size_t __size, size_t __n,
-       FILE *__restrict __stream)
-{
-  size_t sz = __builtin_object_size (__ptr, 0);
-  if (((sz) == (long unsigned int) -1 || (((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= ((sz)) / ((__size)))) && (((long unsigned int) (__n)) <= ((sz)) / ((__size))))))
-    return __fread_alias (__ptr, __size, __n, __stream);
-  if ((((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= (sz) / (__size))) && !(((long unsigned int) (__n)) <= (sz) / (__size))))
-    return __fread_chk_warn (__ptr, sz, __size, __n, __stream);
-  return __fread_chk (__ptr, sz, __size, __n, __stream);
-}
-# 327 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/bits/stdio2.h" 3
-extern size_t __fread_unlocked_chk (void *__restrict __ptr, size_t __ptrlen,
-        size_t __size, size_t __n,
-        FILE *__restrict __stream) __attribute__ ((__warn_unused_result__));
-extern size_t __fread_unlocked_alias (void *__restrict __ptr, size_t __size, size_t __n, FILE *__restrict __stream) __asm__ ("" "fread_unlocked") __attribute__ ((__warn_unused_result__));
-
-
-
-extern size_t __fread_unlocked_chk_warn (void *__restrict __ptr, size_t __ptrlen, size_t __size, size_t __n, FILE *__restrict __stream) __asm__ ("" "__fread_unlocked_chk")
-
-
-
-
-     __attribute__ ((__warn_unused_result__)) ;
-
-
-extern __inline __attribute__ ((__always_inline__)) __attribute__ ((__gnu_inline__)) __attribute__ ((__artificial__)) __attribute__ ((__warn_unused_result__)) size_t
-fread_unlocked (void *__restrict __ptr, size_t __size, size_t __n,
-  FILE *__restrict __stream)
-{
-  size_t sz = __builtin_object_size (__ptr, 0);
-  if (((sz) == (long unsigned int) -1 || (((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= ((sz)) / ((__size)))) && (((long unsigned int) (__n)) <= ((sz)) / ((__size))))))
-    {
-
-      if (__builtin_constant_p (__size)
-   && __builtin_constant_p (__n)
-   && (__size | __n) < (((size_t) 1) << (8 * sizeof (size_t) / 2))
-   && __size * __n <= 8)
- {
-   size_t __cnt = __size * __n;
-   char *__cptr = (char *) __ptr;
-   if (__cnt == 0)
-     return 0;
-
-   for (; __cnt > 0; --__cnt)
-     {
-       int __c = getc_unlocked (__stream);
-       if (__c == (-1))
-  break;
-       *__cptr++ = __c;
-     }
-   return (__cptr - (char *) __ptr) / __size;
- }
-
-      return __fread_unlocked_alias (__ptr, __size, __n, __stream);
-    }
-  if ((((__typeof (__n)) 0 < (__typeof (__n)) -1 || (__builtin_constant_p (__n) && (__n) > 0)) && __builtin_constant_p ((((long unsigned int) (__n)) <= (sz) / (__size))) && !(((long unsigned int) (__n)) <= (sz) / (__size))))
-    return __fread_unlocked_chk_warn (__ptr, sz, __size, __n, __stream);
-  return __fread_unlocked_chk (__ptr, sz, __size, __n, __stream);
-
-}
-# 889 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 2 3
-# 2 "AssignForEquals.c" 2
+# 13 "010-demo-functions.c" 2
 
 void func_assign_for_equals(int k) {
  int j = 2;
  int i, l, m;
 
  if (j = k) {
-  __printf_chk (2 - 1, "j");
+  printf("j");
  }
 
     if (k = 5) {
-        __printf_chk (2 - 1, "%d\n", k);
+        printf("%d\n", k);
     }
 
     if (i = k) {
-        __printf_chk (2 - 1, "%d\n", k);
+        printf("%d\n", k);
     }
 
     if (l = 5) {
-        __printf_chk (2 - 1, "%d\n", k);
+        printf("%d\n", k);
     }
  if (j == 6) {
   m = 5;
@@ -1043,7 +786,7 @@ void func_assign_for_equals(int k) {
   while (k != 6) {
 
    if (m = 5) {
-    __printf_chk (2 - 1, "a");
+    printf("a");
    }
    m = i;
   }
@@ -1051,12 +794,12 @@ void func_assign_for_equals(int k) {
 
 
     if ((j == 5) | (j = 6)){
-        __printf_chk (2 - 1, "%d\n", k);
+        printf("%d\n", k);
     }
 
 
     if ((j == 5) ||
         (j = 6)){
-        __printf_chk (2 - 1, "%d\n", k);
+        printf("%d\n", k);
     }
 }

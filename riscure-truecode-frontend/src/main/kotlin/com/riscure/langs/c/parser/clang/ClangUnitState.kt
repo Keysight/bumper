@@ -1,6 +1,7 @@
 package com.riscure.langs.c.parser.clang
 
 import arrow.core.Option
+import com.riscure.getOption
 import com.riscure.langs.c.ast.Location
 import com.riscure.langs.c.ast.SourceRange
 import com.riscure.langs.c.ast.TopLevel
@@ -20,15 +21,16 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
         cxunit.close()
     }
 
-    override fun ast() = _ast
+    override fun ast() = _ast.mapLeft { Throwable(it) }
 
     override fun getSource(decl: TopLevel): Option<String> =
-        decl.meta.location.map {
-            val cursor = it.begin.getCursor()
-            clang.clang_getCursorPrettyPrinted(cursor, clang.clang_getCursorPrintingPolicy(cursor)).string
+        decl.meta.location
+            .map { it.begin.getCursor() }
+            .filter { !it.isNull }
+            .map { cursor -> clang.clang_getCursorPrettyPrinted(cursor, null) }
+            .filter { !it.isNull }
+            .map { it.string }
         }
-
-}
 
 /**
  * In the context of a ClangUnitState we can convert some things

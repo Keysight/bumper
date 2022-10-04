@@ -1,7 +1,7 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
-import com.riscure.Failable
+import com.riscure.Fallable
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.*
 import kotlin.test.*
@@ -140,23 +140,48 @@ class ClangParserTest {
     }
 
     /**
-     * This is the preprocessed version of AssignForEquals.c from the demo workspace.
+     * This is the preprocessed version of 010-demo-functions.c from the demo workspace.
+     * It was produced with `clang -O0 -E 010-demo-functions.c -o 011-preprocessed-demo.c`
+     * (Yes, the O0 makes a difference! On clang 16 is does not seem to make a difference.)
+     *
      * It #includes stdio.h, so it is a big file. This shows that we can find
      * the declarations from the original file, by filtering by presumedLocation.
      */
     @Test
     fun test011() {
-        parsed("/parser-tests/011-preprocessed-demo.c") { tu, unit ->
-            val test = tu.decls.filter { tld ->
-                with (unit) {
+        parsed("/parser-tests/011-preprocessed-demo.c") { tu1, unit1 ->
+            // Find function by filtering by original main file name
+            val test = tu1.decls.filter { tld ->
+                with (unit1) {
                     tld.meta.presumedLocation
-                        .map { loc -> loc.sourceFile == Path.of("AssignForEquals.c") }
+                        .map { loc -> loc.sourceFile == Path.of("010-demo-functions.c") }
                         .getOrElse { true }
                 }
             }
+            // Should only have 3 top-level elements, despite this including stdio.
+            assertEquals(3, test.size)
 
-            assertEquals(1, test.size)
-            assertEquals("func_assign_for_equals", test[0].name)
+            // We also check that the manually preprocessed source is the same as the
+            // result of parsing the unpreprocessed source.
+            // the source of func_assign_for_equals in the manually preprocessed file
+            // and the parsed unpreprocessed file should be the same
+            parsed("/parser-tests/010-demo-functions.c") { tu2, unit2 ->
+                val fs1 = tu1.decls
+                    .functions()
+                    .definitions()
+                    .filter { it.name == "func_assign_for_equals" }
+                assertEquals(1, fs1.size)
+                val fn1 = fs1[0]
+
+                val fs2 = tu2.decls
+                    .functions()
+                    .definitions()
+                    .filter { it.name == "func_assign_for_equals" }
+                assertEquals(1, fs2.size)
+                val fn2 = fs2[0]
+
+                assertEquals(unit1.getSource(fn1), unit2.getSource(fn2))
+            }
         }
     }
 
@@ -183,15 +208,29 @@ class ClangParserTest {
         }
     }
 
-    /* writing source test */
     @Test
     fun test013() {
-        parsed("/parser-tests/001-minimal-main.c") { tu, unit ->
+        parsed("/parser-tests/013-cpp-define.c") { tu, unit ->
             val ds = tu.decls
-            val writer = object: StringWriter(), Failable by Failable.tantrum {}
+            assertEquals(1, ds.size)
+            val fn = ds[0]
 
-            unit.writeSource(ds, writer)
-            assertEquals("\nint main() {\n}\n", writer.toString())
+            val source = unit.getSource(fn).getOrElse { "" }
+            assertFalse("DELEIPEMACRO".toRegex().containsMatchIn(source))
+        }
+    }
+
+    @Test
+    fun test014() {
+        parsed("/parser-tests/014-cpp-ifdef.c") { tu, unit ->
+            val ds = tu.decls
+            assertEquals(1, ds.size)
+            val fn = ds[0]
+
+            val source = unit.getSource(fn).getOrElse { "" }
+            assertFalse("bad".toRegex().containsMatchIn(source))
+            println(fn.meta.location)
+            println(fn.meta.presumedLocation)
         }
     }
 }
