@@ -1,18 +1,19 @@
 package com.riscure.dobby.clang
 
+typealias Options = List<Arg>
+
 /**
  * The semantic model of Clang compilation commands
  */
-data class Command(val optArgs: List<Arg>, val positionalArgs: List<String>) {
+data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     /**
      * Return a command without [opt] or any of its aliases.
      * This requires a spec as context.
      */
     context(Spec)
     fun filter(opts: Set<OptionSpec>): Command {
-        val aliases = opts.aliasClosure()
         return this.copy(
-            optArgs = optArgs.filter { (argSpec, _) -> !aliases.contains(argSpec) }
+            optArgs = optArgs.filter { (argSpec, _) -> !opts.any { blacklisted -> equal(argSpec, blacklisted) } }
         )
     }
 
@@ -22,8 +23,7 @@ data class Command(val optArgs: List<Arg>, val positionalArgs: List<String>) {
      */
     context(Spec)
     fun contains(opts: Set<OptionSpec>): Boolean {
-        val aliases = opts.aliasClosure()
-        return optArgs.any { (argSpec, _) -> aliases.contains(argSpec) }
+        return optArgs.any { (argSpec, _) -> opts.any { listed -> equal(listed, argSpec)} }
     }
 
     companion object : arrow.typeclasses.Monoid<Command> {
@@ -36,4 +36,6 @@ data class Command(val optArgs: List<Arg>, val positionalArgs: List<String>) {
 /**
  * Clang compilation optional arguments, with semantic info from the spec attached.
  */
-data class Arg(val opt: OptionSpec, val values: List<String> = listOf())
+data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
+    constructor(opt: OptionSpec, value: String):  this(opt, listOf(value))
+}

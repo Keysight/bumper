@@ -1,7 +1,6 @@
 package com.riscure.dobby.clang
 
 import arrow.core.*
-import com.riscure.dobby.shell.Shell
 import kotlin.test.*
 
 internal class ParserTest {
