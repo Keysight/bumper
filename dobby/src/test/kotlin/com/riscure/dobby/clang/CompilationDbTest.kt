@@ -48,6 +48,28 @@ internal class CompilationDbTest {
         println(db)
     }
 
+
+    @Test
+    fun tripleQuotes() = parsed(
+        """ [
+        {
+            "command": "cc -c -DARM64_ASM_ARCH=\\\"armv8.5-a\\\" File.c",
+            "directory": "/local/mnt/workspace/kailua",
+            "file": "/local/mnt/workspace/kailua/file.c"
+        }
+        ]
+        """.trimIndent().byteInputStream()
+    ) { db ->
+        assertEquals(1, db.entries.size)
+
+        val cmd = db.entries[0].command
+        assertEquals(2, cmd.optArgs.size)
+        assertEquals(1, cmd.positionalArgs.size)
+
+        val macro = cmd.optArgs[1]
+        assertEquals(listOf("ARM64_ASM_ARCH=\"armv8.5-a\""), macro.values)
+    }
+
     @Test
     fun parseTest01() = parsed("/01.cdb.json") { }
 
