@@ -41,6 +41,14 @@ data class OptionSpec(
      **/
     val aliasFor  : Option<Alias> = None,
 ) {
+    fun appearance(): String =
+        when {
+            // in order of preference
+            prefixes.contains("--") -> "--${name}"
+            prefixes.contains("-")  -> "-${name}"
+            else                    -> "${prefixes.first()}${name}"
+        }
+
     fun allAppearances(): Set<String> =
         // Empty list of prefixes results in 0 appearances
         // This should be OK, because only KIND_INPUT and KIND_UNKNOWN options have no prefixes.

@@ -35,6 +35,17 @@ data class Line(val args: List<Arg>) {
 /* Model of the syntax of a Clang compilation argument */
 data class Arg(val parts: List<Val>) {
     fun eval(): String = parts.joinToString(separator="") { it.eval() }
+
+    override fun toString() = parts.joinToString(separator = "") { it.toString() }
+
+    companion object {
+        /**
+         * This is the partial inverse of eval, adding quoting to the parts
+         * to obtain the ast of a shell argument.
+         */
+        fun quote(parts: List<String>): Arg = Arg(parts.map { Val.ofRaw(it) })
+        fun quote(vararg parts: String): Arg = quote(parts.toList())
+    }
 }
 
 /* Model of the syntax of a shell 'value' */
@@ -42,10 +53,48 @@ sealed class Val {
     abstract val content: List<Symbol>
     fun eval(): String = content.joinToString(separator="") { it.eval() }
 
-    data class DoubleQuoted(override val content: List<Symbol>) : Val()
-    data class SingleQuoted(override val content: List<Symbol>) : Val()
+    data class DoubleQuoted(override val content: List<Symbol>) : Val() {
 
-    data class Unquoted(override val content: List<Symbol>) : Val()
+        override fun toString() = """"${content.joinToString(separator = "") { it.value }}""""
+        companion object {
+            fun ofRaw(x: String) =
+                DoubleQuoted(x.map { c ->
+                    when (c) {
+                        '"'  -> Symbol.escapedDouble
+                        '\\' -> Symbol.escapedEscape
+                        else -> Symbol(c.toString())
+                    }
+                })
+        }
+    }
+    data class SingleQuoted(override val content: List<Symbol>) : Val() {
+        override fun toString() = "'${content.joinToString(separator = "") { it.value }}'"
+    }
+
+    data class Unquoted(override val content: List<Symbol>) : Val() {
+        override fun toString() = content.joinToString(separator = "") { it.value }
+        companion object {
+            fun ofRaw(v: String) = Unquoted(v.map { Symbol(it.toString()) })
+        }
+    }
+
+    companion object {
+        /**
+         * Quotes a raw string for passing it as a single value on the shell.
+         *
+         * E.g., ofRaw(" ")  -> "\" \""
+         * E.g., ofRaw("\ ") -> "\"\\ \""
+         *
+         * That is: every character in the string is interpreted as a single token
+         * and is escaped to be interpreted by the shell as a single token.
+         *
+         * If you have a string that is already escaped for the shell, this method is not for you.
+         * Instead, use the parser.
+         */
+        fun ofRaw(v: String): Val =
+            if ("""["\\\s]""".toRegex().containsMatchIn(v)) DoubleQuoted.ofRaw(v)
+            else Unquoted.ofRaw(v)
+    }
 }
 
 /**

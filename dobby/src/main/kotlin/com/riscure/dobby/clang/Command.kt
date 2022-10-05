@@ -1,5 +1,8 @@
 package com.riscure.dobby.clang
 
+import com.riscure.dobby.shell.Shell
+import com.riscure.dobby.shell.Arg as ShellArg
+
 typealias Options = List<Arg>
 
 /**
@@ -64,4 +67,17 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
  */
 data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
     constructor(opt: OptionSpec, value: String):  this(opt, listOf(value))
+
+    /**
+     * Join arguments according to the option specification.
+     */
+    fun shellify() = when(opt.type) {
+        OptionType.Joined            -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
+        OptionType.CommaJoined       -> ShellArg.quote(opt.appearance(), values.joinToString(separator = ",") { it })
+        OptionType.JoinedAndSeparate -> ShellArg.quote(opt.appearance() + values[0], *values.drop(1).toTypedArray())
+        OptionType.JoinedOrSeparate  -> ShellArg.quote(opt.appearance(), *values.toTypedArray()) // separate
+        OptionType.Separate          -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
+        OptionType.Toggle            -> ShellArg.quote(opt.appearance())
+        is OptionType.MultiArg       -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
+    }
 }
