@@ -3,11 +3,6 @@ package com.riscure.langs.c.preprocessor
 import arrow.core.*
 import com.riscure.dobby.clang.Options
 import java.io.File
-import java.io.Reader
-import java.io.Writer
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.forEachLine
-import kotlin.io.path.writer
 
 interface Preprocessor {
     class Error(input: File, reason: List<String>):

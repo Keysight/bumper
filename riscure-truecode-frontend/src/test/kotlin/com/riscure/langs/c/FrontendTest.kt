@@ -2,9 +2,10 @@ package com.riscure.langs.c
 
 import arrow.core.*
 import com.riscure.Fallable
+import com.riscure.dobby.clang.Arg
+import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.analysis.Identity
 import com.riscure.langs.c.ast.TranslationUnit
-import com.riscure.langs.c.parser.ClangParserTest
 import com.riscure.langs.c.parser.UnitState
 import java.io.File
 import java.io.StringWriter
@@ -20,10 +21,10 @@ internal class FrontendTest {
         storage
     )
 
-    private fun processed(resource: String, whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
-        val test = File(ClangParserTest::class.java.getResource(resource)!!.file)
+    private fun processed(resource: String, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
+        val test = File(this.javaClass.getResource(resource)!!.file)
         val result = frontend
-            .process(test, listOf())
+            .process(test, opts)
             .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
 
         when (result) {
@@ -34,9 +35,7 @@ internal class FrontendTest {
 
     @Test
     fun simple() {
-        val input = """
-        int main() { }
-        """.trimIndent()
+        val input = """int main() { };\n"""
 
         val inputFile = kotlin.io.path.createTempFile(suffix = ".c").toFile()
         inputFile.writeText(input, Charsets.US_ASCII)
@@ -56,7 +55,7 @@ internal class FrontendTest {
             val writer = object: StringWriter(), Fallable by Fallable.tantrum {}
 
             unit.writeSource(ds, writer)
-            assertEquals("\nint main() {\n}\n", writer.toString())
+            assertEquals("int main() {\n};\n", writer.toString())
         }
     }
 
@@ -95,5 +94,23 @@ internal class FrontendTest {
             }
         }
     }
+
+    @Test
+    fun missingInclude() {
+        val test = File(javaClass.getResource("/parser-tests/015-include.c")!!.file)
+        val result = frontend.process(test, listOf())
+
+        assertTrue(result.isLeft(), "Expected processing failure due to missing include.")
+    }
+
+    @Test
+    fun test015() { // include directives
+        val includesDir = File(javaClass.getResource("/parser-tests/includes/")!!.file)
+        val include = Arg.reads("-I" + includesDir.absolutePath).getOrElse { fail() }
+        processed("/parser-tests/015-include.c", listOf(include)) { tu, unit ->
+            println(tu)
+        }
+    }
+
 
 }
