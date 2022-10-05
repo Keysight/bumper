@@ -1,0 +1,1 @@
+#define DELEIPEMACRO 42
