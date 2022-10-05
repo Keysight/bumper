@@ -3,14 +3,16 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 
 plugins {
+    `maven-publish`
+
     kotlin("jvm") version "1.7.10"
     kotlin("plugin.serialization") version "1.7.10"
 
     antlr
 }
 
-group = "com.riscure"
-version = "1.0-SNAPSHOT"
+group   = "com.riscure"
+version = "0.1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -64,4 +66,42 @@ tasks.generateGrammarSource {
         "-no-visitor",
         "-no-listener"
     )
+}
+
+// Publishing
+
+fun env(key: String): String? = System.getenv(key)
+
+val nexusUsername = env("NEXUS_USERNAME")
+val nexusPassword = env("NEXUS_PASSWORD")
+
+val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
+val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId    = "com.riscure"
+            artifactId = rootProject.name
+            version    = version
+
+            from(components["java"])
+
+            pom {
+                name.set(rootProject.name)
+                description.set("The friendly compilation database elf")
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            isAllowInsecureProtocol = true
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
+            }
+        }
+    }
 }
