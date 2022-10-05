@@ -20,7 +20,7 @@ import stdlibpp.*
 
 private typealias Result<T> = Either<String,T>
 
-object Parser {
+object ClangParser {
     /**
      * This is the trie built from the parsed clang spec.
      */
@@ -88,6 +88,18 @@ object Parser {
         }
     }
 
+    fun parseOption(head: String, vararg tail: String): Result<Arg> =
+        parseClangArgument(head).flatMap { arg -> when (arg) {
+            is Whole -> arg.arg.right()
+            is Partial ->
+                if (tail.size == arg.expectValues) {
+                    "Expected exactly ${arg.expectValues} more arguments".left()
+                } else {
+                    arg.arg.copy(values = arg.arg.values.plus(tail)).right()
+                }
+            is Positional -> "Expected clang option, got ${head}".left()
+        }}
+
     private fun tryPositional(input: String): Result<Positional> =
         if (input.startsWith("-")) "Unrecognized option $input".left()
         else Positional(input).right()
@@ -100,7 +112,7 @@ object Parser {
      * If you have a shell-quoted line instead, you first have to parse it and evaluate
      * the quotes/escapes using com.riscure.dobby.shell.
      */
-    fun parseClangArguments(arguments: List<String>): Result<Command> = when (arguments.size) {
+    fun parseArguments(arguments: List<String>): Result<Command> = when (arguments.size) {
         0    -> Command.empty().right()
         else -> {
             // parse the head
@@ -111,17 +123,17 @@ object Parser {
                         // depending on what we parse,
                         // we parse the tail differently
                         is Positional ->
-                            parseClangArguments(other)
+                            parseArguments(other)
                                 .map { tail -> tail.copy(positionalArgs = listOf(arg.value).plus(tail.positionalArgs)) }
                         is Whole ->
-                            parseClangArguments(other)
+                            parseArguments(other)
                                 .map { tail -> tail.copy(optArgs = listOf(arg.arg).plus(tail.optArgs)) }
                         is Partial ->
                             if (other.size < arg.expectValues) {
                                 "Expected at least ${arg.expectValues} more arguments".left()
                             } else {
                                 val a = arg.arg.copy(values = arg.arg.values.plus(other.take(arg.expectValues)))
-                                parseClangArguments(other.drop(arg.expectValues))
+                                parseArguments(other.drop(arg.expectValues))
                                     .map { tail -> tail.copy(optArgs = listOf(a).plus(tail.optArgs)) }
                             }
                     }

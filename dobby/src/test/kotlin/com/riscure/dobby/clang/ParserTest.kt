@@ -6,7 +6,7 @@ import kotlin.test.*
 internal class ParserTest {
     @Test
     fun optimizationToggle01() {
-        val O0 = Parser.parseClangArguments(listOf("-O0"))
+        val O0 = ClangParser.parseArguments(listOf("-O0"))
         assertTrue(O0.isRight())
 
         val args = (O0 as Either.Right).value.optArgs
@@ -16,7 +16,7 @@ internal class ParserTest {
 
     @Test
     fun optimizationToggle02() {
-        val line = Parser.parseClangArguments(listOf("-O", "1"))
+        val line = ClangParser.parseArguments(listOf("-O", "1"))
         assertTrue(line.isRight())
 
         val cmd = (line as Either.Right).value
@@ -27,7 +27,7 @@ internal class ParserTest {
 
     @Test
     fun optimizationToggle03() {
-        val O1 = Parser.parseClangArguments(listOf("-O=1"))
+        val O1 = ClangParser.parseArguments(listOf("-O=1"))
         assertTrue(O1.isRight())
 
         val args = (O1 as Either.Right).value.optArgs
@@ -42,7 +42,7 @@ internal class ParserTest {
 
     @Test
     fun xargJoinedAndSep() {
-        val xarch = Parser.parseClangArguments(listOf("-Xarch_x", "y"))
+        val xarch = ClangParser.parseArguments(listOf("-Xarch_x", "y"))
         assertTrue(xarch.isRight())
 
         val args = (xarch as Either.Right).value.optArgs
@@ -53,7 +53,7 @@ internal class ParserTest {
 
     @Test
     fun mcpu() {
-        val mcpu = Parser.parseClangArguments(listOf("-mcpu=hexagonv5"))
+        val mcpu = ClangParser.parseArguments(listOf("-mcpu=hexagonv5"))
         assertTrue(mcpu.isRight())
 
         val args = (mcpu as Either.Right).value.optArgs
@@ -64,19 +64,19 @@ internal class ParserTest {
 
     @Test
     fun mcpuSeparate() {
-        val ugh = Parser.parseClangArguments(listOf("-mcpu", "hexagonv5"))
+        val ugh = ClangParser.parseArguments(listOf("-mcpu", "hexagonv5"))
         assertTrue(ugh.isLeft())
     }
 
     @Test
     fun objcmt() {
-        val objcmt = Parser.parseClangArguments(listOf("-objcmt-migrate-literals"))
+        val objcmt = ClangParser.parseArguments(listOf("-objcmt-migrate-literals"))
         assertTrue(objcmt.isRight())
 
         val cmd = (objcmt as Either.Right).value
         assertEquals("objcmt-migrate-literals", cmd.optArgs[0].opt.name)
 
-        val o = Parser.parseClangArguments(listOf("-objcmt-migrate-literal"))
+        val o = ClangParser.parseArguments(listOf("-objcmt-migrate-literal"))
         assertTrue(o.isRight())
         val cmd2 = (o as Either.Right).value
         assertEquals("o", cmd2.optArgs[0].opt.name)
@@ -91,7 +91,7 @@ internal class ParserTest {
     @Test
     fun tc2572() {
         val args = listOf("-c", "-o", "src/ArrayBoundaries.o", "-mv5", "/home/arjen/true-code/Demo/codebase/ArrayBoundaries.c")
-        val result = Parser.parseClangArguments(args)
+        val result = ClangParser.parseArguments(args)
 
         assertTrue(result.isRight())
         val cmd = (result as Either.Right).value
@@ -107,7 +107,7 @@ internal class ParserTest {
             "-c", "--output", "src/ArrayBoundaries.o", "--prefix", "wolla",
             "-sectcreate", "<arg1>", "<arg2>", "<arg3>", "src/ArrayBoundaries.c")
 
-        val result = Parser.parseClangArguments(args)
+        val result = ClangParser.parseArguments(args)
 
         assertTrue(result.isRight())
         val cmd = (result as Either.Right).value

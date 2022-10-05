@@ -125,15 +125,13 @@ object Shell {
     }
 
     /**
-     * Parse a single argument from the string, and return the result
-     * and the unparsed remainder.
+     * Parse a single argument from the string, may leave some remainder unparsed.
      */
-    fun arg(line: String): Result<Pair<Arg, String>> {
+    fun arg(line: String): Result<Arg> {
         val s = CharStreams.fromString(line)
         return Either
             .catch { mkParser(s).arg() }
             .map { it.ast() }
-            .map { Pair(it, s.unwind().trim()) }
     }
 
     private fun ShellParser.LineContext.ast(): Line =

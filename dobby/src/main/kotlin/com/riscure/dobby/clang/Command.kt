@@ -1,6 +1,5 @@
 package com.riscure.dobby.clang
 
-import com.riscure.dobby.shell.Shell
 import com.riscure.dobby.shell.Arg as ShellArg
 
 typealias Options = List<Arg>
@@ -51,14 +50,24 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     fun plus(arg: Arg) = this.copy(optArgs = optArgs + arg)
 
     /**
+     * Adds [arg] to the (rear of) the options of this command
+     */
+    fun plus(args: List<Arg>) = this.copy(optArgs = optArgs + args)
+
+    /**
      * Adds [positional] to the rear of the positional arguments of this command.
      */
     fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
+
+    fun toArguments(): List<String> =
+        optArgs.map { it.shellify().toString() } + positionalArgs.map { ShellArg.quote(it).toString() }
 
     companion object : arrow.typeclasses.Monoid<Command> {
         override fun empty(): Command = Command(listOf(), listOf())
         override fun Command.combine(b: Command): Command =
             Command(optArgs.plus(b.optArgs), positionalArgs.plus(b.positionalArgs))
+
+        fun reads(arguments: List<String>) = ClangParser.parseArguments(arguments)
     }
 }
 
@@ -79,5 +88,9 @@ data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
         OptionType.Separate          -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
         OptionType.Toggle            -> ShellArg.quote(opt.appearance())
         is OptionType.MultiArg       -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
+    }
+
+    companion object {
+        fun reads(head: String, vararg tail: String) = ClangParser.parseOption(head, *tail)
     }
 }
