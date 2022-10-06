@@ -7,6 +7,7 @@ import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.analysis.Identity
 import com.riscure.langs.c.ast.TranslationUnit
 import com.riscure.langs.c.parser.UnitState
+import com.riscure.langs.c.parser.clang.ClangUnitState
 import java.io.File
 import java.io.StringWriter
 import java.nio.file.Path
@@ -15,9 +16,8 @@ import kotlin.test.*
 
 internal class FrontendTest {
     private val storage = Storage.temporary("FrontendTest").getOrHandle { throw it }
-    private val frontend = Frontend.clang(
+    private val frontend = Frontend.clang<ClangUnitState>(
         Path.of("clang"),
-        Identity(),
         storage
     )
 
