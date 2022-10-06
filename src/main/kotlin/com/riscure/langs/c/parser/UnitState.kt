@@ -45,7 +45,7 @@ interface UnitState : Closeable {
             when (val src = getSource(tld)) {
                 is Some -> {
                     val entry = src.value.trim()
-                    if (!entry.isBlank()) writer.write(entry + ";\n")
+                    if (entry.isNotBlank()) writer.write("$entry;\n")
                 }
                 None -> TODO() // writer.fail(NoSource(tld.name))
             }

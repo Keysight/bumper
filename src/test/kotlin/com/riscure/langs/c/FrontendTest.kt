@@ -35,15 +35,26 @@ internal class FrontendTest {
 
     @Test
     fun simple() {
+        val input = """int main() { }"""
+
+        val inputFile = kotlin.io.path.createTempFile(suffix = ".c").toFile()
+        inputFile.writeText(input)
+
+        val unit = assertIs<Either.Right<UnitState>>(frontend.process(inputFile, listOf()))
+        val ast  = assertIs<Either.Right<TranslationUnit>>(unit.value.ast())
+
+        inputFile.delete()
+    }
+
+    @Test
+    fun simpleWithTrailingSemicolon() {
         val input = """int main() { };\n"""
 
         val inputFile = kotlin.io.path.createTempFile(suffix = ".c").toFile()
-        inputFile.writeText(input, Charsets.US_ASCII)
+        inputFile.writeText(input)
 
-        when (val result = frontend.process(inputFile, listOf())) {
-            is Either.Left -> fail(result.value.message)
-            is Either.Right -> println(result.value.ast())
-        }
+        val unit = assertIs<Either.Right<UnitState>>(frontend.process(inputFile, listOf()))
+        val ast  = assertIs<Either.Right<TranslationUnit>>(unit.value.ast())
 
         inputFile.delete()
     }

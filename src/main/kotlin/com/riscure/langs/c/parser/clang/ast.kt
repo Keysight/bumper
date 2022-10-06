@@ -32,6 +32,9 @@ fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
     }
 
     return this.children()
+        // somehow e.g. an empty ';' results in top-level UnexposedDecls
+        // not sure what else causes them.
+        .filter { it.kind() != CXCursor_UnexposedDecl }
         .map { it.asTopLevel() }
         .sequenceEither()
         .map { TranslationUnit(it) }

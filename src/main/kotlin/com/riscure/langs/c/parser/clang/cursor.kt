@@ -61,9 +61,10 @@ fun CXCursor.getReferenced() = clang.clang_getCursorReferenced(this)
 fun CXCursor.isTopLevelEntity() =
     // something is top-level when its semantic parent is
     // the translation unit.
-    clang_equalCursors(
-        clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this)),
-        clang_getCursorSemanticParent(this)
-    ).toBool()
+    clang_equalCursors(translationUnit(), semanticParent()).toBool()
+
+fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
+fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
+fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
 
 fun CXType.spelling(): String = clang.clang_getTypeSpelling(this).string
