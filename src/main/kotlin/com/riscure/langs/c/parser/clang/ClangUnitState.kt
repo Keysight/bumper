@@ -1,16 +1,18 @@
 package com.riscure.langs.c.parser.clang
 
-import arrow.core.Option
-import com.riscure.getOption
+import arrow.core.*
+import arrow.typeclasses.Monoid
 import com.riscure.langs.c.ast.Location
 import com.riscure.langs.c.ast.SourceRange
 import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.parser.UnitState
 import com.riscure.langs.c.parser.asTranslationUnit
+import com.riscure.langs.c.parser.getStart
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
-import java.io.File
 import java.nio.file.Path
+
+typealias Result<T> = Either<Throwable, T>
 
 class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
 
@@ -22,6 +24,33 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
     }
 
     override fun ast() = _ast.mapLeft { Throwable(it) }
+
+    private fun getToplevelFromCursor(cursor: CXCursor): Result<TopLevel> =
+        cursor.right()
+            .filterOrElse({ it.isTopLevelEntity() }, { Throwable("Not a top-level entity" )})
+            .flatMap {cursor ->
+                ast().flatMap { ast ->
+                    cursor
+                        .getStart().toEither { Throwable("No location for cursor.") }
+                        .flatMap { ast.getByLocation(it).toEither { Throwable("No top-level declaration in AST with that location.") } }
+                }
+            }
+
+    override fun getReferencedToplevels(decl: TopLevel): Result<Set<TopLevel>> =
+        decl
+            .getCursor().toEither { Throwable("Failed to get cursor for toplevel declaration") }
+            .flatMap { cursor ->
+                cursor
+                    // collect cursors for nodes that are references
+                    .collect(Monoid.list(), true) {
+                        if (isReference()) listOf(getReferenced()) else { listOf()}
+                    }
+                    // only keep those that reference top-level entities
+                    .filter { it.isTopLevelEntity() }
+                    .map { getToplevelFromCursor(it) }
+                    .sequenceEither() // bubble errors up
+                    .map { it.toSet() }
+            }
 
     override fun getSource(decl: TopLevel): Option<String> =
         decl.meta.location
