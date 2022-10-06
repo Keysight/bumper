@@ -85,7 +85,15 @@ internal class ClangUnitStateTest {
         val v = ast.decls[0]!!
         with (unit) {
             val c = v.getCursor().getOrElse { fail() }
+            // check that getCursor return the VarDecl
             assertTrue(c.asVarDecl() is Either.Right)
         }
+    }
+
+    @Test
+    fun test06() = parsed("/analysis-tests/006-typedef-in-return-type.c") { ast, unit ->
+        val fn = ast.decls.filter{ it.name == "f" }[0]!!
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(fn))
+        assertEquals(1, refs.value.size)
     }
 }
