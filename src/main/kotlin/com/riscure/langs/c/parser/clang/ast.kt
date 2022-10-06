@@ -1,12 +1,13 @@
 /**
  * This file contains the translation from the libclang API to the
- * JVM-native AST representing a C translation unit.
+ * JVM AST representing a C translation unit.
  */
 package com.riscure.langs.c.parser
 
 import arrow.core.*
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.parser.clang.*
 import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
@@ -15,39 +16,9 @@ import java.nio.file.Path
 private typealias Result<T> = Either<String, T>
 
 /**
- * Get the list of child cursors from a cursor.
- */
-fun CXCursor.children(): List<CXCursor> {
-    val cs = mutableListOf<CXCursor>()
-    val visitor = object: CXCursorVisitor() {
-        override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
-            cs.add(self!!)
-            return CXChildVisit_Continue
-        }
-    }
-
-    clang_visitChildren(this, visitor, null)
-    visitor.deallocate()
-
-    return cs
-}
-
-fun CXString.get(): String = clang_getCString(this).string
-
-fun CXString.getOption(): Option<String> =
-    this.some()
-        .filter { it.isNull() }
-        .map { clang_getCString(this) }
-        .filter { it.isNull }
-        .map { it.string }
-
-fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
-fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
-
-/**
  * Combinator to fail with a consistent message if we have an unexpected cursor kind.
  */
-fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>): Result<T> {
+private fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Result<T>): Result<T> {
     if (kind() != k) {
         return "Expected ${expectation}. Got cursor of kind ${kindName()}".left()
     }
@@ -75,7 +46,8 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
         CXCursor_StructDecl   -> this.asStructDecl()
         CXCursor_VarDecl      -> this.asVarDecl()
         CXCursor_TypedefDecl  -> this.asTypedef()
-        else -> "Expected toplevel declaration".left()
+        CXCursor_EnumDecl     -> this.asEnumDecl()
+        else -> "Expected toplevel declaration, got kind ${kindName()}".left()
     })
     .map { it.withMeta(getMetadata()) }
 
@@ -85,31 +57,27 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
 fun CXCursor.getMetadata(): Meta {
     // FIXME? No doc available
     val comment  = clang_Cursor_getBriefCommentText(this).getOption()
-    val extent   = getExtent()
-    val location = extent.flatMap { it.asSourceRange() }
-    val presumed = extent.flatMap { it.getStart().getPresumedLocation() }
 
     return Meta(
-        location = location,
-        presumedLocation = presumed,
+        location = getRange(),
+        presumedLocation = getPresumedLocation(),
         doc = comment
     )
 }
 
-fun CXCursor.getExtent(): Option<CXSourceRange> {
-    val ptr = clang_getCursorExtent(this)
-    return if (ptr.isNull) None else ptr.some()
-}
+fun CXCursor.getStart(): Option<Location> =
+    getExtent().flatMap {
+        clang_getRangeStart(it).asLocation()
+    }
 
-fun CXSourceRange.getStart(): CXSourceLocation =
-    clang_getRangeStart(this)
+fun CXCursor.getEnd(): Option<Location> =
+    getExtent().flatMap {
+        clang_getRangeEnd(it).asLocation()
+    }
 
-fun CXSourceRange.getEnd(): CXSourceLocation =
-    clang_getRangeEnd(this)
-
-fun CXSourceRange.asSourceRange(): Option<SourceRange> =
-    getStart().asLocation().flatMap { begin ->
-        getEnd().asLocation().map { end ->
+fun CXCursor.getRange(): Option<SourceRange> =
+    getStart().flatMap { begin ->
+        getEnd().map { end ->
             SourceRange(begin, end)
         }
     }
@@ -130,17 +98,20 @@ fun CXSourceLocation.asLocation(): Option<Location> {
     }
 }
 
-fun CXSourceLocation.getPresumedLocation(): Option<Location> {
+fun CXCursor.getPresumedLocation(): Option<Location> {
     val line   = IntPointer(1)
     val col    = IntPointer(1)
     val offset = IntPointer(1)
     val file   = CXString()
 
     return try {
-        clang_getPresumedLocation(this, file, line, col)
-        line.getOption().flatMap { l ->
-            col.getOption().map { c -> Location(Path.of(file.string), l, c) }
-        }
+        getExtent()
+            .flatMap {
+                clang_getPresumedLocation(clang_getRangeStart(it), file, line, col)
+                line.getOption().flatMap { l ->
+                    col.getOption().map { c -> Location(Path.of(file.string), l, c) }
+                }
+            }
     } finally {
         line.close(); col.close(); offset.close(); file.close()
     }
@@ -152,6 +123,12 @@ fun CXCursor.asTypedef(): Result<TopLevel.Typedef> =
         clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
             TopLevel.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
         }
+    }
+
+
+fun CXCursor.asEnumDecl(): Result<TopLevel.EnumDef> =
+    ifKind (CXCursor_EnumDecl, "enum declaration") {
+        TopLevel.EnumDef(spelling(), listOf()).right() // TODO enumerators
     }
 
 fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
@@ -203,10 +180,6 @@ fun CXCursor.asParam(): Result<Param> =
             .map { type -> Param(spelling(), type) }
     }
 
-// CXType extensions
-
-fun CXType.spelling(): String = clang_getTypeSpelling(this).string
-
 /* Type declarations yield an assignable type */
 fun CXCursor.asTypeDeclType(): Result<Type> =
     when(kind()) {
@@ -223,7 +196,7 @@ fun CXCursor.asTypedefType(): Result<Type> =
     }
 
 fun CXType.asType(): Result<Type> =
-    when (this.kind()) {
+    when (kind()) {
         CXType_Void -> Type.Void().right()
         CXType_Bool -> Type.Int(IKind.IBoolean).right()
         CXType_Char_U -> Type.Int(IKind.IUChar).right() // correct?
@@ -257,7 +230,22 @@ fun CXType.asType(): Result<Type> =
                 .asType()
                 .map { Type.Array(it) }
 
+        // http://clang.llvm.org/doxygen/classclang_1_1FunctionNoProtoType.html
+        CXType_FunctionNoProto ->
+            clang_getResultType(this)
+                .asType()
+                .map { retType -> Type.Fun(retType, listOf(), false) }
+        CXType_FunctionProto   ->
+        clang_getResultType(this)
+            .asType()
+            .flatMap { retType ->
+                (0 until clang_getNumArgTypes(this))
+                    .map { clang_getArgType(this, it).asType() }
+                    .sequenceEither()
+                    .map { args -> Type.Fun(retType, args, false) }
+            }
+
         // others that could occur in C?
 
-        else -> "Could not parse type of kind '${this.kind()}'".left()
+        else -> "Could not parse type of kind '${kindName()}'".left()
     }

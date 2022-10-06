@@ -4,6 +4,7 @@ package com.riscure.langs.c.ast
 
 import arrow.core.*
 import java.nio.file.Path
+import kotlin.collections.Map.Entry
 
 typealias Name  = String
 typealias Ident = String
@@ -49,7 +50,7 @@ sealed class Type {
     data class Float  (val kind: FKind, override val attrs: Attrs = listOf()): Type()
     data class Ptr    (val type: Type, override val attrs: Attrs = listOf()): Type()
     data class Array  (val type: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
-    data class Fun    (val retType: Type, val args: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
+    data class Fun    (val retType: Type, val args: List<Type>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
     data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type()
     data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type()
     data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type()
@@ -128,7 +129,7 @@ interface TopLevel {
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
 
-        fun type(): Type = Type.Fun(ret, params, vararg)
+        fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
     }
 
     data class Composite(
@@ -167,7 +168,24 @@ interface TopLevel {
 
 data class TranslationUnit(
     val decls: List<TopLevel>
-)
+) {
+    /**
+     *  Mapping from locations to top-level entities.
+     *  Toplevel entities without locations are not represented
+     */
+    private val byLocation: Map<Location, TopLevel> by lazy {
+        decls
+            .flatMap {
+                when (val loc = it.meta.location) {
+                    is Some -> listOf(Pair(loc.value.begin, it))
+                    None    -> listOf()
+                }
+            }
+            .toMap()
+    }
+
+    fun getByLocation(loc: Location): Option<TopLevel> = byLocation.get(loc).toOption()
+}
 
 /* filters for toplevel declarations */
 

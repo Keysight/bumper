@@ -1,6 +1,6 @@
 package com.riscure.langs.c.preprocessor.clang
 
-import com.riscure.langs.c.parser.ClangParserTest
+import com.riscure.langs.c.parser.clang.ClangParserTest
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Path

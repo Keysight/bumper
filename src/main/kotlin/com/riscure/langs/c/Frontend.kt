@@ -42,7 +42,7 @@ class Frontend<S : UnitState>(
         /**
          * Create a pipeline based on clang tooling.
          */
-        fun <R> clang(clang: Path, analyzer: StaticAnalysis<R>, cppStorage: Storage) = Frontend(
+        fun <R> clang(clang: Path, cppStorage: Storage) = Frontend(
             ClangPreprocessor(clang),
             ClangParser(),
             cppStorage

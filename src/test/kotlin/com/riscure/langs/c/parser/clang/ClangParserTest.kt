@@ -1,12 +1,9 @@
-package com.riscure.langs.c.parser
+package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
-import com.riscure.Fallable
 import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.parser.clang.*
 import kotlin.test.*
 import java.io.File
-import java.io.StringWriter
 import java.nio.file.Path
 
 class ClangParserTest {
@@ -231,6 +228,37 @@ class ClangParserTest {
             assertFalse("bad".toRegex().containsMatchIn(source))
             println(fn.meta.location)
             println(fn.meta.presumedLocation)
+        }
+    }
+
+    @Test
+    fun test016() {
+        parsed("/parser-tests/016-global-with-initializer.c") { tu, unit ->
+            val ds = tu.decls
+            assertEquals(1, ds.size)
+            val x = ds[0]
+
+            println(x)
+        }
+    }
+
+    @Test
+    fun test017() {
+        parsed("/parser-tests/017-global-with-array-initializer.c") { tu, unit ->
+            val ds = tu.decls
+            assertEquals(1, ds.size)
+            val x = ds[0]
+
+            println(x)
+        }
+    }
+
+    @Test
+    fun test018() {
+        parsed("/parser-tests/018-global-with-function-pointers.c") { tu, unit ->
+            val ds = tu.decls
+
+            println(ds)
         }
     }
 }
