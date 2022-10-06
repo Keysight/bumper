@@ -1,11 +1,14 @@
 package com.riscure.langs.c.parser.clang
 
-import kotlin.test.*
-import arrow.core.*
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.parser.UnitState
-import com.riscure.langs.c.parser.clang.*
+import arrow.core.Either
+import arrow.core.getOrElse
+import arrow.core.right
+import com.riscure.langs.c.ast.TopLevel
+import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.functions
+import com.riscure.langs.c.parser.asVarDecl
 import java.io.File
+import kotlin.test.*
 
 internal class ClangUnitStateTest {
 
@@ -46,26 +49,43 @@ internal class ClangUnitStateTest {
             .filter { it.name == "pointers" }
             .get(0)!!
 
-        // This now fails, because getting the cursor for
-        // a top-level var declaration fails.
-        // It gets the cursor for the type of the var declaration,
-        // not the declaration itself.
-        println(ptrs)
-        println(unit.getReferencedToplevels(ptrs))
-        fail()
+        when (val refs = unit.getReferencedToplevels(ptrs)) {
+            is Either.Right -> {
+                assertEquals(3, refs.value.size)
+                val tls = refs.value.map { it.name }
+
+                assertContains(tls, "f")
+                assertContains(tls, "g")
+                assertContains(tls, "funcptr")
+            }
+            else -> fail()
+        }
     }
 
     @Test
     fun test04() = parsed("/analysis-tests/004-void-pointers-with-args.c") { ast, unit ->
         val ptrs = ast.decls
-            .filter { it.name == "pointers" }
-            .get(0)!!
+            .filter { it.name == "pointers" }[0]!!
 
-        // This now fails, because getting the cursor for
-        // a top-level var declaration fails.
-        // It gets the cursor for the type of the var declaration,
-        // not the declaration itself.
-        println(unit.getReferencedToplevels(ptrs))
-        fail()
+        when (val refs = unit.getReferencedToplevels(ptrs)) {
+            is Either.Right -> {
+                assertEquals(3, refs.value.size)
+                val tls = refs.value.map { it.name }
+
+                assertContains(tls, "f")
+                assertContains(tls, "g")
+                assertContains(tls, "funcptr")
+            }
+            else -> fail()
+        }
+    }
+
+    @Test
+    fun test05() = parsed("/analysis-tests/005-cursor-of-global-var.c") { ast, unit ->
+        val v = ast.decls[0]!!
+        with (unit) {
+            val c = v.getCursor().getOrElse { fail() }
+            assertTrue(c.asVarDecl() is Either.Right)
+        }
     }
 }

@@ -184,6 +184,7 @@ data class TranslationUnit(
             .toMap()
     }
 
+    /* Map locations to top-level declarations */
     fun getByLocation(loc: Location): Option<TopLevel> = byLocation.get(loc).toOption()
 }
 
