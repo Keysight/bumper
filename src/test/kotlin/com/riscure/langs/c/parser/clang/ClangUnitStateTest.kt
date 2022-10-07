@@ -26,10 +26,14 @@ internal class ClangUnitStateTest {
     fun test01() = parsed("/analysis-tests/001-references-in-function.c") { ast, unit ->
         val main = ast.decls
             .functions()
-            .filter { it.name == "main" }
-            .get(0)!!
+            .filter { it.name == "main" }[0]!!
 
-        println(unit.getReferencedToplevels(main))
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(main))
+        assertEquals(2, refs.value.size)
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "f")
+        assertContains(tls, "s")
     }
 
     @Test
@@ -49,17 +53,13 @@ internal class ClangUnitStateTest {
             .filter { it.name == "pointers" }
             .get(0)!!
 
-        when (val refs = unit.getReferencedToplevels(ptrs)) {
-            is Either.Right -> {
-                assertEquals(3, refs.value.size)
-                val tls = refs.value.map { it.name }
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        assertEquals(3, refs.value.size)
+        val tls = refs.value.map { it.name }
 
-                assertContains(tls, "f")
-                assertContains(tls, "g")
-                assertContains(tls, "funcptr")
-            }
-            else -> fail()
-        }
+        assertContains(tls, "f")
+        assertContains(tls, "g")
+        assertContains(tls, "funcptr")
     }
 
     @Test

@@ -39,7 +39,7 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
      * Get the cursor representing a toplevel declaration using
      * [tl].meta.location.
      */
-    fun getCursor(tl: TopLevel) = tl.meta.location
+    fun getCursor(tl: TopLevel): Option<CXCursor> = tl.meta.location
         .map { it.begin }
         .flatMap { tlLocationToCursor[it].toOption() }
 
