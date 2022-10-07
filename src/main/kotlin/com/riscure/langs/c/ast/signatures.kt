@@ -4,12 +4,31 @@ package com.riscure.langs.c.ast
 
 import arrow.core.*
 import java.nio.file.Path
-import kotlin.collections.Map.Entry
 
 typealias Name  = String
 typealias Ident = String
-data class Location(val sourceFile: Path, val row: Int, val col: Int)
-data class SourceRange(val begin: Location, val end: Location)
+data class Location(val sourceFile: Path, val row: Int, val col: Int) {
+    /**
+     * compares the row and col of [this] to [other], ignoring the sourceFile.
+     */
+    operator fun compareTo(other: Location): Int =
+        Pair(row, col).compareTo(Pair(other.row, other.col))
+}
+
+data class SourceRange(val begin: Location, val end: Location) {
+
+    /**
+     * Returns true iff [this] range fully encloses [other]
+     */
+    fun encloses(other: SourceRange): Boolean =
+        file == other.file && begin <= other.begin && end >= other.end
+
+    fun encloses(other: Location): Boolean =
+        file == other.sourceFile && begin <= other && end >= other
+
+    /** Gets the sourceFile of [begin], which is assumed to match [end]'s */
+    val file get() = begin.sourceFile
+}
 
 enum class IKind {
       IBoolean
@@ -169,23 +188,39 @@ interface TopLevel {
 data class TranslationUnit(
     val decls: List<TopLevel>
 ) {
-    /**
-     *  Mapping from locations to top-level entities.
-     *  Toplevel entities without locations are not represented
-     */
-    private val byLocation: Map<Location, TopLevel> by lazy {
-        decls
-            .flatMap {
-                when (val loc = it.meta.location) {
-                    is Some -> listOf(Pair(loc.value.begin, it))
-                    None    -> listOf()
-                }
-            }
-            .toMap()
-    }
 
     /* Map locations to top-level declarations */
-    fun getByLocation(loc: Location): Option<TopLevel> = byLocation.get(loc).toOption()
+    fun getAtLocation(loc: Location): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val range = decl.meta.location) {
+                    is Some -> range.value.begin == loc
+                    else    -> false
+                }
+            }
+            .toOption()
+
+    /* Map locations to top-level declarations */
+    fun getEnclosing(range: SourceRange): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val loc = decl.meta.location) {
+                    is Some -> loc.value.encloses(range)
+                    else -> false
+                }
+            }
+            .toOption()
+
+    /* Map locations to top-level declarations */
+    fun getEnclosing(loc: Location): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val range = decl.meta.location) {
+                    is Some -> range.value.encloses(loc)
+                    else -> false
+                }
+            }
+            .toOption()
 }
 
 /* filters for toplevel declarations */

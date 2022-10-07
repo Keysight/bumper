@@ -4,12 +4,10 @@
  */
 package com.riscure.langs.c.parser.clang
 
-import arrow.core.None
-import arrow.core.Option
-import arrow.core.combineAll
-import arrow.core.some
+import arrow.core.*
 import arrow.typeclasses.Monoid
 import arrow.typeclasses.Semigroup
+import com.riscure.langs.c.parser.getRange
 import com.riscure.toBool
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
@@ -50,21 +48,55 @@ fun CXCursor.getExtent(): Option<CXSourceRange> {
     return if (ptr.isNull) None else ptr.some()
 }
 
-fun CXCursor.isNullCursor()  = clang.clang_Cursor_isNull(this).toBool() // correct or should we compare with the null cursor?
-fun CXCursor.isReference()   = !clang.clang_getCursorReferenced(this).isNullCursor()
-fun CXCursor.getReferenced() = clang.clang_getCursorReferenced(this)
+fun CXCursor.filterNullCursor(): Option<CXCursor>  =
+    if (clang.clang_Cursor_isNull(this).toBool()) {
+        None
+    } else this.some()
+
+fun CXCursor.isNullCursor() = filterNullCursor().isEmpty()
+
+/**
+ * Get the cursor of the definition that is being referenced by [this] cursor.
+ */
+fun CXCursor.getReferenced(): Option<CXCursor> =
+    clang_getCursorReferenced(this)
+        .filterNullCursor()
+        // clang sometimes returns a cursor that does not represent the definition.
+        // somehow clang_getCursorDefinition only works in half the cases,
+        // whereas getCanonicalCursor seems to do the right thing.
+        .flatMap { clang.clang_getCanonicalCursor(it).filterNullCursor() }
+fun CXCursor.isReference()   = getReferenced().isDefined()
+fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
+fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
+fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
+
+fun CXCursor.topLevelCursors() =
+    this.translationUnit()
+        .children()
+        .filter { it.kind() != CXCursor_UnexposedDecl }
 
 /**
  *  Check if the cursor represents a top-level declaration/definition
  *  A struct field name or enum element name are not top-level entities.
  **/
 fun CXCursor.isTopLevelEntity() =
-    // something is top-level when its semantic parent is
-    // the translation unit.
-    clang_equalCursors(translationUnit(), semanticParent()).toBool()
+    // something is top-level entity cursor when it is a direct child
+    // of the translationUnit cursor.
+    // This is not the same as the lexical/semantic parent of this being the translation unit,
+    // because that is also true for cursor that only describe the return type of a funcion declaration, for example.
+    (topLevelCursors().find { clang_equalCursors(it, this).toBool() }) != null
 
-fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
-fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
-fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
+/**
+ * Get the top-level entity cursor whose range encloses the range of [this].
+ */
+fun CXCursor.enclosingToplevelEntity(): Option<CXCursor> =
+    topLevelCursors()
+        .find { tl ->
+            tl
+                .getRange()
+                .flatMap { tlRange -> this.getRange().map { tlRange.encloses(it) }}
+                .getOrElse { false }
+        }
+        .toOption()
 
 fun CXType.spelling(): String = clang.clang_getTypeSpelling(this).string
