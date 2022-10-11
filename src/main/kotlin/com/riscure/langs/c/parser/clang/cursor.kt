@@ -6,7 +6,6 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import arrow.typeclasses.Semigroup
 import com.riscure.langs.c.parser.getRange
 import com.riscure.toBool
 import org.bytedeco.llvm.clang.*
@@ -49,7 +48,7 @@ fun CXCursor.getExtent(): Option<CXSourceRange> {
 }
 
 fun CXCursor.filterNullCursor(): Option<CXCursor>  =
-    if (clang.clang_Cursor_isNull(this).toBool()) {
+    if (clang_Cursor_isNull(this).toBool() || this.isNull) {
         None
     } else this.some()
 

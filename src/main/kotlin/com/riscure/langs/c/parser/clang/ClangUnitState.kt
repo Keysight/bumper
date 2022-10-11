@@ -71,7 +71,7 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
 
     override fun getSource(decl: TopLevel): Option<String> =
         decl.getCursor()
-            .filter { !it.isNull }
+            .flatMap { it.filterNullCursor() }
             .map { cursor -> clang.clang_getCursorPrettyPrinted(cursor, null) }
             .filter { !it.isNull }
             .map { it.string }

@@ -118,11 +118,14 @@ data class Meta(
 }
 
 /* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
-interface TopLevel {
+sealed interface TopLevel {
     val name: Ident
 
     val meta: Meta
     fun withMeta(meta: Meta): TopLevel
+
+    val tlid: TLID
+    val kind: EntityKind get() = tlid.kind
 
     /* Mixin */
     interface Typelike : TopLevel {
@@ -135,6 +138,8 @@ interface TopLevel {
         override val meta: Meta = Meta.default
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+
+        override val tlid: TLID get() = TLID(name, EntityKind.Var)
     }
 
     data class Fun(
@@ -149,6 +154,9 @@ interface TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
 
         fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
+
+        override val tlid: TLID get() =
+            TLID(name, if (definition) EntityKind.FunDef else EntityKind.FunDecl)
     }
 
     data class Composite(
@@ -164,6 +172,12 @@ interface TopLevel {
             }
 
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+
+        override val tlid: TLID get() =
+            TLID(name, when (structOrUnion) {
+                StructOrUnion.Union -> EntityKind.Union
+                StructOrUnion.Struct -> EntityKind.Struct
+            })
     }
 
     data class Typedef(
@@ -173,6 +187,8 @@ interface TopLevel {
     ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun definesType(): Type = Type.Named(name, typ)
+
+        override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
     }
 
     data class EnumDef(
@@ -181,13 +197,50 @@ interface TopLevel {
         override val meta: Meta = Meta.default
     ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override val tlid: TLID get() = TLID(name, EntityKind.Enum)
         override fun definesType(): Type = Type.Enum(name)
     }
+
+    fun ofKind(kind: EntityKind): Boolean = when (kind) {
+        EntityKind.FunDecl -> this is TopLevel.Fun && !this.definition
+        EntityKind.FunDef -> this is TopLevel.Fun && this.definition
+        EntityKind.Enum -> this is TopLevel.EnumDef
+        EntityKind.Struct -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Struct
+        EntityKind.Union -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Union
+        EntityKind.Typedef -> this is TopLevel.Typedef
+        EntityKind.Var -> this is TopLevel.Var
+    }
 }
+
+sealed class EntityKind {
+    object FunDecl: EntityKind()
+    object FunDef: EntityKind()
+    object Enum: EntityKind()
+    object Struct: EntityKind()
+    object Union: EntityKind()
+    object Typedef: EntityKind()
+    object Var: EntityKind()
+
+    companion object {
+        fun kindOf(toplevel: TopLevel) = toplevel.kind
+    }
+}
+
+/**
+ * Identifies a top-level entity uniquely within a translation unit.
+ */
+data class TLID(val name: String, val kind: EntityKind)
 
 data class TranslationUnit(
     val decls: List<TopLevel>
 ) {
+    /**
+     * Find a top-level element in this translation unit, based
+     * on a given [TLID] [id].
+     */
+    fun get(id: TLID): Option<TopLevel> = decls
+        .find { it.name == id.name && it.ofKind(id.kind) }
+        .toOption()
 
     /* Map locations to top-level declarations */
     fun getAtLocation(loc: Location): Option<TopLevel> =
