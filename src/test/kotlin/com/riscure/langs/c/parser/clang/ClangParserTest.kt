@@ -261,4 +261,13 @@ class ClangParserTest {
             println(ds)
         }
     }
+
+    @Test
+    fun test019() {
+        parsed("/parser-tests/019-union.c") { tu, unit ->
+            val ds = tu.decls
+
+            println(ds)
+        }
+    }
 }

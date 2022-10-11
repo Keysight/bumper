@@ -26,10 +26,14 @@ internal class ClangUnitStateTest {
     fun test01() = parsed("/analysis-tests/001-references-in-function.c") { ast, unit ->
         val main = ast.decls
             .functions()
-            .filter { it.name == "main" }
-            .get(0)!!
+            .filter { it.name == "main" }[0]!!
 
-        println(unit.getReferencedToplevels(main))
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(main))
+        assertEquals(2, refs.value.size)
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "f")
+        assertContains(tls, "s")
     }
 
     @Test
@@ -49,17 +53,13 @@ internal class ClangUnitStateTest {
             .filter { it.name == "pointers" }
             .get(0)!!
 
-        when (val refs = unit.getReferencedToplevels(ptrs)) {
-            is Either.Right -> {
-                assertEquals(3, refs.value.size)
-                val tls = refs.value.map { it.name }
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        assertEquals(3, refs.value.size)
+        val tls = refs.value.map { it.name }
 
-                assertContains(tls, "f")
-                assertContains(tls, "g")
-                assertContains(tls, "funcptr")
-            }
-            else -> fail()
-        }
+        assertContains(tls, "f")
+        assertContains(tls, "g")
+        assertContains(tls, "funcptr")
     }
 
     @Test
@@ -67,17 +67,13 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "pointers" }[0]!!
 
-        when (val refs = unit.getReferencedToplevels(ptrs)) {
-            is Either.Right -> {
-                assertEquals(3, refs.value.size)
-                val tls = refs.value.map { it.name }
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        assertEquals(3, refs.value.size)
+        val tls = refs.value.map { it.name }
 
-                assertContains(tls, "f")
-                assertContains(tls, "g")
-                assertContains(tls, "funcptr")
-            }
-            else -> fail()
-        }
+        assertContains(tls, "f")
+        assertContains(tls, "g")
+        assertContains(tls, "funcptr")
     }
 
     @Test
@@ -95,5 +91,31 @@ internal class ClangUnitStateTest {
         val fn = ast.decls.filter{ it.name == "f" }[0]!!
         val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(fn))
         assertEquals(1, refs.value.size)
+    }
+
+    @Test
+    fun test07() = parsed("/analysis-tests/007-void-pointers-with-struct-args.c") { ast, unit ->
+        val ptrs = ast.decls
+            .filter { it.name == "pointers" }[0]!!
+
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        assertEquals(3, refs.value.size)
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "f")
+        assertContains(tls, "g")
+        assertContains(tls, "S")
+    }
+
+    @Test
+    fun test08() = parsed("/analysis-tests/008-switch-dependency.c") { ast, unit ->
+        val ptrs = ast.decls
+            .filter { it.name == "func_switch" }[0]!!
+
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "func_a")
+        assertContains(tls, "func_b")
     }
 }

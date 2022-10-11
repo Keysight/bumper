@@ -4,12 +4,31 @@ package com.riscure.langs.c.ast
 
 import arrow.core.*
 import java.nio.file.Path
-import kotlin.collections.Map.Entry
 
 typealias Name  = String
 typealias Ident = String
-data class Location(val sourceFile: Path, val row: Int, val col: Int)
-data class SourceRange(val begin: Location, val end: Location)
+data class Location(val sourceFile: Path, val row: Int, val col: Int) {
+    /**
+     * compares the row and col of [this] to [other], ignoring the sourceFile.
+     */
+    operator fun compareTo(other: Location): Int =
+        Pair(row, col).compareTo(Pair(other.row, other.col))
+}
+
+data class SourceRange(val begin: Location, val end: Location) {
+
+    /**
+     * Returns true iff [this] range fully encloses [other]
+     */
+    fun encloses(other: SourceRange): Boolean =
+        file == other.file && begin <= other.begin && end >= other.end
+
+    fun encloses(other: Location): Boolean =
+        file == other.sourceFile && begin <= other && end >= other
+
+    /** Gets the sourceFile of [begin], which is assumed to match [end]'s */
+    val file get() = begin.sourceFile
+}
 
 enum class IKind {
       IBoolean
@@ -99,11 +118,14 @@ data class Meta(
 }
 
 /* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
-interface TopLevel {
+sealed interface TopLevel {
     val name: Ident
 
     val meta: Meta
     fun withMeta(meta: Meta): TopLevel
+
+    val tlid: TLID
+    val kind: EntityKind get() = tlid.kind
 
     /* Mixin */
     interface Typelike : TopLevel {
@@ -116,6 +138,8 @@ interface TopLevel {
         override val meta: Meta = Meta.default
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+
+        override val tlid: TLID get() = TLID(name, EntityKind.Var)
     }
 
     data class Fun(
@@ -130,6 +154,9 @@ interface TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
 
         fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
+
+        override val tlid: TLID get() =
+            TLID(name, if (definition) EntityKind.FunDef else EntityKind.FunDecl)
     }
 
     data class Composite(
@@ -145,6 +172,12 @@ interface TopLevel {
             }
 
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+
+        override val tlid: TLID get() =
+            TLID(name, when (structOrUnion) {
+                StructOrUnion.Union -> EntityKind.Union
+                StructOrUnion.Struct -> EntityKind.Struct
+            })
     }
 
     data class Typedef(
@@ -154,6 +187,8 @@ interface TopLevel {
     ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun definesType(): Type = Type.Named(name, typ)
+
+        override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
     }
 
     data class EnumDef(
@@ -162,30 +197,83 @@ interface TopLevel {
         override val meta: Meta = Meta.default
     ): Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override val tlid: TLID get() = TLID(name, EntityKind.Enum)
         override fun definesType(): Type = Type.Enum(name)
     }
+
+    fun ofKind(kind: EntityKind): Boolean = when (kind) {
+        EntityKind.FunDecl -> this is TopLevel.Fun && !this.definition
+        EntityKind.FunDef -> this is TopLevel.Fun && this.definition
+        EntityKind.Enum -> this is TopLevel.EnumDef
+        EntityKind.Struct -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Struct
+        EntityKind.Union -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Union
+        EntityKind.Typedef -> this is TopLevel.Typedef
+        EntityKind.Var -> this is TopLevel.Var
+    }
 }
+
+sealed class EntityKind {
+    object FunDecl: EntityKind()
+    object FunDef: EntityKind()
+    object Enum: EntityKind()
+    object Struct: EntityKind()
+    object Union: EntityKind()
+    object Typedef: EntityKind()
+    object Var: EntityKind()
+
+    companion object {
+        fun kindOf(toplevel: TopLevel) = toplevel.kind
+    }
+}
+
+/**
+ * Identifies a top-level entity uniquely within a translation unit.
+ */
+data class TLID(val name: String, val kind: EntityKind)
 
 data class TranslationUnit(
     val decls: List<TopLevel>
 ) {
     /**
-     *  Mapping from locations to top-level entities.
-     *  Toplevel entities without locations are not represented
+     * Find a top-level element in this translation unit, based
+     * on a given [TLID] [id].
      */
-    private val byLocation: Map<Location, TopLevel> by lazy {
-        decls
-            .flatMap {
-                when (val loc = it.meta.location) {
-                    is Some -> listOf(Pair(loc.value.begin, it))
-                    None    -> listOf()
-                }
-            }
-            .toMap()
-    }
+    fun get(id: TLID): Option<TopLevel> = decls
+        .find { it.name == id.name && it.ofKind(id.kind) }
+        .toOption()
 
     /* Map locations to top-level declarations */
-    fun getByLocation(loc: Location): Option<TopLevel> = byLocation.get(loc).toOption()
+    fun getAtLocation(loc: Location): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val range = decl.meta.location) {
+                    is Some -> range.value.begin == loc
+                    else    -> false
+                }
+            }
+            .toOption()
+
+    /* Map locations to top-level declarations */
+    fun getEnclosing(range: SourceRange): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val loc = decl.meta.location) {
+                    is Some -> loc.value.encloses(range)
+                    else -> false
+                }
+            }
+            .toOption()
+
+    /* Map locations to top-level declarations */
+    fun getEnclosing(loc: Location): Option<TopLevel> =
+        decls
+            .find { decl ->
+                when (val range = decl.meta.location) {
+                    is Some -> range.value.encloses(loc)
+                    else -> false
+                }
+            }
+            .toOption()
 }
 
 /* filters for toplevel declarations */

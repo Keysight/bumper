@@ -47,6 +47,7 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
                 asFunctionDef()
             else asFunctionDecl()
         CXCursor_StructDecl   -> this.asStructDecl()
+        CXCursor_UnionDecl    -> this.asUnionDecl()
         CXCursor_VarDecl      -> this.asVarDecl()
         CXCursor_TypedefDecl  -> this.asTypedef()
         CXCursor_EnumDecl     -> this.asEnumDecl()
@@ -139,6 +140,15 @@ fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
         TopLevel.Composite(
             this.spelling(),
             StructOrUnion.Struct,
+            listOf() // TODO
+        ).right()
+    }
+
+fun CXCursor.asUnionDecl(): Result<TopLevel.Composite> =
+    ifKind (CXCursor_UnionDecl, "union declaration") {
+        TopLevel.Composite(
+            this.spelling(),
+            StructOrUnion.Union,
             listOf() // TODO
         ).right()
     }

@@ -5,9 +5,7 @@ import arrow.typeclasses.Monoid
 import com.riscure.langs.c.ast.Location
 import com.riscure.langs.c.ast.SourceRange
 import com.riscure.langs.c.ast.TopLevel
-import com.riscure.langs.c.parser.UnitState
-import com.riscure.langs.c.parser.asTranslationUnit
-import com.riscure.langs.c.parser.getStart
+import com.riscure.langs.c.parser.*
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import java.nio.file.Path
@@ -23,9 +21,9 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
     // maps to the innermost ast element at that location.
     // Although we can step up from that to the lexical or semantic parent,
     // we cannot reliably find the enclosing top-level declaration using the libclang API.
-    private val topLevelMap: Map<Location, CXCursor> =
+    private val tlLocationToCursor: Map<Location, CXCursor> =
         rootCursor
-            .children()
+            .topLevelCursors()
             .flatMap { tlc ->
                 tlc.getStart()
                     .map { Pair(it, tlc) }
@@ -41,25 +39,19 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
      * Get the cursor representing a toplevel declaration using
      * [tl].meta.location.
      */
-    fun getCursor(tl: TopLevel) = tl.meta.location
+    fun getCursor(tl: TopLevel): Option<CXCursor> = tl.meta.location
         .map { it.begin }
-        .flatMap { topLevelMap[it].toOption() }
+        .flatMap { tlLocationToCursor[it].toOption() }
 
     /**
-     * Map a cursor of a top-level entity back to the corresponding
-     * [TopLevel] [ast] element (without reparsing it).
+     * Map a cursor to the top-level entity that encloses it in the source, without reparsing.
      */
-    private fun getToplevelEntity(cursor: CXCursor): Result<TopLevel> =
+    private fun getTopLevel(cursor: CXCursor): Result<TopLevel> =
         cursor.right()
-            .filterOrElse({ it.isTopLevelEntity() }, { Throwable("Not a top-level entity" )})
-            .flatMap { c ->
+            .flatMap { it.getRange().toEither { Throwable("Failed to get location for cursor") }}
+            .flatMap { range ->
                 ast().flatMap { ast ->
-                    c.getStart()
-                        .toEither { Throwable("No location for cursor.") }
-                        .flatMap {
-                            ast.getByLocation(it)
-                               .toEither { Throwable("No top-level declaration in AST with that location.") }
-                        }
+                    ast.getAtLocation(range.begin).toEither { Throwable("Failed to get AST node at location") }
                 }
             }
 
@@ -69,19 +61,17 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
             .flatMap { cursor ->
                 cursor
                     // collect cursors for nodes that are references
-                    .collect(Monoid.list(), true) {
-                        if (isReference()) listOf(getReferenced()) else { listOf()}
-                    }
+                    .collect(Monoid.list(), true) { getReferenced().toList() }
                     // only keep those that reference top-level entities
                     .filter { it.isTopLevelEntity() }
-                    .map { getToplevelEntity(it) }
+                    .map { getTopLevel(it) }
                     .sequenceEither() // bubble errors up
                     .map { it.toSet() }
             }
 
     override fun getSource(decl: TopLevel): Option<String> =
         decl.getCursor()
-            .filter { !it.isNull }
+            .flatMap { it.filterNullCursor() }
             .map { cursor -> clang.clang_getCursorPrettyPrinted(cursor, null) }
             .filter { !it.isNull }
             .map { it.string }

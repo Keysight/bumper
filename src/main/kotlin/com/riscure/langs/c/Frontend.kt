@@ -42,7 +42,8 @@ class Frontend<S : UnitState>(
         /**
          * Create a pipeline based on clang tooling.
          */
-        fun <R> clang(clang: Path, cppStorage: Storage) = Frontend(
+        @JvmStatic
+        fun clang(clang: Path, cppStorage: Storage) = Frontend(
             ClangPreprocessor(clang),
             ClangParser(),
             cppStorage
