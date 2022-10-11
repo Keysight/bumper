@@ -5,7 +5,7 @@ description = "Riscure True Code C Frontend"
 
 plugins {
     `maven-publish`
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm")
 }
 
 group   = "com.riscure"
@@ -47,14 +47,14 @@ tasks.named<Test>("test") {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "1.8"
-        freeCompilerArgs += "-Xcontext-receivers"
+        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "1.8"
-        freeCompilerArgs += "-Xcontext-receivers"
+        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
