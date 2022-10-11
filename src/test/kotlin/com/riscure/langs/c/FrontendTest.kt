@@ -16,7 +16,7 @@ import kotlin.test.*
 
 internal class FrontendTest {
     private val storage = Storage.temporary("FrontendTest").getOrHandle { throw it }
-    private val frontend = Frontend.clang<ClangUnitState>(
+    private val frontend = Frontend.clang(
         Path.of("clang"),
         storage
     )
