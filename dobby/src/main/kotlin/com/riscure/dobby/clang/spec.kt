@@ -114,6 +114,7 @@ data class Spec(val optionsByKey: Map<String, OptionSpec>) {
         private fun specJSON(): JsonElement = Json.decodeFromStream(specURL.openStream())
 
         /* A parsed Clang 11 spec */
+        @JvmStatic
         val clang11: Spec by lazy { SpecReader.readSpec(specJSON()) }
     }
 }

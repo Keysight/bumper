@@ -31,6 +31,10 @@ data class PlainCompilationDb(val entries: List<Entry>) {
 
 /* Semantic model of a compilation database */
 data class CompilationDb(val entries: List<Entry>) {
+    private val byMain: Map<Path, Entry> = entries.associateBy { it.mainSource }
+
+    fun get(main: Path): Option<Entry> = byMain[main].toOption()
+
     data class Entry(
         val workingDirectory: Path,
         val mainSource: Path,
@@ -39,9 +43,14 @@ data class CompilationDb(val entries: List<Entry>) {
 
     companion object {
         /* Read a compilation database from a file */
-        fun read(file: File): Either<Throwable,CompilationDb> = read(file.inputStream().buffered())
+        @JvmStatic
+        fun read(file: File): Either<Throwable,CompilationDb> =
+            Either
+                .catch { file.inputStream().buffered() }
+                .flatMap { read(it) }
 
         /* Read a compilation database from an input stream */
+        @JvmStatic
         fun read(reader: InputStream): Either<Throwable,CompilationDb> {
             val entries = try {
                 Json.decodeFromStream<List<PlainCompilationDb.Entry>>(reader).right()

@@ -60,4 +60,12 @@ internal class SpecTest {
 
         assertEquals(2, c.filter(setOf(s.get("mv5"))).optArgs.size)
     }
+
+    @Test
+    fun filterO0() = with(s) {
+        val c = Command(listOf(Arg(s["O0"])), listOf())
+
+        // This is not registered as an alias
+        println(c.filter(s["O"]))
+    }
 }
