@@ -61,6 +61,14 @@ internal class SpecTest {
         assertEquals(2, c.filter(setOf(s.get("mv5"))).optArgs.size)
     }
 
+
+    @Test
+    fun filterSame() = with(s) {
+        val c = Command(listOf(Arg(s["o"])), listOf())
+        assertEquals(0, c.filter(s["o"]).optArgs.size)
+        assertEquals(1, c.replace(Arg(s["o"], listOf("someOutput.o"))).optArgs.size)
+    }
+
     @Test
     fun filterO0() = with(s) {
         val c = Command(listOf(Arg(s["O0"])), listOf())

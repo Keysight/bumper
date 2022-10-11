@@ -42,22 +42,22 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
      * Removes any alias of [arg.opt] and then adds [arg].
      */
     context(Spec)
-    fun replace(arg: Arg): Command = filter(arg.opt).copy(optArgs = optArgs + arg)
+    fun replace(arg: Arg): Command = filter(arg.opt) + arg
 
     /**
      * Adds [arg] to the (rear of) the options of this command
      */
-    fun plus(arg: Arg) = this.copy(optArgs = optArgs + arg)
+    operator fun plus(arg: Arg) = this.copy(optArgs = optArgs + arg)
 
     /**
      * Adds [arg] to the (rear of) the options of this command
      */
-    fun plus(args: List<Arg>) = this.copy(optArgs = optArgs + args)
+    operator fun plus(args: List<Arg>) = this.copy(optArgs = optArgs + args)
 
     /**
      * Adds [positional] to the rear of the positional arguments of this command.
      */
-    fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
+    operator fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
 
     fun toArguments(): List<String> =
         optArgs.map { it.shellify().toString() } + positionalArgs.map { ShellArg.quote(it).toString() }
