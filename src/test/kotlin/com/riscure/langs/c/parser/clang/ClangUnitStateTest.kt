@@ -98,8 +98,6 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "pointers" }[0]!!
 
-        // This now fails because clang_getReferenced returns a cursor
-        // that is not quite the one we read as a top-level entity.
         val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
@@ -107,5 +105,17 @@ internal class ClangUnitStateTest {
         assertContains(tls, "f")
         assertContains(tls, "g")
         assertContains(tls, "S")
+    }
+
+    @Test
+    fun test08() = parsed("/analysis-tests/008-switch-dependency.c") { ast, unit ->
+        val ptrs = ast.decls
+            .filter { it.name == "func_switch" }[0]!!
+
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "func_a")
+        assertContains(tls, "func_b")
     }
 }
