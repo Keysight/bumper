@@ -138,10 +138,22 @@ private object SpecReader {
             .filterValues {
                 try {
                     // we select defs by the superclass "Option"
-                    it.jsonObject["!superclasses"]!!.jsonArray
+                    it
+                        .jsonObject["!superclasses"]!!
+                        .jsonArray
                         .map { it.jsonPrimitive.content }
                         .contains("Option")
                 } catch (e:Exception) { false }
+            }
+            .filterValues {
+                try {
+                    // we ignore clang-cl options
+                    // this is the spec for the non-cl driver.
+                    it
+                        .jsonObject["Group"]!!
+                        .jsonObject["def"]!!
+                        .jsonPrimitive.content != "cl_Group"
+                } catch (e:Exception) { true }
             }
             .flatMap { (key, value) ->
                 readsClangOpt(key, value)
@@ -174,7 +186,7 @@ private object SpecReader {
     }
 
     /**
-     *  Read an option descriptions from the json spec.
+     * Read an option descriptions from the json spec.
      * @throws RuntimeException when the json is unexpected
      */
     fun readsClangOpt(key: String, json: JsonElement): Option<OptionSpec> =

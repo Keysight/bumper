@@ -24,12 +24,12 @@ internal class AliasSetTest {
     fun transitive() {
         val o = AliasSet(Spec.clang11["o"])
         val output = AliasSet(Spec.clang11["_output_EQ"])
-        val slash_o = AliasSet(Spec.clang11["_SLASH_o"])
+        val output2 = AliasSet(Spec.clang11["_output"])
 
         o.alias(output)
-        slash_o.alias(o)
+        output2.alias(o)
 
-        assertEquals(output, slash_o.representative())
+        assertEquals(output.representative(), output2.representative())
     }
 
 }
