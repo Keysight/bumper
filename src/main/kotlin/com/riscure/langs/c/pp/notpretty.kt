@@ -54,7 +54,13 @@ interface WriterFactory {
  * A class that knows how to text ASTs as long as you provide
  * the method for writing the bodies of top-level definitions.
  */
-class AstWriters(val bodyWriter: (toplevel: TopLevel) -> Writer): WriterFactory {
+class AstWriters(
+    /**
+     * A factory for writers for top-level entity bodies.
+     * It is expected that the bodyWriter includes the whitespace around the rhs's.
+     */
+    val bodyWriter: (toplevel: TopLevel) -> Writer
+): WriterFactory {
 
     override fun print(kind: IKind): Writer = when(kind) {
         IKind.IBoolean -> text("bool")
@@ -106,14 +112,14 @@ class AstWriters(val bodyWriter: (toplevel: TopLevel) -> Writer): WriterFactory 
         is TopLevel.Var -> (
             printDecl(toplevel.name, toplevel.type)
                 andThen (
-                    if (toplevel.isDefinition) (text(" = ") andThen bodyWriter(toplevel) andThen text(";"))
+                    if (toplevel.isDefinition) (text(" =") andThen bodyWriter(toplevel) andThen text(";"))
                     else text(";")
                 ))
         is TopLevel.Fun -> (
             printPrototype(toplevel)
                 andThen (
                     if (toplevel.isDefinition) (
-                        text (" {\n")
+                        text (" {")
                         andThen bodyWriter(toplevel)
                         andThen text("}")
                     ) else text(";")

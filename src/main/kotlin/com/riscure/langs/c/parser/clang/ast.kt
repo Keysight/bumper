@@ -8,6 +8,7 @@ import arrow.core.*
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.*
+import com.riscure.toBool
 import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
@@ -157,7 +158,7 @@ fun CXCursor.asVarDecl(): Result<TopLevel.Var> =
     ifKind (CXCursor_VarDecl, "variable declaration") {
         clang_getCursorType(this)
             .asType()
-            .map { TopLevel.Var(this.spelling(), it) }
+            .map { TopLevel.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
     }
 
 fun CXCursor.getResultType(): Result<Type> {

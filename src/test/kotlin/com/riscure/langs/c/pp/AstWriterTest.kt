@@ -5,6 +5,7 @@ import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.ast.TranslationUnit
 import com.riscure.langs.c.parser.clang.ClangParser
 import java.io.StringWriter
+import java.nio.charset.Charset
 import kotlin.io.path.*
 import kotlin.test.*
 
@@ -21,8 +22,16 @@ internal class AstWriterTest {
             .flatMap { it.ast() }
             .getOrHandle { throw it }
 
-        val bodyPrinter: (tl : TopLevel) -> Writer = { empty }
-        AstWriters(bodyPrinter)
+        val extractor = Extractor(file.toFile(), Charset.defaultCharset())
+        fun bodyPrinter(tl : TopLevel): Writer = { output ->
+            val body = extractor
+                .rhsOf(tl)
+                .getOrHandle { throw it }
+
+            output.write(body)
+        }
+
+        AstWriters { bodyPrinter(it) }
             .print(transform(ast))
             .invoke { data -> s.write(data) }
 
@@ -32,10 +41,13 @@ internal class AstWriterTest {
     @Test
     fun main() {
         val input = """
-            int main(int argc, char* argv[]) {}
+            int main(int argc, char* argv[]) {
+                int x;
+            }
         """.trimIndent()
 
         println(literal(input))
+
     }
 
     @Test
@@ -56,11 +68,29 @@ internal class AstWriterTest {
         println(literal(input))
     }
 
+    @Test
+    fun varWithoutRhs() {
+        val input = """
+            int x;
+        """.trimIndent()
+
+        println(literal(input))
+    }
+
+    @Test
+    fun varWithRhs() {
+        val input = """
+            int x = 42;
+        """.trimIndent()
+
+        println(literal(input))
+    }
+
 
     @Test
     fun constSizeArray() {
         val input = """
-            int xs[1];
+            int xs[1] = { 42 };
             int ys[1][2];
             int zs[1][2][3];
             int* zs[1][2][3];
