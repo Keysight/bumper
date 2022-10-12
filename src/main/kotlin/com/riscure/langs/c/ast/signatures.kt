@@ -7,7 +7,14 @@ import java.nio.file.Path
 
 typealias Name  = String
 typealias Ident = String
-data class Location(val sourceFile: Path, val row: Int, val col: Int) {
+
+data class Location(
+    val sourceFile: Path,
+    /** The line number, with first line being 1 */
+    val row: Int,
+    /** The column number, with first column being 1 */
+    val col: Int
+) {
     /**
      * compares the row and col of [this] to [other], ignoring the sourceFile.
      */
@@ -15,8 +22,12 @@ data class Location(val sourceFile: Path, val row: Int, val col: Int) {
         Pair(row, col).compareTo(Pair(other.row, other.col))
 }
 
-data class SourceRange(val begin: Location, val end: Location) {
-
+data class SourceRange(
+    /** begin location of the source range (inclusive) */
+    val begin: Location,
+    /** end location of the source range (inclusive) */
+    val end: Location
+) {
     /**
      * Returns true iff [this] range fully encloses [other]
      */
@@ -203,11 +214,11 @@ sealed interface TopLevel {
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
-        EntityKind.FunDecl -> this is TopLevel.Fun && !this.isDefinition
-        EntityKind.FunDef -> this is TopLevel.Fun && this.isDefinition
+        EntityKind.FunDecl -> this is TopLevel.Fun && !isDefinition
+        EntityKind.FunDef -> this is TopLevel.Fun && isDefinition
         EntityKind.Enum -> this is TopLevel.EnumDef
-        EntityKind.Struct -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Struct
-        EntityKind.Union -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Union
+        EntityKind.Struct -> this is TopLevel.Composite && structOrUnion == StructOrUnion.Struct
+        EntityKind.Union -> this is TopLevel.Composite && structOrUnion == StructOrUnion.Union
         EntityKind.Typedef -> this is TopLevel.Typedef
         EntityKind.Var -> this is TopLevel.Var
     }
