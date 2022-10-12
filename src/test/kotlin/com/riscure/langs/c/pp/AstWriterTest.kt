@@ -60,7 +60,9 @@ internal class AstWriterTest {
     @Test
     fun constSizeArray() {
         val input = """
-            int xs[255];
+            int xs[1];
+            int ys[1][2];
+            int zs[1][2][3];
         """.trimIndent()
 
         println(literal(input))

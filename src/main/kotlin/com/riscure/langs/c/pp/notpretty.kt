@@ -24,7 +24,7 @@ private fun sequence(writers: Iterator<Writer>, separator: Writer = empty): Writ
         val w = writers.next()
 
         if (!writers.hasNext()) w
-        else (w andThen separator andThen sequence(writers))
+        else (w andThen separator andThen sequence(writers, separator))
     } else empty
 
 /* The factory interface for producing writers for different AST nodes */
@@ -90,7 +90,7 @@ class AstWriters(val bodyWriter: (toplevel: TopLevel) -> Writer): WriterFactory 
     }
 
     override fun printTypeSuffix(type: Type): Writer = when (type) {
-        is Type.Array  -> printTypeSuffix(type.type) andThen text("[${type.size.getOrElse { "" }}]")
+        is Type.Array  -> text("[${type.size.getOrElse { "" }}]") andThen printTypeSuffix(type.type)
         else           -> empty
     }
 
