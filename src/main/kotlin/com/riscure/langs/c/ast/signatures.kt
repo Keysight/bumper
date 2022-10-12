@@ -128,13 +128,14 @@ sealed interface TopLevel {
     val kind: EntityKind get() = tlid.kind
 
     /* Mixin */
-    interface Typelike : TopLevel {
+    interface Typelike {
         fun definesType(): Type
     }
 
     data class Var(
         override val name: Ident,
         val type: Type,
+        val isDefinition: Boolean = false,
         override val meta: Meta = Meta.default
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -148,7 +149,7 @@ sealed interface TopLevel {
         val ret: Type,
         val params: List<Param>,
         val vararg: Boolean,
-        val definition: Boolean = false,
+        val isDefinition: Boolean = false,
         override val meta: Meta = Meta.default,
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -156,7 +157,7 @@ sealed interface TopLevel {
         fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
 
         override val tlid: TLID get() =
-            TLID(name, if (definition) EntityKind.FunDef else EntityKind.FunDecl)
+            TLID(name, if (isDefinition) EntityKind.FunDef else EntityKind.FunDecl)
     }
 
     data class Composite(
@@ -164,7 +165,7 @@ sealed interface TopLevel {
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
         override val meta: Meta = Meta.default
-    ): Typelike {
+    ): TopLevel, Typelike {
         override fun definesType(): Type =
             when (structOrUnion) {
                 StructOrUnion.Struct -> Type.Struct(name)
@@ -184,7 +185,7 @@ sealed interface TopLevel {
         override val name: Ident,
         val typ: Type,
         override val meta: Meta = Meta.default
-    ): Typelike {
+    ): TopLevel, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun definesType(): Type = Type.Named(name, typ)
 
@@ -195,15 +196,15 @@ sealed interface TopLevel {
         override val name: Ident,
         val enumerators: List<Enumerator>,
         override val meta: Meta = Meta.default
-    ): Typelike {
+    ): TopLevel, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override val tlid: TLID get() = TLID(name, EntityKind.Enum)
         override fun definesType(): Type = Type.Enum(name)
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
-        EntityKind.FunDecl -> this is TopLevel.Fun && !this.definition
-        EntityKind.FunDef -> this is TopLevel.Fun && this.definition
+        EntityKind.FunDecl -> this is TopLevel.Fun && !this.isDefinition
+        EntityKind.FunDef -> this is TopLevel.Fun && this.isDefinition
         EntityKind.Enum -> this is TopLevel.EnumDef
         EntityKind.Struct -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Struct
         EntityKind.Union -> this is TopLevel.Composite && this.structOrUnion == StructOrUnion.Union
@@ -282,10 +283,10 @@ fun List<TopLevel>.functions(): List<TopLevel.Fun> =
     filterIsInstance(TopLevel.Fun::class.java)
 
 fun List<TopLevel.Fun>.definitions(): List<TopLevel.Fun> =
-    filter { it.definition }
+    filter { it.isDefinition }
 
 fun List<TopLevel.Fun>.declarations(): List<TopLevel.Fun> =
-    filter { !it.definition }
+    filter { !it.isDefinition }
 
 fun List<TopLevel>.typelike(): List<TopLevel.Typelike> =
     filterIsInstance(TopLevel.Typelike::class.java)

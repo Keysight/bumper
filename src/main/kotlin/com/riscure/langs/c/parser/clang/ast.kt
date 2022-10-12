@@ -174,7 +174,7 @@ fun CXCursor.getParameters(): Result<List<Param>> {
 }
 
 fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
-    asFunctionDecl().map { it.copy(definition = true)}
+    asFunctionDecl().map { it.copy(isDefinition = true)}
 
 fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
