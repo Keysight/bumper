@@ -3,7 +3,7 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
-import com.riscure.dobby.clang.Options
+import com.riscure.dobby.clang.*
 import com.riscure.langs.c.parser.Parser
 import org.bytedeco.javacpp.BytePointer
 import org.bytedeco.javacpp.PointerPointer
@@ -21,7 +21,12 @@ import java.io.File
 class ClangParser : Parser<ClangUnitState> {
 
     override fun parse(file: File, opts: Options): Either<Throwable, ClangUnitState> {
-        val args: Array<String> = arrayOf("")
+        val cmd: Command = with(Spec.clang11) {
+            Command(opts, listOf())
+            // TODO specify the right options for parsing only
+            // we want to catch parser errors
+        }
+        val args = cmd.toArguments()
 
         // We allocate the arguments.
         val c_index: CXIndex = clang.clang_createIndex(0, 0)
