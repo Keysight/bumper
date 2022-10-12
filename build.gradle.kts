@@ -30,7 +30,7 @@ dependencies {
     implementation("io.arrow-kt:arrow-core:1.0.1")
     implementation("com.github.pgreze:kotlin-process:1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation(project(":dobby"))
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation(kotlin("test"))
