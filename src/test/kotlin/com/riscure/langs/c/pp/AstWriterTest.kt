@@ -63,6 +63,18 @@ internal class AstWriterTest {
             int xs[1];
             int ys[1][2];
             int zs[1][2][3];
+            int* zs[1][2][3];
+        """.trimIndent()
+
+        println(literal(input))
+    }
+
+    @Test
+    fun arrayReturnType() {
+        val input = """
+            int* f();
+            int** g();
+            int*** h();
         """.trimIndent()
 
         println(literal(input))
