@@ -76,7 +76,7 @@ data class Spec(val optionsByKey: Map<String, OptionSpec>) {
     private val aliasing: Map<String, AliasSet> by lazy {
         // compute the nodes
         val alis:Map<String, AliasSet> = optionsByKey
-            .mapValues { (k, o) -> AliasSet(o) }
+            .mapValues { (_, o) -> AliasSet(o) }
 
         // add the edges
         alis.forEach { (key, set) ->
