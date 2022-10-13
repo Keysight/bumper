@@ -9,6 +9,8 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/dobby" />
+            <option value="$PROJECT_DIR$/shell-parser" />
           </set>
         </option>
       </GradleProjectSettings>

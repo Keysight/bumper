@@ -13,7 +13,9 @@
         <arrow.version>1.1.2</arrow.version>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
+        <kotlin.compiler.jvmTarget>11</kotlin.compiler.jvmTarget>
         <antlr.version>4.11.1</antlr.version>
+        <serialization.version>1.4.0</serialization.version>
     </properties>
     <dependencies>
         <dependency>
@@ -35,7 +37,7 @@
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-serialization-json</artifactId>
-            <version>1.4.0</version>
+            <version>${serialization.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
@@ -90,7 +92,17 @@
                         <arg>-Xskip-prerelease-check</arg>
                         <arg>-Xextended-compiler-checks</arg>
                     </args>
+                    <compilerPlugins>
+                        <plugin>kotlinx-serialization</plugin>
+                    </compilerPlugins>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-serialization</artifactId>
+                        <version>${kotlin.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
