@@ -279,4 +279,14 @@ class ClangParserTest {
             assertEquals(Storage.Extern, ds[1].storage)
         }
     }
+
+    @Test
+    fun test021() {
+        parsed("/parser-tests/021-weird-types.c") { tu ->
+            val ds = tu.decls
+            tu.decls
+                .filterIsInstance<TopLevel.Typedef>()
+                .forEach {tl -> println("${tl.name}: ${tl.typ}") }
+        }
+    }
 }
