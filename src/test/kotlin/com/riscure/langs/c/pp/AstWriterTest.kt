@@ -105,13 +105,16 @@ internal class AstWriterTest {
             int*** h();
         """.trimIndent()
 
-        assertEquals(input, literal(input));
+        val output = """
+            int* f();
+            int*** h();
+        """.trimIndent()
 
+
+        assertEquals(input, literal(input))
         assertEquals(
-            2,
-            literal(input) { ast ->
-                TranslationUnit(ast.decls.filter { it.name != "g" })
-            }.lines().size
+            output,
+            literal(input) { ast -> TranslationUnit(ast.decls.filter { it.name != "g" }) }
         )
     }
 }
