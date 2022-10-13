@@ -44,7 +44,7 @@ internal class AstWriterTest {
             }
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
 
     }
 
@@ -54,16 +54,16 @@ internal class AstWriterTest {
             int f(short s) {}
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
     }
 
     @Test
     fun longlongPointer() {
         val input = """
-            int f(long long *l) {}
+            int f(long long* l) {}
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
     }
 
     @Test
@@ -72,7 +72,7 @@ internal class AstWriterTest {
             int x;
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
     }
 
     @Test
@@ -81,7 +81,7 @@ internal class AstWriterTest {
             int x = 42;
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
     }
 
 
@@ -94,7 +94,7 @@ internal class AstWriterTest {
             int* zs[1][2][3];
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input))
     }
 
     @Test
@@ -105,6 +105,13 @@ internal class AstWriterTest {
             int*** h();
         """.trimIndent()
 
-        println(literal(input))
+        assertEquals(input, literal(input));
+
+        assertEquals(
+            2,
+            literal(input) { ast ->
+                TranslationUnit(ast.decls.filter { it.name != "g" })
+            }.lines().size
+        )
     }
 }

@@ -118,4 +118,16 @@ internal class ClangUnitStateTest {
         assertContains(tls, "func_a")
         assertContains(tls, "func_b")
     }
+
+    @Test
+    fun test09() = parsed("/analysis-tests/009-switch-dependency.c") { ast, unit ->
+        val ptrs = ast.decls
+            .filter { it.name == "func_switch" }[0]!!
+
+        val refs = assertIs<Either.Right<Set<TopLevel>>>(unit.getReferencedToplevels(ptrs))
+        val tls = refs.value.map { it.name }
+
+        assertContains(tls, "func_a")
+        assertContains(tls, "func_b")
+    }
 }
