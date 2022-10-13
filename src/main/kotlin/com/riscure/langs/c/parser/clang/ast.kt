@@ -37,7 +37,7 @@ fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
         // not sure what else causes them.
         .filter { it.kind() != CXCursor_UnexposedDecl }
         .map { it.asTopLevel() }
-        .sequenceEither()
+        .sequence()
         .map { TranslationUnit(it) }
 }
 
@@ -54,7 +54,23 @@ fun CXCursor.asTopLevel(): Result<TopLevel> =
         CXCursor_EnumDecl     -> this.asEnumDecl()
         else -> "Expected toplevel declaration, got kind ${kindName()}".left()
     })
-    .map { it.withMeta(getMetadata()) }
+    .map {
+        it.withMeta(getMetadata())
+          .withStorage(getStorage())
+    }
+
+/**
+ * Collects storage for a toplevel declaration cursor.
+ */
+fun CXCursor.getStorage(): Storage = clang_Cursor_getStorageClass(this).asStorage()
+fun Int.asStorage(): Storage = when (this) {
+    CX_SC_Static   -> Storage.Static
+    CX_SC_Auto     -> Storage.Auto
+    CX_SC_Extern   -> Storage.Extern
+    CX_SC_Register -> Storage.Register
+    // TODO default or report error?
+    else           -> Storage.Default
+}
 
 /**
  * Collects metadata for a toplevel declaration cursor.

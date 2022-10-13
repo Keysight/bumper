@@ -264,10 +264,19 @@ class ClangParserTest {
 
     @Test
     fun test019() {
-        parsed("/parser-tests/019-union.c") { tu, unit ->
+        parsed("/parser-tests/019-union.c") { tu ->
             val ds = tu.decls
 
             println(ds)
+        }
+    }
+
+    @Test
+    fun test020() {
+        parsed("/parser-tests/020-storage-global.c") { tu ->
+            val ds = tu.decls
+            assertEquals(Storage.Static, ds[0].storage)
+            assertEquals(Storage.Extern, ds[1].storage)
         }
     }
 }

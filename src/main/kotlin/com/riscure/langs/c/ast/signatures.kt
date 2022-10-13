@@ -140,8 +140,18 @@ data class Meta(
 sealed interface TopLevel {
     val name: Ident
 
+    /**
+     * Meta-data comprises the file and location in file for the
+     * top-level entity.
+     */
     val meta: Meta
     fun withMeta(meta: Meta): TopLevel
+
+    /**
+     * Storage for the top-level entity (e.g., default or static).
+     */
+    val storage: Storage
+    fun withStorage(storage: Storage): TopLevel
 
     val tlid: TLID
     val kind: EntityKind get() = tlid.kind
@@ -155,9 +165,11 @@ sealed interface TopLevel {
         override val name: Ident,
         val type: Type,
         val isDefinition: Boolean = false,
+        override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
         override val tlid: TLID get() = TLID(name, EntityKind.Var)
     }
@@ -169,9 +181,11 @@ sealed interface TopLevel {
         val params: List<Param>,
         val vararg: Boolean,
         val isDefinition: Boolean = false,
+        override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
         fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
 
@@ -183,6 +197,7 @@ sealed interface TopLevel {
         override val name: Ident,
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
+        override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): TopLevel, Typelike {
         override fun definesType(): Type =
@@ -192,6 +207,7 @@ sealed interface TopLevel {
             }
 
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
         override val tlid: TLID get() =
             TLID(name, when (structOrUnion) {
@@ -203,9 +219,11 @@ sealed interface TopLevel {
     data class Typedef(
         override val name: Ident,
         val typ: Type,
+        override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): TopLevel, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun definesType(): Type = Type.Named(name, typ)
 
         override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
@@ -214,21 +232,23 @@ sealed interface TopLevel {
     data class EnumDef(
         override val name: Ident,
         val enumerators: List<Enumerator>,
+        override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): TopLevel, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val tlid: TLID get() = TLID(name, EntityKind.Enum)
         override fun definesType(): Type = Type.Enum(name)
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
-        EntityKind.FunDecl -> this is TopLevel.Fun && !isDefinition
-        EntityKind.FunDef -> this is TopLevel.Fun && isDefinition
-        EntityKind.Enum -> this is TopLevel.EnumDef
-        EntityKind.Struct -> this is TopLevel.Composite && structOrUnion == StructOrUnion.Struct
-        EntityKind.Union -> this is TopLevel.Composite && structOrUnion == StructOrUnion.Union
-        EntityKind.Typedef -> this is TopLevel.Typedef
-        EntityKind.Var -> this is TopLevel.Var
+        EntityKind.FunDecl -> this is Fun && !isDefinition
+        EntityKind.FunDef -> this is Fun && isDefinition
+        EntityKind.Enum -> this is EnumDef
+        EntityKind.Struct -> this is Composite && structOrUnion == StructOrUnion.Struct
+        EntityKind.Union -> this is Composite && structOrUnion == StructOrUnion.Union
+        EntityKind.Typedef -> this is Typedef
+        EntityKind.Var -> this is Var
     }
 }
 
