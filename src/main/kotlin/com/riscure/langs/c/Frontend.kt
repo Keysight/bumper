@@ -33,7 +33,7 @@ class Frontend<S : UnitState>(
      * If the (contents of) the input file change, or the compilation options change,
      * this location also changes.
      */
-    private fun preprocessedAt(main: File, command: Options): Result<File> = Either.catch {
+    fun preprocessedAt(main: File, command: Options): Result<File> = Either.catch {
         val digest = main.digest().plus(command.digest())
         cppStorage.inputAddressed(main.nameWithoutExtension, digest, suffix = ".c")
     }

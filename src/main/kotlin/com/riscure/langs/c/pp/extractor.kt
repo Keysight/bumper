@@ -9,10 +9,10 @@ import java.nio.charset.Charset
 /**
  * A class to extract source ranges from a file.
  */
-class Extractor(val file: File, charset: Charset) {
+class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
     // We keep the whole thing buffered, because repeatedly
     // opening and scanning the file does not seem performant.
-    private val lines = file.readLines()
+    private val lines = file.readLines(charset = charset)
 
     fun sourceOf(range: SourceRange): Either<Throwable, String> {
         if (lines.size < range.end.row) {
@@ -49,9 +49,9 @@ class Extractor(val file: File, charset: Charset) {
                     .toEither { Throwable("Cannot extract source for top-level entity without location") }
                     .flatMap { sourceOf(it) }
                     .flatMap { functionBodyOf(it) }
-        is TopLevel.Composite -> TODO()
-        is TopLevel.EnumDef -> TODO()
-        is TopLevel.Typedef -> TODO()
+        is TopLevel.Composite -> "".right() // TODO
+        is TopLevel.EnumDef -> "".right() // TODO
+        is TopLevel.Typedef -> "".right()
         is TopLevel.Var ->
             if (!tl.isDefinition)
                 Either.Right("")

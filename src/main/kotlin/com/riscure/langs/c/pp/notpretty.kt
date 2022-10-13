@@ -1,20 +1,27 @@
 package com.riscure.langs.c.pp
 
-import arrow.core.getOrElse
+import arrow.core.*
 import com.riscure.langs.c.ast.*
 
 /* Something we can write string output to */
 fun interface Printer {
-    fun write(s: String): Unit
+    fun print(s: String)
+
+    companion object {
+        @JvmStatic
+        fun of(jwriter: java.io.Writer) = Printer { jwriter.write(it) }
+    }
 }
 
 /* The thing that writes to a printer */
-typealias Writer = (output : Printer) -> Unit
+fun interface Writer {
+    fun write(output: Printer)
+}
 
 /* Sequential composition of writers */
-infix fun Writer.andThen(then: Writer): Writer = { w -> this(w); then(w) }
-val empty: Writer = {}
-fun text(s: String): Writer = { it.write(s) }
+infix fun Writer.andThen(that: Writer): Writer = Writer { w -> write(w); that.write(w) }
+val empty: Writer = Writer { }
+fun text(s: String): Writer = Writer { it.print(s) }
 
 fun sequence(writers: Iterable<Writer>, separator: Writer = empty): Writer =
     sequence(writers.iterator(), separator)
@@ -43,10 +50,13 @@ interface WriterFactory {
     fun printDecl(ident: String, type: Type): Writer =
         printTypePrefix(type) andThen text(" ${ident}") andThen printTypeSuffix(type)
 
-    fun print(unit: TranslationUnit): Writer =
-        sequence(unit.decls.map { print(it) }, separator = text("\n"))
+    fun print(unit: TranslationUnit): Either<Throwable,Writer> =
+        unit.decls
+            .map { print(it) }
+            .sequenceEither()
+            .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: TopLevel): Writer
+    fun print(toplevel: TopLevel): Either<Throwable,Writer>
     fun printPrototype(thefun: TopLevel.Fun): Writer
 }
 
@@ -59,7 +69,7 @@ class AstWriters(
      * A factory for writers for top-level entity bodies.
      * It is expected that the bodyWriter includes the whitespace around the rhs's.
      */
-    val bodyWriter: (toplevel: TopLevel) -> Writer
+    val bodyWriter: (toplevel: TopLevel) -> Either<Throwable, Writer>
 ): WriterFactory {
 
     override fun print(kind: IKind): Writer = when(kind) {
@@ -109,31 +119,36 @@ class AstWriters(
     )
 
     override fun print(toplevel: TopLevel) = when (toplevel) {
-        is TopLevel.Var -> (
+        is TopLevel.Var -> {
             printDecl(toplevel.name, toplevel.type)
-                andThen (
-                    if (toplevel.isDefinition) (text(" =") andThen bodyWriter(toplevel) andThen text(";"))
-                    else text(";")
-                ))
-        is TopLevel.Fun -> (
+                .right()
+                .flatMap { lhs ->
+                    val rhs = if (toplevel.isDefinition) {
+                        bodyWriter(toplevel).map { body -> text(" =") andThen body andThen text(";") }
+                    } else text(";").right()
+
+                    rhs.map { lhs andThen it }
+                }
+        }
+        is TopLevel.Fun -> {
             printPrototype(toplevel)
-                andThen (
-                    if (toplevel.isDefinition) (
-                        text (" {")
-                        andThen bodyWriter(toplevel)
-                        andThen text("}")
-                    ) else text(";")
-                ))
-        is TopLevel.Typedef -> (
+                .right()
+                .flatMap { lhs ->
+                    val rhs = if (toplevel.isDefinition) {
+                        bodyWriter (toplevel).map { body -> text(" {") andThen body andThen text("}") }
+                    } else text(";").right()
+
+                    rhs.map { lhs andThen it }
+                }
+        }
+        is TopLevel.Typedef -> Either.Right(
             text("typedef ")
-                andThen print(toplevel.typ)
-                andThen text("${toplevel.name};")
-            )
-        is TopLevel.Composite -> (
-            text("struct ${toplevel.name}")
-                andThen bodyWriter(toplevel)
-                andThen text(";")
-            )
+                    andThen print(toplevel.typ)
+                    andThen text("${toplevel.name};")
+        )
+        is TopLevel.Composite ->
+            bodyWriter(toplevel)
+                .map { rhs -> text("struct ${toplevel.name}") andThen rhs andThen text(";") }
         is TopLevel.EnumDef -> TODO()
     }
 

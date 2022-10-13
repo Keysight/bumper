@@ -23,17 +23,15 @@ internal class AstWriterTest {
             .getOrHandle { throw it }
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())
-        fun bodyPrinter(tl : TopLevel): Writer = { output ->
-            val body = extractor
+        fun bodyPrinter(tl : TopLevel) =
+            extractor
                 .rhsOf(tl)
-                .getOrHandle { throw it }
-
-            output.write(body)
-        }
+                .map { Writer { output -> output.print(it) }}
 
         AstWriters { bodyPrinter(it) }
             .print(transform(ast))
-            .invoke { data -> s.write(data) }
+            .getOrHandle { throw it }
+            .write(Printer.of(s))
 
         return s.toString()
     }
