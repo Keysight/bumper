@@ -110,11 +110,40 @@ internal class AstWriterTest {
             int*** h();
         """.trimIndent()
 
-
         assertEquals(input, literal(input))
         assertEquals(
             output,
             literal(input) { ast -> TranslationUnit(ast.decls.filter { it.name != "g" }) }
+        )
+    }
+
+    @Test
+    fun funToPrototype() {
+        val input = """
+            int g(int i) {}
+            int f() {
+               g(42);
+            }
+        """.trimIndent()
+
+        val output = """
+            int f();
+        """.trimIndent()
+
+        assertEquals(
+            output,
+            literal(input) { ast ->
+                TranslationUnit(
+                    ast.decls
+                        // remove g
+                        .filter { it.name != "g" }
+                        // turn f into a prototype
+                        .map { tl ->
+                            if (tl is TopLevel.Fun && tl.name == "f") {
+                                tl.copy(isDefinition = false)
+                            } else tl
+                        }
+                )}
         )
     }
 }
