@@ -69,6 +69,14 @@ sealed class Attr {
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
+enum class Storage {
+    Default, // used for toplevel names without explicit storage
+    Extern,
+    Static,
+    Auto, // used for block-scoped names without explicit storage
+    Register
+}
+
 typealias Attrs = List<Attr>
 
 /* Types */
@@ -224,14 +232,14 @@ sealed interface TopLevel {
     }
 }
 
-sealed class EntityKind {
-    object FunDecl: EntityKind()
-    object FunDef: EntityKind()
-    object Enum: EntityKind()
-    object Struct: EntityKind()
-    object Union: EntityKind()
-    object Typedef: EntityKind()
-    object Var: EntityKind()
+enum class EntityKind {
+    FunDecl,
+    FunDef,
+    Enum,
+    Struct,
+    Union,
+    Typedef,
+    Var;
 
     companion object {
         fun kindOf(toplevel: TopLevel) = toplevel.kind

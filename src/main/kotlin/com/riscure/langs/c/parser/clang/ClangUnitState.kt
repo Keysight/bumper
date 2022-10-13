@@ -65,7 +65,7 @@ class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
                     // only keep those that reference top-level entities
                     .filter { it.isTopLevelEntity() }
                     .map { getTopLevel(it) }
-                    .sequenceEither() // bubble errors up
+                    .sequence() // bubble errors up
                     .map { it.toSet() }
             }
 
