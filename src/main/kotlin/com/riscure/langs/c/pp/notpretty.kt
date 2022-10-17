@@ -2,7 +2,11 @@ package com.riscure.langs.c.pp
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.pp.writer.*
 
+/**
+ * Total pretty printing functions, mainly for C types.
+ */
 object Pretty {
     fun integerKind(kind: IKind): String = when(kind) {
         IKind.IBoolean -> "bool"
@@ -31,6 +35,7 @@ object Pretty {
 
     private fun formals(params: List<Param>): String =
         params.joinToString(separator=", ") { declaration(it.name, it.type) }
+
     private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
         is Type.Ptr   -> namePart(type.pointeeType, "*${name}")
         is Type.Fun   -> {
@@ -67,37 +72,6 @@ object Pretty {
     fun typedef(typedef: TopLevel.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
 }
 
-/* Something we can write string output to */
-fun interface Printer {
-    fun print(s: String)
-
-    companion object {
-        @JvmStatic
-        fun of(jwriter: java.io.Writer) = Printer { jwriter.write(it) }
-    }
-}
-
-/* The thing that writes to a printer */
-fun interface Writer {
-    fun write(output: Printer)
-}
-
-/* Sequential composition of writers */
-infix fun Writer.andThen(that: Writer): Writer = Writer { w -> write(w); that.write(w) }
-val empty: Writer = Writer { }
-fun text(s: String): Writer = Writer { it.print(s) }
-
-fun sequence(writers: Iterable<Writer>, separator: Writer = empty): Writer =
-    sequence(writers.iterator(), separator)
-
-private fun sequence(writers: Iterator<Writer>, separator: Writer = empty): Writer =
-    if (writers.hasNext()) {
-        val w = writers.next()
-
-        if (!writers.hasNext()) w
-        else (w andThen separator andThen sequence(writers, separator))
-    } else empty
-
 /**
  * A class that knows how to text ASTs as long as you provide
  * the method for writing the bodies of top-level definitions.
@@ -105,10 +79,12 @@ private fun sequence(writers: Iterator<Writer>, separator: Writer = empty): Writ
 class AstWriters(
     /**
      * A factory for writers for top-level entity bodies.
-     * It is expected that the bodyWriter includes the whitespace around the rhs's.
+     * It is expected that the bodyWriter includes the non-mandatory whitespace around the rhs's.
      */
-    val bodyWriter: (toplevel: TopLevel) -> Either<Throwable, Writer>
+    val getBodySource: (toplevel: TopLevel) -> Either<Throwable, String>
 ) {
+    private val semicolon = text(";")
+
     fun print(unit: TranslationUnit): Either<Throwable,Writer> =
         unit.decls
             .map { print(it) }
@@ -121,8 +97,10 @@ class AstWriters(
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
-                        bodyWriter(toplevel).map { body -> text(" =") andThen body andThen text(";") }
-                    } else text(";").right()
+                        getBodySource(toplevel).map { body -> text(" =$body;") }
+                    } else {
+                        semicolon.right()
+                    }
 
                     rhs.map { lhs andThen it }
                 }
@@ -133,20 +111,24 @@ class AstWriters(
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
-                        bodyWriter (toplevel).map { body -> text(" {") andThen body andThen text("}") }
-                    } else text(";").right()
+                        getBodySource(toplevel).map { body -> text(" {$body}") }
+                    } else {
+                        semicolon.right()
+                    }
 
                     rhs.map { lhs andThen it }
                 }
         }
 
-        is TopLevel.Typedef -> text(Pretty.typedef(toplevel)).right()
+        is TopLevel.Typedef ->
+            text(Pretty.typedef(toplevel)).right()
 
         is TopLevel.Composite ->
-            bodyWriter(toplevel)
-                .map { rhs -> text("struct ${toplevel.name}") andThen rhs andThen text(";") }
+            getBodySource(toplevel)
+                .map { rhs -> text("struct ${toplevel.name} $rhs;") }
 
-        is TopLevel.EnumDef -> TODO()
+        is TopLevel.EnumDef ->
+            getBodySource(toplevel)
+                .map { rhs -> text("enum ${toplevel.name} {$rhs};") }
     }
-
 }

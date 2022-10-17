@@ -23,8 +23,6 @@ class ClangParser : Parser<ClangUnitState> {
     override fun parse(file: File, opts: Options): Either<Throwable, ClangUnitState> {
         val cmd: Command = with(Spec.clang11) {
             Command(opts, listOf())
-            // TODO specify the right options for parsing only
-            // we want to catch parser errors
         }
         val args = cmd.toArguments()
 

@@ -53,9 +53,8 @@ internal class FrontendTest {
         val inputFile = kotlin.io.path.createTempFile(suffix = ".c").toFile()
         inputFile.writeText(input)
 
-        val unit = assertIs<Either.Right<UnitState>>(frontend.process(inputFile, listOf()))
-        val ast  = assertIs<Either.Right<TranslationUnit>>(unit.value.ast())
-
+        // This is actually a parse error
+        val unit = assertIs<Either.Left<*>>(frontend.process(inputFile, listOf()))
         inputFile.delete()
     }
 

@@ -11,8 +11,6 @@ import kotlin.test.*
 
 internal class AstWriterTest {
     fun literal(input: String, transform: (unit: TranslationUnit) -> TranslationUnit = {it}): String {
-        val s = StringWriter()
-
         val file = createTempFile(suffix = ".c").apply {
             writeText(input)
         }
@@ -24,16 +22,12 @@ internal class AstWriterTest {
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())
         fun bodyPrinter(tl : TopLevel) =
-            extractor
-                .rhsOf(tl)
-                .map { Writer { output -> output.print(it) }}
+            extractor.rhsOf(tl)
 
-        AstWriters { bodyPrinter(it) }
+        return AstWriters { bodyPrinter(it) }
             .print(transform(ast))
             .getOrHandle { throw it }
-            .write(Printer.of(s))
-
-        return s.toString()
+            .write()
     }
 
     @Test
@@ -91,7 +85,7 @@ internal class AstWriterTest {
             int xs[1] = { 42 };
             int ys[1][2];
             int zs[1][2][3];
-            int *zs[1][2][3];
+            int *us[1][2][3];
         """.trimIndent()
 
         assertEquals(input, literal(input))
