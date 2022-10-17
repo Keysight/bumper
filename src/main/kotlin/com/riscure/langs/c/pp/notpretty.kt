@@ -3,6 +3,67 @@ package com.riscure.langs.c.pp
 import arrow.core.*
 import com.riscure.langs.c.ast.*
 
+object Pretty {
+    fun print(kind: IKind): String = when(kind) {
+        IKind.IBoolean -> "bool"
+        IKind.IChar    -> "char"
+        IKind.ISChar   -> "signed char"
+        IKind.IUChar   -> "unsigned char"
+        IKind.IShort   -> "short"
+        IKind.IUShort  -> "unsigned short"
+        IKind.IInt     -> "int"
+        IKind.IUInt    -> "unsigned int"
+        IKind.ILong    -> "long"
+        IKind.IULong   -> "unsigned long"
+        IKind.ILongLong -> "long long"
+        IKind.IULongLong -> "unsigned long long"
+    }
+    fun print(kind: FKind): String = when (kind) {
+        FKind.FFloat -> "float"
+        FKind.FDouble -> "double"
+        FKind.FLongDouble -> "long double"
+    }
+
+    fun printDecl(ident: String, type: Type): String {
+        val (remainingType, decl) = printNamePart(type, ident)
+        return "${printTypePrefix(remainingType)} $decl".trim()
+    }
+
+    private fun formals(params: List<Param>): String =
+        params.joinToString(separator=", ") { printDecl(it.name, it.type) }
+    private fun printNamePart(type: Type, name: String): Pair<Type, String> = when (type) {
+        is Type.Ptr   -> printNamePart(type.pointeeType, "*${name}")
+        is Type.Fun   -> {
+            Pair(type.returnType, "($name)(${formals(type.params)})")
+        }
+        is Type.Array -> printNamePart(type.elementType, "$name[${type.size.getOrElse { "" }}]")
+        else          -> Pair(type, name)
+    }
+
+    private fun printTypePrefix(type: Type): String = when (type) {
+        // This part should have been printed by the name-part printer
+        is Type.Array  ->
+            throw RuntimeException("Failed to pretty-print ill-formed type.")
+        is Type.Fun    ->
+            throw RuntimeException("Failed to pretty-print ill-formed type.")
+
+        // Possible remainders:
+        is Type.Ptr    -> "${printTypePrefix(type.pointeeType)}*"
+        is Type.Enum   -> type.id
+        is Type.Float  -> print(type.kind)
+        is Type.Int    -> print(type.kind)
+        is Type.Named  -> type.id
+        is Type.Struct -> "(struct ${type.id})"
+        is Type.Union  -> "(union ${type.id})"
+        is Type.Void   -> "void"
+    }
+
+    fun printPrototype(thefun: TopLevel.Fun): String {
+        assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
+        return printDecl("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
+    }
+}
+
 /* Something we can write string output to */
 fun interface Printer {
     fun print(s: String)
@@ -34,32 +95,6 @@ private fun sequence(writers: Iterator<Writer>, separator: Writer = empty): Writ
         else (w andThen separator andThen sequence(writers, separator))
     } else empty
 
-/* The factory interface for producing writers for different AST nodes */
-interface WriterFactory {
-    fun print(kind: IKind): Writer
-    fun print(kind: FKind): Writer
-
-    /* Print a type in standalone form. I.e., when not part of a variable declaration */
-    fun print(type: Type): Writer
-
-    /* Print the type prefix of a variable declaration */
-    fun printTypePrefix(type: Type): Writer
-    /* Print the type suffix of a variable declaration */
-    fun printTypeSuffix(type: Type): Writer
-    /* Print a variable declaration */
-    fun printDecl(ident: String, type: Type): Writer =
-        printTypePrefix(type) andThen text(" ${ident}") andThen printTypeSuffix(type)
-
-    fun print(unit: TranslationUnit): Either<Throwable,Writer> =
-        unit.decls
-            .map { print(it) }
-            .sequenceEither()
-            .map { writers -> sequence(writers, separator = text("\n")) }
-
-    fun print(toplevel: TopLevel): Either<Throwable,Writer>
-    fun printPrototype(thefun: TopLevel.Fun): Writer
-}
-
 /**
  * A class that knows how to text ASTs as long as you provide
  * the method for writing the bodies of top-level definitions.
@@ -70,57 +105,16 @@ class AstWriters(
      * It is expected that the bodyWriter includes the whitespace around the rhs's.
      */
     val bodyWriter: (toplevel: TopLevel) -> Either<Throwable, Writer>
-): WriterFactory {
+) {
+    fun print(unit: TranslationUnit): Either<Throwable,Writer> =
+        unit.decls
+            .map { print(it) }
+            .sequence()
+            .map { writers -> sequence(writers, separator = text("\n")) }
 
-    override fun print(kind: IKind): Writer = when(kind) {
-        IKind.IBoolean -> text("bool")
-        IKind.IChar    -> text("char")
-        IKind.ISChar   -> text("signed char")
-        IKind.IUChar   -> text("unsigned char")
-        IKind.IShort   -> text("short")
-        IKind.IUShort  -> text("unsigned short")
-        IKind.IInt     -> text("int")
-        IKind.IUInt    -> text("unsigned int")
-        IKind.ILong    -> text("long")
-        IKind.IULong   -> text("unsigned long")
-        IKind.ILongLong -> text("long long")
-        IKind.IULongLong -> text("unsigned long long")
-    }
-    override fun print(kind: FKind): Writer = TODO()
-    override fun print(type: Type): Writer = when (type) {
-        is Type.Array -> print(type.type) andThen text("*")
-        else          -> printTypePrefix(type)
-    }
-
-    override fun printTypePrefix(type: Type): Writer = when (type) {
-        is Type.Array  -> printTypePrefix(type.type)
-        is Type.Enum   -> text(type.id)
-        is Type.Float  -> print(type.kind)
-        is Type.Fun    -> TODO()
-        is Type.Int    -> print(type.kind)
-        is Type.Named  -> text(type.id)
-        is Type.Ptr    -> print(type.type) andThen text("*")
-        is Type.Struct -> text("struct ${type.id}")
-        is Type.Union  -> text("union ${type.id}")
-        is Type.Void   -> text("void")
-    }
-
-    override fun printTypeSuffix(type: Type): Writer = when (type) {
-        is Type.Array  -> text("[${type.size.getOrElse { "" }}]") andThen printTypeSuffix(type.type)
-        else           -> empty
-    }
-
-    override fun printPrototype(thefun: TopLevel.Fun): Writer = (
-        print(thefun.ret)
-            andThen text(" ${thefun.name}")
-            andThen text("(")
-            andThen (sequence(thefun.params.map { printDecl(it.name, it.type) }, separator = text(", ")))
-            andThen text(")")
-    )
-
-    override fun print(toplevel: TopLevel) = when (toplevel) {
+    fun print(toplevel: TopLevel): Either<Throwable, Writer> = when (toplevel) {
         is TopLevel.Var -> {
-            printDecl(toplevel.name, toplevel.type)
+            text(Pretty.printDecl(toplevel.name, toplevel.type))
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
@@ -130,8 +124,9 @@ class AstWriters(
                     rhs.map { lhs andThen it }
                 }
         }
+
         is TopLevel.Fun -> {
-            printPrototype(toplevel)
+            text(Pretty.printPrototype(toplevel))
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
@@ -141,14 +136,16 @@ class AstWriters(
                     rhs.map { lhs andThen it }
                 }
         }
+
         is TopLevel.Typedef -> Either.Right(
             text("typedef ")
-                    andThen print(toplevel.typ)
-                    andThen text("${toplevel.name};")
+                    andThen text(Pretty.printDecl(toplevel.name, toplevel.underlyingType))
         )
+
         is TopLevel.Composite ->
             bodyWriter(toplevel)
                 .map { rhs -> text("struct ${toplevel.name}") andThen rhs andThen text(";") }
+
         is TopLevel.EnumDef -> TODO()
     }
 

@@ -146,4 +146,13 @@ internal class AstWriterTest {
                 )}
         )
     }
+
+    @Test
+    fun funPointer() {
+        val input = """
+            typedef void (*fptr)(int x);
+        """.trimIndent()
+
+        println(literal(input))
+    }
 }

@@ -86,9 +86,9 @@ sealed class Type {
     data class Void   (override val attrs: Attrs = listOf()): Type()
     data class Int    (val kind: IKind, override val attrs: Attrs = listOf()): Type()
     data class Float  (val kind: FKind, override val attrs: Attrs = listOf()): Type()
-    data class Ptr    (val type: Type, override val attrs: Attrs = listOf()): Type()
-    data class Array  (val type: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
-    data class Fun    (val retType: Type, val args: List<Type>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
+    data class Ptr    (val pointeeType: Type, override val attrs: Attrs = listOf()): Type()
+    data class Array  (val elementType: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
+    data class Fun    (val returnType: Type, val params: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
     data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type()
     data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type()
     data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type()
@@ -108,7 +108,7 @@ enum class StructOrUnion { Struct, Union }
 typealias FieldDecls = List<Field>
 
 data class Param(
-    val name: Ident,
+    val name: Ident = "",
     val type: Type
 )
 
@@ -177,7 +177,7 @@ sealed interface TopLevel {
     data class Fun(
         override val name: Ident,
         val inline: Boolean,
-        val ret: Type,
+        val returnType: Type,
         val params: List<Param>,
         val vararg: Boolean,
         val isDefinition: Boolean = false,
@@ -187,7 +187,7 @@ sealed interface TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
-        fun type(): Type = Type.Fun(ret, params.map { it.type }, vararg)
+        fun type(): Type = Type.Fun(returnType, params, vararg)
 
         override val tlid: TLID get() =
             TLID(name, if (isDefinition) EntityKind.FunDef else EntityKind.FunDecl)
@@ -218,13 +218,13 @@ sealed interface TopLevel {
 
     data class Typedef(
         override val name: Ident,
-        val typ: Type,
+        val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): TopLevel, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun definesType(): Type = Type.Named(name, typ)
+        override fun definesType(): Type = Type.Named(name, underlyingType)
 
         override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
     }

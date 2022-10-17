@@ -187,7 +187,7 @@ fun CXCursor.getParameters(): Result<List<Param>> {
     return (0 until nargs)
         .map { clang_Cursor_getArgument(this, it) }
         .map { it.asParam() }
-        .sequenceEither()
+        .sequence()
 }
 
 fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
@@ -270,8 +270,8 @@ fun CXType.asType(): Result<Type> =
             .asType()
             .flatMap { retType ->
                 (0 until clang_getNumArgTypes(this))
-                    .map { clang_getArgType(this, it).asType() }
-                    .sequenceEither()
+                    .map { clang_getArgType(this, it).asType().map { type -> Param("", type) } }
+                    .sequence()
                     .map { args -> Type.Fun(retType, args, false) }
             }
 

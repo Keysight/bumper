@@ -2,6 +2,8 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.pp.AstWriters
+import com.riscure.langs.c.pp.Pretty
 import kotlin.test.*
 import java.io.File
 import java.nio.file.Path
@@ -258,6 +260,7 @@ class ClangParserTest {
         parsed("/parser-tests/018-global-with-function-pointers.c") { tu, unit ->
             val ds = tu.decls
 
+            println(ds.filterIsInstance<TopLevel.Typedef>().map { it.underlyingType })
             println(ds)
         }
     }
@@ -282,11 +285,23 @@ class ClangParserTest {
 
     @Test
     fun test021() {
+        fun show(ident: String, type: Type) =
+            """
+                {
+                  name: $ident
+                  type: $type,
+                  pretty: ${Pretty.printDecl(ident, type)},
+                }
+            """.trimIndent()
+
         parsed("/parser-tests/021-weird-types.c") { tu ->
             val ds = tu.decls
             tu.decls
                 .filterIsInstance<TopLevel.Typedef>()
-                .forEach {tl -> println("${tl.name}: ${tl.typ}") }
+                .forEach { println(show(it.name, it.underlyingType)) }
+            tu.decls
+                .filterIsInstance<TopLevel.Fun>()
+                .forEach { println(Pretty.printPrototype(it)) }
         }
     }
 }
