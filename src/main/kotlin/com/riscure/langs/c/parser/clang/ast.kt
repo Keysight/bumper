@@ -177,7 +177,7 @@ fun CXCursor.asVarDecl(): Result<TopLevel.Var> =
             .map { TopLevel.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
     }
 
-fun CXCursor.getResultType(): Result<Type> {
+fun CXCursor.getReturnType(): Result<Type> {
     val typ = clang_getCursorResultType(this)
     return typ.asType()
 }
@@ -195,7 +195,7 @@ fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
 
 fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
-        this.getResultType().flatMap { resultType ->
+        this.getReturnType().flatMap { resultType ->
             this.getParameters().map { params ->
                 /* TODO, fill in the constants */
                 TopLevel.Fun(spelling(), false, resultType, params, false)

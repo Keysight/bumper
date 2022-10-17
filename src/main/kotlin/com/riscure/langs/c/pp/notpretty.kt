@@ -4,7 +4,7 @@ import arrow.core.*
 import com.riscure.langs.c.ast.*
 
 object Pretty {
-    fun print(kind: IKind): String = when(kind) {
+    fun integerKind(kind: IKind): String = when(kind) {
         IKind.IBoolean -> "bool"
         IKind.IChar    -> "char"
         IKind.ISChar   -> "signed char"
@@ -18,29 +18,30 @@ object Pretty {
         IKind.ILongLong -> "long long"
         IKind.IULongLong -> "unsigned long long"
     }
-    fun print(kind: FKind): String = when (kind) {
+    fun floatKind(kind: FKind): String = when (kind) {
         FKind.FFloat -> "float"
         FKind.FDouble -> "double"
         FKind.FLongDouble -> "long double"
     }
 
-    fun printDecl(ident: String, type: Type): String {
-        val (remainingType, decl) = printNamePart(type, ident)
-        return "${printTypePrefix(remainingType)} $decl".trim()
+    fun declaration(ident: String, type: Type): String {
+        val (remainingType, decl) = namePart(type, ident)
+        return "${typePrefix(remainingType)} $decl".trim()
     }
 
     private fun formals(params: List<Param>): String =
-        params.joinToString(separator=", ") { printDecl(it.name, it.type) }
-    private fun printNamePart(type: Type, name: String): Pair<Type, String> = when (type) {
-        is Type.Ptr   -> printNamePart(type.pointeeType, "*${name}")
+        params.joinToString(separator=", ") { declaration(it.name, it.type) }
+    private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
+        is Type.Ptr   -> namePart(type.pointeeType, "*${name}")
         is Type.Fun   -> {
-            Pair(type.returnType, "($name)(${formals(type.params)})")
+            // this is strange, but true, I think
+            namePart(type.returnType, "($name)(${formals(type.params)})")
         }
-        is Type.Array -> printNamePart(type.elementType, "$name[${type.size.getOrElse { "" }}]")
+        is Type.Array -> namePart(type.elementType, "$name[${type.size.getOrElse { "" }}]")
         else          -> Pair(type, name)
     }
 
-    private fun printTypePrefix(type: Type): String = when (type) {
+    private fun typePrefix(type: Type): String = when (type) {
         // This part should have been printed by the name-part printer
         is Type.Array  ->
             throw RuntimeException("Failed to pretty-print ill-formed type.")
@@ -48,20 +49,22 @@ object Pretty {
             throw RuntimeException("Failed to pretty-print ill-formed type.")
 
         // Possible remainders:
-        is Type.Ptr    -> "${printTypePrefix(type.pointeeType)}*"
+        is Type.Ptr    -> "${typePrefix(type.pointeeType)}*"
         is Type.Enum   -> type.id
-        is Type.Float  -> print(type.kind)
-        is Type.Int    -> print(type.kind)
+        is Type.Float  -> floatKind(type.kind)
+        is Type.Int    -> integerKind(type.kind)
         is Type.Named  -> type.id
         is Type.Struct -> "(struct ${type.id})"
         is Type.Union  -> "(union ${type.id})"
         is Type.Void   -> "void"
     }
 
-    fun printPrototype(thefun: TopLevel.Fun): String {
+    fun prototype(thefun: TopLevel.Fun): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
-        return printDecl("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
+        return declaration("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
     }
+
+    fun typedef(typedef: TopLevel.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
 }
 
 /* Something we can write string output to */
@@ -114,7 +117,7 @@ class AstWriters(
 
     fun print(toplevel: TopLevel): Either<Throwable, Writer> = when (toplevel) {
         is TopLevel.Var -> {
-            text(Pretty.printDecl(toplevel.name, toplevel.type))
+            text(Pretty.declaration(toplevel.name, toplevel.type))
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
@@ -126,7 +129,7 @@ class AstWriters(
         }
 
         is TopLevel.Fun -> {
-            text(Pretty.printPrototype(toplevel))
+            text(Pretty.prototype(toplevel))
                 .right()
                 .flatMap { lhs ->
                     val rhs = if (toplevel.isDefinition) {
@@ -137,10 +140,7 @@ class AstWriters(
                 }
         }
 
-        is TopLevel.Typedef -> Either.Right(
-            text("typedef ")
-                    andThen text(Pretty.printDecl(toplevel.name, toplevel.underlyingType))
-        )
+        is TopLevel.Typedef -> text(Pretty.typedef(toplevel)).right()
 
         is TopLevel.Composite ->
             bodyWriter(toplevel)

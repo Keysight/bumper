@@ -2,11 +2,11 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.pp.AstWriters
 import com.riscure.langs.c.pp.Pretty
 import kotlin.test.*
 import java.io.File
 import java.nio.file.Path
+import kotlin.io.path.writeText
 
 class ClangParserTest {
 
@@ -14,7 +14,7 @@ class ClangParserTest {
         parsed(resource) { ast, _ -> whenOk(ast) }
 
     private fun parsed(resource: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
-        val test = File(ClangParserTest::class.java.getResource(resource)!!.file)
+        val test = File(javaClass.getResource(resource)!!.file)
         ClangParser().parse(test).tap { it.use { unit ->
             when (val ast = unit.ast()) {
                 is Either.Left -> fail("Expected successful parse, got error: ${ast.value}")
@@ -290,7 +290,7 @@ class ClangParserTest {
                 {
                   name: $ident
                   type: $type,
-                  pretty: ${Pretty.printDecl(ident, type)},
+                  pretty: ${Pretty.declaration(ident, type)},
                 }
             """.trimIndent()
 
@@ -301,7 +301,18 @@ class ClangParserTest {
                 .forEach { println(show(it.name, it.underlyingType)) }
             tu.decls
                 .filterIsInstance<TopLevel.Fun>()
-                .forEach { println(Pretty.printPrototype(it)) }
+                .forEach { println(Pretty.prototype(it)) }
         }
+    }
+
+    @Test
+    fun unhappy01() {
+        val file = kotlin.io.path.createTempFile(suffix=".c").apply {
+            writeText("""
+                int[] f(); // semantic error
+            """.trimIndent())
+        }
+        val result = ClangParser().parse(file.toFile())
+        assertIs<Either.Left<*>>(result)
     }
 }

@@ -39,7 +39,7 @@ internal class AstWriterTest {
     @Test
     fun main() {
         val input = """
-            int main(int argc, char* argv[]) {
+            int main(int argc, char *argv[]) {
                 int x;
             }
         """.trimIndent()
@@ -60,7 +60,7 @@ internal class AstWriterTest {
     @Test
     fun longlongPointer() {
         val input = """
-            int f(long long* l) {}
+            int f(long long *l) {}
         """.trimIndent()
 
         assertEquals(input, literal(input))
@@ -91,7 +91,7 @@ internal class AstWriterTest {
             int xs[1] = { 42 };
             int ys[1][2];
             int zs[1][2][3];
-            int* zs[1][2][3];
+            int *zs[1][2][3];
         """.trimIndent()
 
         assertEquals(input, literal(input))
@@ -100,14 +100,14 @@ internal class AstWriterTest {
     @Test
     fun arrayReturnType() {
         val input = """
-            int* f();
-            int** g();
-            int*** h();
+            int *f();
+            int **g();
+            int ***h();
         """.trimIndent()
 
         val output = """
-            int* f();
-            int*** h();
+            int *f();
+            int ***h();
         """.trimIndent()
 
         assertEquals(input, literal(input))
