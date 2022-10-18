@@ -171,7 +171,9 @@ sealed interface TopLevel {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
-        override val tlid: TLID get() = TLID(name, EntityKind.Var)
+        override val tlid: TLID get() =
+            if (isDefinition) TLID(name, EntityKind.VarDef)
+            else TLID(name, EntityKind.VarDecl)
     }
 
     data class Fun(
@@ -248,7 +250,8 @@ sealed interface TopLevel {
         EntityKind.Struct -> this is Composite && structOrUnion == StructOrUnion.Struct
         EntityKind.Union -> this is Composite && structOrUnion == StructOrUnion.Union
         EntityKind.Typedef -> this is Typedef
-        EntityKind.Var -> this is Var
+        EntityKind.VarDecl -> this is Var && !isDefinition
+        EntityKind.VarDef -> this is Var && isDefinition
     }
 }
 
@@ -259,7 +262,14 @@ enum class EntityKind {
     Struct,
     Union,
     Typedef,
-    Var;
+    VarDef,
+    VarDecl;
+
+    val hasDefinition get() = when (this) {
+        FunDecl -> false
+        VarDecl -> false
+        else    -> true
+    }
 
     companion object {
         fun kindOf(toplevel: TopLevel) = toplevel.kind
@@ -269,7 +279,13 @@ enum class EntityKind {
 /**
  * Identifies a top-level entity uniquely within a translation unit.
  */
-data class TLID(val name: String, val kind: EntityKind)
+data class TLID(val name: String, val kind: EntityKind) {
+    companion object {
+        @JvmStatic fun function(name: String) = TLID(name, EntityKind.FunDef)
+
+        @JvmStatic fun prototype(name: String) = TLID(name, EntityKind.FunDecl)
+    }
+}
 
 data class TranslationUnit(
     val decls: List<TopLevel>
@@ -281,6 +297,33 @@ data class TranslationUnit(
     fun get(id: TLID): Option<TopLevel> = decls
         .find { it.name == id.name && it.ofKind(id.kind) }
         .toOption()
+
+    fun update(id: TLID, f: (decl : TopLevel) -> TopLevel) = copy(decls = decls.map {
+        if (it.tlid == id) f(it) else it
+    })
+
+    val functions: List<TopLevel.Fun>           get() = decls.functions()
+    val functionDefinitions: List<TopLevel.Fun> get() = decls.functions().definitions()
+
+    /**
+     * Given a function definition identifier, turn it into a declaration only.
+     * This will correctly drop the definition if the translation unit already contains a separate
+     * declaration of this function. On any other identifier kind this is a noop.
+     */
+    fun dropDefinition(def: TLID) = when(def.kind) {
+        EntityKind.FunDef -> {
+            // check if the translation unit has a separate declaration
+            when (val decl = get(def.copy(kind = EntityKind.FunDecl))) {
+                is Some -> copy(decls = decls.filter { it.tlid == def })                   // drop the whole definition
+                is None -> update(def) { (it as TopLevel.Fun).copy(isDefinition = false) } // turn def into declaration
+            }
+        }
+
+        // if not a function definition id, do nothing
+        else -> this
+    }
+
+    fun dropDefinitions(vararg defs: TLID) = defs.fold(this, { acc, it -> acc.dropDefinition(it) })
 
     /* Map locations to top-level declarations */
     fun getAtLocation(loc: Location): Option<TopLevel> =
@@ -319,7 +362,7 @@ data class TranslationUnit(
 /* filters for toplevel declarations */
 
 fun List<TopLevel>.functions(): List<TopLevel.Fun> =
-    filterIsInstance(TopLevel.Fun::class.java)
+    filterIsInstance<TopLevel.Fun>()
 
 fun List<TopLevel.Fun>.definitions(): List<TopLevel.Fun> =
     filter { it.isDefinition }
@@ -328,4 +371,4 @@ fun List<TopLevel.Fun>.declarations(): List<TopLevel.Fun> =
     filter { !it.isDefinition }
 
 fun List<TopLevel>.typelike(): List<TopLevel.Typelike> =
-    filterIsInstance(TopLevel.Typelike::class.java)
+    filterIsInstance<TopLevel.Typelike>()
