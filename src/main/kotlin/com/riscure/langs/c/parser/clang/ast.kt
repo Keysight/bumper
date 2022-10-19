@@ -7,6 +7,7 @@ package com.riscure.langs.c.parser
 import arrow.core.*
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.clang.*
 import com.riscure.toBool
 import org.bytedeco.javacpp.*
@@ -27,7 +28,7 @@ private fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Re
     return whenMatch()
 }
 
-fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
+fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit> {
     if (this.kind() != CXCursor_TranslationUnit) {
         return "Expected translation unit, got cursor of kind ${this.kindName()}".left()
     }
@@ -38,7 +39,7 @@ fun CXCursor.asTranslationUnit(): Result<TranslationUnit> {
         .filter { it.kind() != CXCursor_UnexposedDecl }
         .map { it.asTopLevel() }
         .sequence()
-        .map { TranslationUnit(it) }
+        .map { TranslationUnit(tuid, it) }
 }
 
 fun CXCursor.asTopLevel(): Result<TopLevel> =

@@ -1,6 +1,8 @@
 package com.riscure.langs.c.index
 
 import arrow.core.*
+import arrow.typeclasses.Monoid
+import arrow.typeclasses.Semigroup
 import com.riscure.langs.c.ast.TLID
 import com.riscure.langs.c.ast.TranslationUnit
 import java.nio.file.Path
@@ -21,14 +23,13 @@ open class IndexException(msg: String, cause: Exception? = null) : Exception(msg
 class MissingDefinition(name: String): IndexException("No definition found for name '$name'")
 class MultipleDefinitions(name: String): IndexException("Multiple definitions found for name '$name'")
 
-fun TranslationUnit.symbols(unit: TUID) =
-    decls.map { tl -> Symbol(unit, tl.tlid) }
-
 data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
 
-    val symbols: Set<Symbol> get() = symbolsByName.entries
-        .flatMap { it.value }
-        .toSet()
+    val symbols: Set<Symbol> by lazy {
+        symbolsByName.entries
+            .flatMap { it.value }
+            .toSet()
+    }
 
     fun getDefinitions(id: TLID) =
         symbolsByName[id.name]
@@ -49,10 +50,16 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
         }
     }
 
+    fun combine(that: Index) = Index(
+        symbolsByName.zip(that.symbolsByName) { key, left, right -> left + right }
+    )
+
     companion object {
         @JvmStatic
-        fun create(units: Map<TUID,TranslationUnit>): Index = create(
-            units.entries.flatMap { (tuid, unit) -> unit.symbols(tuid) }
+        fun merge(indices: Collection<Index>): Index = Index.create(
+            indices
+                .flatMap { it.symbols }
+                .toSet()
         )
 
         @JvmStatic

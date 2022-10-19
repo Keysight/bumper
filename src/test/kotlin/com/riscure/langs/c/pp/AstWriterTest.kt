@@ -107,7 +107,7 @@ internal class AstWriterTest {
         assertEquals(input, literal(input))
         assertEquals(
             output,
-            literal(input) { ast -> TranslationUnit(ast.decls.filter { it.name != "g" }) }
+            literal(input) { ast -> ast.copy(decls = ast.decls.filter { it.name != "g" }) }
         )
     }
 
@@ -127,7 +127,7 @@ internal class AstWriterTest {
         assertEquals(
             output,
             literal(input) { ast ->
-                TranslationUnit(
+                ast.copy(decls =
                     ast.decls
                         // remove g
                         .filter { it.name != "g" }

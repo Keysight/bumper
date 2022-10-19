@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.riscure.dobby.clang.*
+import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.Parser
 import org.bytedeco.javacpp.BytePointer
 import org.bytedeco.javacpp.PointerPointer
@@ -71,7 +72,7 @@ class ClangParser : Parser<ClangUnitState> {
 
             return if (bad) {
                 Parser.Error(file, "Translation unit has error diagnostics.").left()
-            } else ClangUnitState(c_tu).right()
+            } else ClangUnitState(TUID(file.toPath()), c_tu).right()
         }
         catch (e : Exception) {
             // if something went wrong, we do have to free the tu

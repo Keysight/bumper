@@ -5,6 +5,7 @@ import arrow.typeclasses.Monoid
 import com.riscure.langs.c.ast.Location
 import com.riscure.langs.c.ast.SourceRange
 import com.riscure.langs.c.ast.TopLevel
+import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.*
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
@@ -12,10 +13,10 @@ import java.nio.file.Path
 
 typealias Result<T> = Either<Throwable, T>
 
-class ClangUnitState(val cxunit: CXTranslationUnit) : UnitState {
+class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-    private val _ast by lazy { rootCursor.asTranslationUnit() }
+    private val _ast by lazy { rootCursor.asTranslationUnit(tuid) }
 
     // We have to keep track of this, because clang_getCursor(CXLocation)
     // maps to the innermost ast element at that location.

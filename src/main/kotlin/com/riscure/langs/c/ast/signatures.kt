@@ -3,6 +3,9 @@
 package com.riscure.langs.c.ast
 
 import arrow.core.*
+import com.riscure.langs.c.index.Index
+import com.riscure.langs.c.index.Symbol
+import com.riscure.langs.c.index.TUID
 import java.nio.file.Path
 
 typealias Name  = String
@@ -288,6 +291,7 @@ data class TLID(val name: String, val kind: EntityKind) {
 }
 
 data class TranslationUnit(
+    val tuid: TUID,
     val decls: List<TopLevel>
 ) {
     /**
@@ -298,11 +302,11 @@ data class TranslationUnit(
         .find { it.name == id.name && it.ofKind(id.kind) }
         .toOption()
 
-    fun update(id: TLID, f: (decl : TopLevel) -> TopLevel) = copy(decls = decls.map {
+    fun update(id: TLID, f: (decl: TopLevel) -> TopLevel) = copy(decls = decls.map {
         if (it.tlid == id) f(it) else it
     })
 
-    val functions: List<TopLevel.Fun>           get() = decls.functions()
+    val functions: List<TopLevel.Fun> get() = decls.functions()
     val functionDefinitions: List<TopLevel.Fun> get() = decls.functions().definitions()
 
     /**
@@ -310,7 +314,7 @@ data class TranslationUnit(
      * This will correctly drop the definition if the translation unit already contains a separate
      * declaration of this function. On any other identifier kind this is a noop.
      */
-    fun dropDefinition(def: TLID) = when(def.kind) {
+    fun dropDefinition(def: TLID) = when (def.kind) {
         EntityKind.FunDef -> {
             // check if the translation unit has a separate declaration
             when (val decl = get(def.copy(kind = EntityKind.FunDecl))) {
@@ -331,7 +335,7 @@ data class TranslationUnit(
             .find { decl ->
                 when (val range = decl.meta.location) {
                     is Some -> range.value.begin == loc
-                    else    -> false
+                    else -> false
                 }
             }
             .toOption()
@@ -357,6 +361,48 @@ data class TranslationUnit(
                 }
             }
             .toOption()
+
+
+    // Indexing a translation unit
+    val symbols get() = decls.map { tl -> Symbol(tuid, tl.tlid) }
+    val index get() = Index.create(symbols)
+
+    /**
+     * We can use an index as a whitelist to mask a translation unit.
+     * This returns a translation unit AST with everything filtered that is not whitelisted.
+     * It will be smart about function prototypes.
+     */
+    fun mask(whitelist: Index): TranslationUnit {
+        fun check(i: Symbol) = whitelist.symbols.contains(i)
+        return copy(decls = decls.flatMap { entity ->
+            when (entity) {
+                // functions are special.
+                is TopLevel.Fun -> {
+                    val funDef = Symbol(tuid, TLID.function(entity.name))
+                    val funDec = Symbol(tuid, TLID.prototype(entity.name))
+
+                    when {
+                        // definition is whitelisted, also keep declarations
+                        check(funDef) -> listOf(entity)
+                        // declaration is whitelisted, keep declarations
+                        check(funDec) && !entity.isDefinition -> listOf(entity)
+                        // declaration is whitelisted, definition is not
+                        check(funDec) && entity.isDefinition ->
+                            // check if the tu also contains a separate declaration.
+                            // if so, just keep that one, else, turn this one into a declaration
+                            if (symbols.contains(funDec)) listOf()
+                            else listOf(entity.copy(isDefinition = false))
+                        // otherwise: not whitelisted
+                        else -> listOf()
+                    }
+                }
+
+                // everything else is just directly checked against the whitelist
+                else -> listOf(entity).filter { !check(Symbol(tuid, entity.tlid)) }
+            }
+        }
+        )
+    }
 }
 
 /* filters for toplevel declarations */
