@@ -56,7 +56,9 @@ void test_1(int k) {
 
 # 1 "/nix/store/lxf4w7bzm1pdsw27jldycdfnnkv4k16z-clang-wrapper-11.1.0/resource-root/include/stddef.h" 1 3
 # 46 "/nix/store/lxf4w7bzm1pdsw27jldycdfnnkv4k16z-clang-wrapper-11.1.0/resource-root/include/stddef.h" 3
+#ifndef _WIN32
 typedef long unsigned int size_t;
+#endif
 # 34 "/nix/store/dwsi3wsqpqm0hpzdm9fsxc7q732p9xwi-glibc-2.34-210-dev/include/stdio.h" 2 3
 
 
