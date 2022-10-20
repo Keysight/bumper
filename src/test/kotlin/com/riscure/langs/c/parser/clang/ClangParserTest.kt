@@ -3,6 +3,7 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.*
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.pp.Pretty
+import org.junit.jupiter.api.Disabled
 import kotlin.test.*
 import java.io.File
 import java.nio.file.Path
@@ -117,6 +118,7 @@ class ClangParserTest {
         }
     }
 
+    @Disabled
     @Test
     fun test009() {
         parsed("/parser-tests/009-fun-with-doc.c") { tu ->
