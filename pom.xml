@@ -16,6 +16,36 @@
         <arrow.version>1.1.2</arrow.version>
         <coroutines.version>1.5.1</coroutines.version>
     </properties>
+    <repositories>
+        <repository>
+            <id>riscure</id>
+            <url>http://nexus3.riscure.com:8081/repository/riscure</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>riscure-snapshots</id>
+            <url>http://nexus3.riscure.com:8081/repository/riscure-snapshots</url>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>3rdparty</id>
+            <url>http://nexus3.riscure.com:8081/repository/3rdparty</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>3rdparty-snapshots</id>
+            <url>http://nexus3.riscure.com:8081/repository/3rdparty-snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>p2-proxy</id>
+            <url>http://nexus3.riscure.com:8081/repository/p2-proxy</url>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+    </repositories>
     <dependencies>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
