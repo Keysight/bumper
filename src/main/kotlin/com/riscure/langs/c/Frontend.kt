@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.Digest
 import com.riscure.digest
 import com.riscure.dobby.clang.*
+import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.Parser
 import com.riscure.langs.c.parser.UnitState
 import com.riscure.langs.c.parser.clang.ClangParser
@@ -56,9 +57,9 @@ class Frontend<S : UnitState>(
 
             cppResult.flatMap { _ ->
                     // Call the parser with the preprocessed source.
-                    // This does not need compile arguments, because preprocessing
-                    // happened already.
-                    parser.parse(cpped)
+                    // This does not need compile arguments, because preprocessing happened already.
+                    // We make sure that the result will be identified by the given TUID.
+                    parser.parse(cpped, listOf(), TUID(main.toPath()))
                 }
 
         }

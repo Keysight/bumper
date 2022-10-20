@@ -21,7 +21,7 @@ import java.io.File
  */
 class ClangParser : Parser<ClangUnitState> {
 
-    override fun parse(file: File, opts: Options): Either<Throwable, ClangUnitState> {
+    override fun parse(file: File, opts: Options, tuid: TUID): Either<Throwable, ClangUnitState> {
         val cmd: Command = with(Spec.clang11) {
             Command(opts, listOf())
         }
@@ -72,7 +72,7 @@ class ClangParser : Parser<ClangUnitState> {
 
             return if (bad) {
                 Parser.Error(file, "Translation unit has error diagnostics.").left()
-            } else ClangUnitState(TUID(file.toPath()), c_tu).right()
+            } else ClangUnitState(tuid, c_tu).right()
         }
         catch (e : Exception) {
             // if something went wrong, we do have to free the tu
