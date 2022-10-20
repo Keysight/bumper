@@ -4,10 +4,9 @@ import arrow.core.*
 import com.riscure.Fallable
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
-import com.riscure.langs.c.analysis.Identity
 import com.riscure.langs.c.ast.TranslationUnit
 import com.riscure.langs.c.parser.UnitState
-import com.riscure.langs.c.parser.clang.ClangUnitState
+import org.junit.jupiter.api.Disabled
 import java.io.File
 import java.io.StringWriter
 import java.nio.file.Path
@@ -79,6 +78,7 @@ internal class FrontendTest {
      *      A ----------- id --------------> ast minus metadata/prettyprinted source
      *
      */
+    @Disabled("The preprocessed file is incompatible with windows (typedef size_t)")
     @Test
     fun test010() {
         processed("/parser-tests/010-demo-functions.c") { tu, unit ->
