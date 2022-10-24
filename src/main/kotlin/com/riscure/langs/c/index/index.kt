@@ -14,7 +14,18 @@ data class TUID(
 data class Symbol(
     val unit: TUID,
     val entity: TLID
-)
+) {
+    val name get() = entity.name
+    val kind get() = entity.kind
+
+    companion object {
+        @JvmStatic
+        fun prototype(unit: TUID, name: String): Symbol = Symbol(unit, TLID.prototype(name))
+
+        @JvmStatic
+        fun function(unit: TUID, name: String): Symbol = Symbol(unit, TLID.function(name))
+    }
+}
 
 open class IndexException(msg: String, cause: Exception? = null) : Exception(msg, cause)
 class MissingDefinition(name: String): IndexException("No definition found for name '$name'")
@@ -37,11 +48,18 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
             .toSet()
     }
 
-    fun getDefinitions(id: TLID) =
-        symbolsByName[id.name]
+    operator fun get(name: String): Set<Symbol> =
+        symbolsByName[name]
             .toOption()
-            .map { match -> match.filter { it.entity.kind.hasDefinition } }
             .getOrElse { setOf() }
+
+    operator fun get(tlid: TLID): Set<Symbol> =
+        symbolsByName[tlid.name]
+            .toOption()
+            .map { it.filter { s -> s.entity.kind == tlid.kind }.toSet() }
+            .getOrElse { setOf() }
+
+    fun getDefinitions(name: String) = this[name].filter { it.entity.kind.hasDefinition }
 
     /**
      * Filter the symbols in the index
@@ -62,11 +80,22 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
     )
 
     /**
+     * Flatmap the symbols in the index
+     */
+    fun flatMap(transform: (Symbol) -> Set<Symbol>) = copy(
+        symbolsByName = symbolsByName
+            .mapValues { entry -> entry.value
+                .flatMap { transform(it) }
+                .toSet()
+            }
+    )
+
+    /**
      * Try to resolve a entity identifier.
      * @throws IndexException whenever the resolution fails or when it is ambiguous.
      */
     fun getUnambiguousDefinition(id: TLID): Either<IndexException, Symbol> {
-        val defs = getDefinitions(id)
+        val defs = getDefinitions(id.name)
         return when (defs.size) {
             0 -> MissingDefinition(id.name).left()
             1 -> defs.first().right()
