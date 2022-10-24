@@ -5,11 +5,14 @@ import com.riscure.Fallable
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.functions
 import com.riscure.langs.c.parser.UnitState
+import com.riscure.langs.c.parser.clang.ClangUnitState
 import org.junit.jupiter.api.Disabled
 import java.io.File
 import java.io.StringWriter
 import java.nio.file.Path
+import kotlin.io.path.writeText
 
 import kotlin.test.*
 
@@ -20,8 +23,17 @@ internal class FrontendTest {
         storage
     )
 
+    private fun literal(input: String, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
+        val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
+        processed(file, opts, whenOk)
+    }
+
     private fun processed(resource: String, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
         val test = File(this.javaClass.getResource(resource)!!.file)
+        processed(test, opts, whenOk)
+    }
+
+    private fun processed(test: File, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
         val result = frontend
             .process(test, opts)
             .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
@@ -123,5 +135,17 @@ internal class FrontendTest {
         }
     }
 
+    @Test
+    fun testPrintf() = literal(
+        """
+            #include <stdio.h>
+            void test() {
+                printf("hi");
+            }
+        """.trimIndent()
+    ) { ast, unit ->
+        val main = ast.decls.functions().filter { it.name == "test" }
+        println(unit.getReferencedToplevels(main[0]))
+    }
 
 }

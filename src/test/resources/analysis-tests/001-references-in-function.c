@@ -1,6 +1,6 @@
 void f() {}
 
-struct s;
+struct s {};
 
 int main() {
   struct s x;

@@ -1,4 +1,4 @@
-struct S;
+struct S {};
 void f(struct S x) {}
 void g(struct S x) {}
 
