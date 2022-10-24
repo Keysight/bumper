@@ -20,10 +20,16 @@ data class Symbol(
 
     companion object {
         @JvmStatic
-        fun prototype(unit: TUID, name: String): Symbol = Symbol(unit, TLID.prototype(name))
+        fun varDecl(unit: TUID, name: String) = Symbol(unit, TLID.varDecl(name))
 
         @JvmStatic
-        fun function(unit: TUID, name: String): Symbol = Symbol(unit, TLID.function(name))
+        fun varDef(unit: TUID, name: String) = Symbol(unit, TLID.varDef(name))
+
+        @JvmStatic
+        fun prototype(unit: TUID, name: String) = Symbol(unit, TLID.prototype(name))
+
+        @JvmStatic
+        fun function(unit: TUID, name: String) = Symbol(unit, TLID.function(name))
     }
 }
 

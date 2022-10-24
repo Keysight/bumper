@@ -4,6 +4,7 @@ import arrow.core.*
 import arrow.typeclasses.Monoid
 import com.riscure.langs.c.ast.Location
 import com.riscure.langs.c.ast.SourceRange
+import com.riscure.langs.c.ast.TLID
 import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.*
@@ -56,7 +57,7 @@ class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState 
                 }
             }
 
-    override fun getReferencedToplevels(decl: TopLevel): Result<Set<TopLevel>> =
+    override fun getReferencedToplevels(decl: TopLevel): Result<Set<TLID>> =
         decl
             .getCursor().toEither { Throwable("Failed to get cursor for toplevel declaration") }
             .flatMap { cursor ->
@@ -67,7 +68,7 @@ class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState 
                     .filter { it.isTopLevelEntity() }
                     .map { getTopLevel(it) }
                     .sequence() // bubble errors up
-                    .map { it.toSet() }
+                    .map { it.map { it.tlid } .toSet() }
             }
 
     override fun getSource(decl: TopLevel): Option<String> =

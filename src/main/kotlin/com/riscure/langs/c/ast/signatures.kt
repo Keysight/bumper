@@ -284,6 +284,9 @@ enum class EntityKind {
  */
 data class TLID(val name: String, val kind: EntityKind) {
     companion object {
+        @JvmStatic fun varDecl(name: String) = TLID(name, EntityKind.VarDecl)
+        @JvmStatic fun varDef(name: String) = TLID(name, EntityKind.VarDef)
+
         @JvmStatic fun function(name: String) = TLID(name, EntityKind.FunDef)
 
         @JvmStatic fun prototype(name: String) = TLID(name, EntityKind.FunDecl)

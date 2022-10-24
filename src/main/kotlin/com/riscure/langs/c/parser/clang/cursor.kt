@@ -57,13 +57,7 @@ fun CXCursor.isNullCursor() = filterNullCursor().isEmpty()
 /**
  * Get the cursor of the definition that is being referenced by [this] cursor.
  */
-fun CXCursor.getReferenced(): Option<CXCursor> =
-    clang_getCursorReferenced(this)
-        .filterNullCursor()
-        // clang sometimes returns a cursor that does not represent the definition.
-        // somehow clang_getCursorDefinition only works in half the cases,
-        // whereas getCanonicalCursor seems to do the right thing.
-        .flatMap { clang.clang_getCanonicalCursor(it).filterNullCursor() }
+fun CXCursor.getReferenced(): Option<CXCursor> = clang_getCursorReferenced(this).filterNullCursor()
 fun CXCursor.isReference()   = getReferenced().isDefined()
 fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
 fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)

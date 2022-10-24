@@ -26,7 +26,7 @@ interface UnitState : Closeable {
      * Return the top-level entities that the definition of the given
      * top-level entity for the refers to.
      */
-    fun getReferencedToplevels(decl: TopLevel): Either<Throwable,Set<TopLevel>>
+    fun getReferencedToplevels(decl: TopLevel): Either<Throwable,Set<TLID>>
 
     /**
      * Given a top-level declaration *in the unit that this state belongs to*
