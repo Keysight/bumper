@@ -1,6 +1,7 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
+import com.riscure.langs.c.ast.TLID
 import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.ast.TranslationUnit
 import java.io.Closeable

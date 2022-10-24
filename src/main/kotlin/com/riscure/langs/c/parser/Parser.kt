@@ -6,7 +6,7 @@ import com.riscure.langs.c.index.TUID
 import java.io.File
 
 fun interface Parser<S : UnitState> {
-    class Error(input: File, reason: String) : Throwable("Failed to parse ${input}.")
+    class Error(input: File, reason: String) : Throwable("Failed to parse ${input}: ${reason}")
 
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform

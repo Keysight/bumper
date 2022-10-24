@@ -63,15 +63,20 @@ class ClangParser : Parser<ClangUnitState> {
 
             // now check the diagnostics for errors
             val c_diagnostics = clang_getDiagnosticSetFromTU(c_tu)
-            val bad = (0..clang_getNumDiagnosticsInSet(c_diagnostics))
+            val errors = (0..clang_getNumDiagnosticsInSet(c_diagnostics))
                 .map { clang_getDiagnosticInSet(c_diagnostics, it) }
-                .any { clang_getDiagnosticSeverity(it).let { sev ->
+                .filter { clang_getDiagnosticSeverity(it).let { sev ->
                     // fail on errors or fatal errors
                     sev == CXDiagnostic_Error || sev == CXDiagnostic_Fatal
                 }}
+                .map { clang_getDiagnosticSpelling(it).string }
 
-            return if (bad) {
-                Parser.Error(file, "Translation unit has error diagnostics.").left()
+            return if (errors.size > 0) {
+                Parser.Error(
+                    file,
+                    "Translation unit has error diagnostics:\n" +
+                            errors.joinToString("\n") { "- ${it}" }
+                ).left()
             } else ClangUnitState(tuid, c_tu).right()
         }
         catch (e : Exception) {
