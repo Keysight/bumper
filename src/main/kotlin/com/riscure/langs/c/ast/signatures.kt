@@ -398,7 +398,7 @@ data class TranslationUnit(
                 }
 
                 // everything else is just directly checked against the whitelist
-                else -> listOf(entity).filter { !check(Symbol(tuid, entity.tlid)) }
+                else -> listOf(entity).filter { check(Symbol(tuid, entity.tlid)) }
             }
         }
         )
