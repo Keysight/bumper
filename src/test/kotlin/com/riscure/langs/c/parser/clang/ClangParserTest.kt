@@ -118,6 +118,7 @@ class ClangParserTest {
         }
     }
 
+    /* disabled annotation doesn't work with maven surefire?
     @Disabled
     @Test
     fun test009() {
@@ -126,7 +127,7 @@ class ClangParserTest {
             println(tu)
             fail()
         }
-    }
+    }*/
 
     @Test
     fun test010() {

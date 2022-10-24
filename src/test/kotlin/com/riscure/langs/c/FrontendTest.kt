@@ -78,6 +78,7 @@ internal class FrontendTest {
      *      A ----------- id --------------> ast minus metadata/prettyprinted source
      *
      */
+    /* Disabled not working with maven?
     @Disabled("The preprocessed file is incompatible with windows (typedef size_t)")
     @Test
     fun test010() {
@@ -103,7 +104,7 @@ internal class FrontendTest {
                 }
             }
         }
-    }
+    }*/
 
     @Test
     fun missingInclude() {
