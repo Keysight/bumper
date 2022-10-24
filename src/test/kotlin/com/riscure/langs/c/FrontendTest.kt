@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.Fallable
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
+import com.riscure.langs.c.ast.TLID
 import com.riscure.langs.c.ast.TranslationUnit
 import com.riscure.langs.c.ast.functions
 import com.riscure.langs.c.parser.UnitState
@@ -144,8 +145,9 @@ internal class FrontendTest {
             }
         """.trimIndent()
     ) { ast, unit ->
-        val main = ast.decls.functions().filter { it.name == "test" }
-        println(unit.getReferencedToplevels(main[0]))
+        val main = ast.decls.functions().filter { it.name == "test" }[0]!!
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedToplevels(main))
+        val tls = refs.value.map { it.name }
+        assertContains(tls, "printf")
     }
-
 }
