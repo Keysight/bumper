@@ -7,11 +7,15 @@ import com.riscure.langs.c.Storage
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.UnitState
 import com.riscure.langs.c.parser.clang.ClangParser
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import kotlin.test.*
 import java.io.StringWriter
 import java.nio.charset.Charset
 import java.nio.file.Path
+import java.util.stream.Stream
 import kotlin.io.path.writeText
 
 /**
@@ -29,7 +33,8 @@ class StdHeadersRoundtripTest {
         file.deleteOnExit()
         val ast = process(file, opts, debug)
 
-        val extractor = Extractor(frontend.preprocessedAt(file, opts).getOrHandle { fail(it.message) }, Charset.defaultCharset())
+        val cpped = frontend.preprocessedAt(file, opts).getOrHandle { fail(it.message) }
+        val extractor = Extractor(cpped, Charset.defaultCharset())
         fun bodyPrinter(tl : TopLevel) =
             extractor.rhsOf(tl)
 
@@ -39,11 +44,11 @@ class StdHeadersRoundtripTest {
             .write())
     }
     private fun process(test: File, opts: Options = listOf(), debug: Boolean = false): TranslationUnit {
+        if (debug) println(frontend.preprocessedAt(test, opts))
+
         val result = frontend
             .process(test, opts)
             .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
-
-        if (debug) println(frontend.preprocessedAt(test, opts))
 
         return when (result) {
             is Either.Left  -> fail("Expected successful processing, got error: ${result.value}")
@@ -51,40 +56,40 @@ class StdHeadersRoundtripTest {
         }
     }
 
-    // https://en.cppreference.com/w/c/header
-    val headers = listOf(
-        "assert",
-        // "complex",
-        "ctype",
-        "errno",
-        "fenv",
-        "float",
-        "inttypes",
-        "iso646",
-        "limits",
-        "locale",
-        "math",
-        "setjmp",
-        "signal",
-        "stdalign",
-        "stdarg",
-        "stdatomic",
-        "stdbit",
-        "stdbool",
-        "stdckdint",
-        "stddef",
-        "stdint",
-        "stdio",
-        "stdlib",
-        "stdnotreturn",
-        "string",
-        "tgmath",
-        "threads",
-        "time",
-        "uchar",
-        "wchar",
-        "wctype"
-    )
+    companion object {
+        // https://en.cppreference.com/w/c/header
+        @JvmStatic
+        fun headers(): Stream<Arguments> = Stream.of(
+            "assert",
+            // "complex",
+            "ctype",
+            "errno",
+            "fenv",
+            "float",
+            "inttypes",
+            "iso646",
+            "limits",
+            "locale",
+            "math",
+            "setjmp",
+            "signal",
+            "stdalign",
+            "stdarg",
+            "stdatomic",
+            "stdbool",
+            "stddef",
+            "stdint",
+            "stdio",
+            "stdlib",
+            "string",
+            "tgmath",
+            "threads",
+            "time",
+            "uchar",
+            "wchar",
+            "wctype"
+        ).map { Arguments.of(it) }
+    }
 
     fun roundtrip(input: String, debug: Boolean = false) {
         println("Roundtrip test for: ${input}")
@@ -108,15 +113,12 @@ class StdHeadersRoundtripTest {
         }
     }
 
-    fun testHeader(header: String, debug: Boolean = false) = roundtrip("""
-    #include <${header}.h>
-    """.trimIndent(), debug)
-
-    @Test
-    fun testStdHeaders() {
-        for (header in headers) {
-            testHeader(header, true)
-        }
+    @ParameterizedTest
+    @MethodSource("headers")
+    fun testStdHeaders(header: String) {
+        roundtrip("""
+            #include <${header}.h>
+        """.trimIndent(), true)
     }
 
 }

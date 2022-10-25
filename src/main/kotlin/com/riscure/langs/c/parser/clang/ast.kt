@@ -50,10 +50,18 @@ fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit> {
         .map { TranslationUnit(tuid, it) }
 }
 
+/**
+ * Some top-level declarations are elaborated from inline compound type declarations.
+ * That is: they don't appear as top-level entities in the source file, but rather
+ * as nested declarations elsewhere lower in the tree. Clang elaborates/desugars this to a top-level declaration.
+ * Some of those are anonymous. This detects those anonymous declarations.
+ */
 fun CXCursor.isAnonymousDeclaration(): Boolean =
     // clang_isAnonymous and related don't work as expected
     kind() in listOf(CXCursor_EnumDecl, CXCursor_StructDecl, CXCursor_UnionDecl)
-        && spelling().isEmpty()
+        && !isValidIdentifier(spelling())
+
+private fun isValidIdentifier(string: String) = Regex("[_a-zA-Z][_a-zA-Z0-9]*").matches(string)
 
 fun CXCursor.asTopLevel(): Result<TopLevel> =
     (when (kind()) {
@@ -190,15 +198,21 @@ fun CXType.fields(): List<CXCursor> {
     return ts
 }
 
+fun CXCursor.identifier(): Option<String> {
+    val s = spelling()
+    return if (isValidIdentifier(s)) s.some() else none()
+}
+
 fun CXCursor.asField(): Result<Field> =
     type()
         .asType()
         .map { type ->
+            val id = identifier().getOrElse { "" }
             Field(
-                spelling(),
+                id,
                 type,
                 clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) },
-                spelling().isEmpty() // TODO correct?
+                id.isEmpty()
             )
         }
 
@@ -251,12 +265,26 @@ fun CXCursor.asParam(): Result<Param> =
             .map { type -> Param(spelling(), type) }
     }
 
-fun CXCursor.asTypeDeclType(): Result<Type> =
+fun CXCursor.asAnonymousCompound(): Result<Type> =
     when(kind()) {
         CXCursor_EnumDecl   -> asEnumDecl().map   { Type.InlineCompound(it) }
         CXCursor_StructDecl -> asStructDecl().map { Type.InlineCompound(it) }
         CXCursor_UnionDecl  -> asUnionDecl().map  { Type.InlineCompound(it) }
         else -> "Expected a compound type declaration, got ${kindName()}".left()
+    }
+
+fun CXCursor.asElaboratedType(): Result<Type> =
+    if (isAnonymousDeclaration()) asAnonymousCompound()
+    else {
+        // if the elaborated type is not anon, we process it
+        // as a top-level entity.
+        // and here we just turn it into a reference to the top-level.
+        when(kind()) {
+            CXCursor_EnumDecl   -> Type.Enum(spelling()).right()
+            CXCursor_StructDecl -> Type.Struct(spelling()).right()
+            CXCursor_UnionDecl  -> Type.Union(spelling()).right()
+            else -> "Expected a compound type declaration, got ${kindName()}".left()
+        }
     }
 
 /* Typedefs yield an assignable type */
@@ -289,7 +317,7 @@ fun CXType.asType(): Result<Type> =
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()
         CXType_Enum    -> TODO()
-        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(),it) }
+        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(), it) }
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()
@@ -320,7 +348,7 @@ fun CXType.asType(): Result<Type> =
         // and we do not expose new names after pretty-printing.
         // The elaborated declaration can have a name! If the anonymous declaration is in a function parameter,
         // the name is not visible outside of the function body.
-        CXType_Elaborated -> clang_getTypeDeclaration(this).asTypeDeclType()
+        CXType_Elaborated -> clang_getTypeDeclaration(this).asElaboratedType()
 
         // others that could occur in C?
 

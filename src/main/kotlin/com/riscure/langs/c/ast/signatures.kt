@@ -200,7 +200,7 @@ sealed interface TopLevel {
 
     /* Mixin */
     sealed interface Typelike { fun definesType(): Type }
-    sealed interface CompoundTypeDecl: TopLevel {
+    sealed interface CompoundTypeDecl: TopLevel, Typelike {
         val isAnonymous get() = name.isEmpty()
     }
 

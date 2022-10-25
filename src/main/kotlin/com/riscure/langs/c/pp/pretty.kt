@@ -94,11 +94,17 @@ object Pretty {
     }
 
     private fun maybeName(name: String) = if (name.isEmpty()) "" else "$name "
+    private fun bitFieldSpec(bitfield: Option<Int>): String =
+        bitfield
+            .map { " : ${it}" }
+            .getOrElse {"" }
 
     fun field(field: Field) = when {
-        field.anonymous -> TODO()
-        field.bitfield.isDefined() -> TODO()
-        else -> declaration(field.name, field.type)
+        field.anonymous -> TODO("Can't print anonymous field $field")
+        else -> {
+            "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
+        }
+
     }
     fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
 }

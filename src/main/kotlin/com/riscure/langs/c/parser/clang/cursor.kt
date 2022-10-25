@@ -71,8 +71,10 @@ fun CXCursor.topLevelCursors() =
         .filter { it.kind() != CXCursor_UnexposedDecl }
 
 /**
- *  Check if the cursor represents a top-level declaration/definition
- *  A struct field name or enum element name are not top-level entities.
+ *  Check if the cursor represents a top-level declaration/definition.
+ *  A struct field name or enum element name are not top-level entities,
+ *  but it could be a globally visible inline type declaration,
+ *  because those are elaborated to top-level declarations.
  **/
 fun CXCursor.isTopLevelEntity() =
     // something is top-level entity cursor when it is a direct child

@@ -30,12 +30,14 @@ class TypePrinterTest {
     }
 
     fun roundtrip(input: String, debug: Boolean = false) {
-        println("Roundtrip test for: ${input}")
+        println("Roundtrip test for:\n$input")
         val ast1 = parse(input)
-        if (debug) println("Pretty:\n" + Pretty.lhs(ast1))
+        if (debug) println("Pretty:\n" + Pretty.lhs(ast1) + ";")
 
         val ast2 = parse("${Pretty.lhs(ast1)};")
             .withMeta(ast1.meta) // not the same
+
+        if (debug) println("ASTs:\n- $ast1\n- $ast2" )
 
         assertEquals(ast1, ast2)
     }
@@ -138,11 +140,17 @@ class TypePrinterTest {
     typedef int (*(*(broWatVoid(void)))(void))(void);
     """.trimIndent())
 
-    /* From ctype.h */
+    /*-------------------------------------------------------------------------------- Named structs --*/
+
     @Test
-    fun typedefNamedStruct() = roundtrip("""
+    fun typedefNamedStructReference() = roundtrip("""
     struct FSID { int __val[2]; };
     typedef struct FSID __fsid_t;
+    """.trimIndent())
+
+    @Test
+    fun typedefNamedStructInline() = roundtrip("""
+    typedef struct MyStruct { int m; } MyStruct;
     """.trimIndent(), true)
 
     /*-------------------------------------------------------------------------------- Anonymous structs --*/
