@@ -156,7 +156,7 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
 fun CXCursor.asTypedef(): Result<TopLevel.Typedef> =
     ifKind (CXCursor_TypedefDecl, "typedef") {
         clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
-            TopLevel.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
+            TopLevel.Typedef(clang_getTypedefName(type()).string, type)
         }
     }
 
@@ -168,7 +168,7 @@ fun CXCursor.asEnumDecl(): Result<TopLevel.EnumDef> =
 
 fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        clang_getCursorType(this)
+        type()
             .fields()
             .map { it.asField() }
             .sequence()
@@ -191,7 +191,7 @@ fun CXType.fields(): List<CXCursor> {
 }
 
 fun CXCursor.asField(): Result<Field> =
-    clang_getCursorType(this)
+    type()
         .asType()
         .map { type ->
             Field(
@@ -213,7 +213,7 @@ fun CXCursor.asUnionDecl(): Result<TopLevel.Composite> =
 
 fun CXCursor.asVarDecl(): Result<TopLevel.Var> =
     ifKind (CXCursor_VarDecl, "variable declaration") {
-        clang_getCursorType(this)
+        type()
             .asType()
             .map { TopLevel.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
     }
@@ -246,7 +246,7 @@ fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
 
 fun CXCursor.asParam(): Result<Param> =
     ifKind(CXCursor_ParmDecl, "parameter declaration") {
-        clang_getCursorType(this)
+        type()
             .asType()
             .map { type -> Param(spelling(), type) }
     }

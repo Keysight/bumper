@@ -21,6 +21,8 @@ fun CXType.kindName(): String = clang.clang_getTypeKindSpelling(kind()).string
  */
 fun CXCursor.children(): List<CXCursor> = collect(Monoid.list(), false) { listOf(this) }
 
+fun CXCursor.type(): CXType = clang_getCursorType(this)
+
 /**
  * Collect some data from the [recursive] children of a cursor.
  * The data we collect should implement the monoid typeclass,
