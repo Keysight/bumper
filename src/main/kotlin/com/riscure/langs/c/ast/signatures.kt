@@ -86,23 +86,62 @@ typealias Attrs = List<Attr>
 sealed class Type {
     abstract val attrs: Attrs
 
-    data class Void   (override val attrs: Attrs = listOf()): Type()
-    data class Int    (val kind: IKind, override val attrs: Attrs = listOf()): Type()
-    data class Float  (val kind: FKind, override val attrs: Attrs = listOf()): Type()
-    data class Ptr    (val pointeeType: Type, override val attrs: Attrs = listOf()): Type()
-    data class Array  (val elementType: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
-    data class Fun    (val returnType: Type, val params: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
-    data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type()
-    data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type()
-    data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type()
-    data class Enum   (val id: Ident, override val attrs: Attrs = listOf()): Type()
+    data class Void (
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Int (
+        val kind: IKind,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Float (
+        val kind: FKind,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Ptr (
+        val pointeeType: Type,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Array(
+        val elementType: Type,
+        val size: Option<Long> = None,
+        override val attrs: Attrs = listOf()
+    ) : Type()
+    data class Fun(
+        val returnType: Type,
+        val params: List<Param>,
+        val vararg: Boolean,
+        override val attrs: Attrs = listOf()
+    ) : Type()
+    data class Named (
+        val id: Ident,
+        val underlying: Type,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Struct (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Union (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type()
+    data class Enum (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type()
+
+    /* A distinguished type for inline compound type declarations */
+    data class InlineCompound (
+        val declaration: TopLevel.CompoundTypeDecl,
+        override val attrs: Attrs = listOf()
+    ): Type()
 }
 
 /* Struct or union field */
 data class Field(
     val name: String
   , val type: Type
-  , val bitfield: Int?
+  , val bitfield: Option<Int>
   , val anonymous: Boolean
 )
 
@@ -160,8 +199,9 @@ sealed interface TopLevel {
     val kind: EntityKind get() = tlid.kind
 
     /* Mixin */
-    interface Typelike {
-        fun definesType(): Type
+    sealed interface Typelike { fun definesType(): Type }
+    sealed interface CompoundTypeDecl: TopLevel {
+        val isAnonymous get() = name.isEmpty()
     }
 
     data class Var(
@@ -204,7 +244,7 @@ sealed interface TopLevel {
         val fields: FieldDecls,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): TopLevel, Typelike, CompoundTypeDecl {
         override fun definesType(): Type =
             when (structOrUnion) {
                 StructOrUnion.Struct -> Type.Struct(name)
@@ -226,7 +266,7 @@ sealed interface TopLevel {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): TopLevel, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun definesType(): Type = Type.Named(name, underlyingType)
@@ -239,7 +279,7 @@ sealed interface TopLevel {
         val enumerators: List<Enumerator>,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): TopLevel, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val tlid: TLID get() = TLID(name, EntityKind.Enum)

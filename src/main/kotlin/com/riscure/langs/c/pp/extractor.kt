@@ -44,37 +44,34 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
         is TopLevel.Fun ->
             if (!tl.isDefinition)
                 Either.Right("")
-            else
-                tl.meta.location
-                    .toEither { Throwable("Cannot extract source for top-level entity without location") }
-                    .flatMap { sourceOf(it) }
-                    .flatMap { functionBodyOf(it) }
-        is TopLevel.Composite -> "".right() // TODO
-        is TopLevel.EnumDef -> "".right() // TODO
-        is TopLevel.Typedef -> "".right()
+            else sourceOf(tl).flatMap { functionBodyOf(it) }
         is TopLevel.Var ->
             if (!tl.isDefinition)
                 Either.Right("")
-            else
-                tl.meta.location
-                    .toEither { Throwable("Cannot extract source for top-level entity without location") }
-                    .flatMap { sourceOf(it) }
-                    .flatMap { varBodyOf(it) }
+            else sourceOf(tl).flatMap { varBodyOf(it) }
+
+        // no rhs
+        is TopLevel.Composite -> "".right()
+        is TopLevel.EnumDef -> "".right()
+        is TopLevel.Typedef -> "".right()
     }
 
+    private fun sourceOf(tl: TopLevel) =
+        tl.meta.location
+            .toEither { Throwable("Cannot extract source for top-level entity without location") }
+            .flatMap { sourceOf(it) }
+
+    // FIXME, this will fail if the parameters contain anonymous structs
     private fun functionBodyOf(src: String): Either<Throwable, String> =
         Regex("[^{]*\\{(.*)\\}[^}]*", RegexOption.DOT_MATCHES_ALL).find(src)
             .toOption()
             .toEither { Throwable("Failed to extract function body") }
-            .map {
-                it.groupValues[1]
-            }
+            .map { it.groupValues[1] }
 
     private fun varBodyOf(src: String): Either<Throwable, String> =
         Regex("[^=]*=(.*)$", RegexOption.DOT_MATCHES_ALL).find(src)
             .toOption()
             .toEither { Throwable("Failed to extract right-hand side of variable definition.") }
-            .map {
-                it.groupValues[1]
-            }
+            .map { it.groupValues[1] }
+
 }

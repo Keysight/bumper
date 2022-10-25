@@ -5,13 +5,16 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
+import arrow.typeclasses.Monoid
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.clang.*
 import com.riscure.toBool
 import org.bytedeco.javacpp.*
+import org.bytedeco.javacpp.annotation.ByVal
 import org.bytedeco.llvm.clang.*
+import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
 
@@ -34,13 +37,23 @@ fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit> {
     }
 
     return this.children()
-        // somehow e.g. an empty ';' results in top-level UnexposedDecls
-        // not sure what else causes them.
-        .filter { it.kind() != CXCursor_UnexposedDecl }
+        .filter { cursor -> when {
+            // somehow e.g. an empty ';' results in top-level UnexposedDecls
+            // not sure what else causes them.
+            cursor.kind() == CXCursor_UnexposedDecl -> false
+            // Clang expands typedef struct {..} to two top-level declarations, one of which is anonymous.
+            cursor.isAnonymousDeclaration()         -> false
+            else                                    -> true
+        }}
         .map { it.asTopLevel() }
         .sequence()
         .map { TranslationUnit(tuid, it) }
 }
+
+fun CXCursor.isAnonymousDeclaration(): Boolean =
+    // clang_isAnonymous and related don't work as expected
+    kind() in listOf(CXCursor_EnumDecl, CXCursor_StructDecl, CXCursor_UnionDecl)
+        && spelling().isEmpty()
 
 fun CXCursor.asTopLevel(): Result<TopLevel> =
     (when (kind()) {
@@ -155,12 +168,39 @@ fun CXCursor.asEnumDecl(): Result<TopLevel.EnumDef> =
 
 fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        TopLevel.Composite(
-            this.spelling(),
-            StructOrUnion.Struct,
-            listOf() // TODO
-        ).right()
+        clang_getCursorType(this)
+            .fields()
+            .map { it.asField() }
+            .sequence()
+            .map { fields -> TopLevel.Composite(this.spelling(), StructOrUnion.Struct, fields) }
     }
+
+fun CXType.fields(): List<CXCursor> {
+    val ts = mutableListOf<CXCursor>()
+    val wrapped = object: CXFieldVisitor() {
+        override fun call(@ByVal field: CXCursor?, p2: CXClientData?): Int {
+            ts.add(field!!)
+            return CXVisit_Continue
+        }
+    }
+
+    clang_Type_visitFields(this, wrapped, null)
+    wrapped.deallocate()
+
+    return ts
+}
+
+fun CXCursor.asField(): Result<Field> =
+    clang_getCursorType(this)
+        .asType()
+        .map { type ->
+            Field(
+                spelling(),
+                type,
+                clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) },
+                spelling().isEmpty() // TODO correct?
+            )
+        }
 
 fun CXCursor.asUnionDecl(): Result<TopLevel.Composite> =
     ifKind (CXCursor_UnionDecl, "union declaration") {
@@ -211,13 +251,12 @@ fun CXCursor.asParam(): Result<Param> =
             .map { type -> Param(spelling(), type) }
     }
 
-/* Type declarations yield an assignable type */
 fun CXCursor.asTypeDeclType(): Result<Type> =
     when(kind()) {
-        CXCursor_EnumDecl   -> Type.Enum(spelling()).right()
-        CXCursor_StructDecl -> Type.Struct(spelling()).right()
-        CXCursor_UnionDecl  -> Type.Union(spelling()).right()
-        else -> "Expected a type declaration, got ${kindName()}".left()
+        CXCursor_EnumDecl   -> asEnumDecl().map   { Type.InlineCompound(it) }
+        CXCursor_StructDecl -> asStructDecl().map { Type.InlineCompound(it) }
+        CXCursor_UnionDecl  -> asUnionDecl().map  { Type.InlineCompound(it) }
+        else -> "Expected a compound type declaration, got ${kindName()}".left()
     }
 
 /* Typedefs yield an assignable type */
@@ -249,7 +288,6 @@ fun CXType.asType(): Result<Type> =
 
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()
-        CXType_Elaborated -> clang_getTypeDeclaration(this).asTypeDeclType()
         CXType_Enum    -> TODO()
         CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(),it) }
         CXType_ConstantArray ->
@@ -275,6 +313,14 @@ fun CXType.asType(): Result<Type> =
                     .sequence()
                     .map { args -> Type.Fun(retType, args, false) }
             }
+
+        // Special type kind for inline declarations.
+        // Clang elaborated the inline declaration to a top-level entity.
+        // We represent it inline, so that pretty-printing recovers the original,
+        // and we do not expose new names after pretty-printing.
+        // The elaborated declaration can have a name! If the anonymous declaration is in a function parameter,
+        // the name is not visible outside of the function body.
+        CXType_Elaborated -> clang_getTypeDeclaration(this).asTypeDeclType()
 
         // others that could occur in C?
 

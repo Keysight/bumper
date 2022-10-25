@@ -10,7 +10,7 @@ import kotlin.io.path.writeText
 
 class TypePrinterTest {
 
-    fun parse(input: String): TopLevel.Typedef {
+    fun parse(input: String): TopLevel {
         val file = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
 
         return try {
@@ -23,20 +23,21 @@ class TypePrinterTest {
                 .getOrHandle { throw it }
 
             // get the typedef
-            assertEquals(1, ast.decls.size)
-            assertIs(ast.decls[0])
+            ast.decls.find { it.kind == EntityKind.Typedef }!!
         } finally {
             file.delete()
         }
     }
 
-    fun roundtrip(input: String) {
+    fun roundtrip(input: String, debug: Boolean = false) {
         println("Roundtrip test for: ${input}")
-        val typedef1 = parse(input)
-        val typedef2 = parse("${Pretty.typedef(typedef1)};")
-            .withMeta(typedef1.meta) // not the same
+        val ast1 = parse(input)
+        if (debug) println("Pretty:\n" + Pretty.lhs(ast1))
 
-        assertEquals(typedef1, typedef2)
+        val ast2 = parse("${Pretty.lhs(ast1)};")
+            .withMeta(ast1.meta) // not the same
+
+        assertEquals(ast1, ast2)
     }
 
     /* function type */
@@ -136,4 +137,33 @@ class TypePrinterTest {
     fun wat() = roundtrip("""
     typedef int (*(*(broWatVoid(void)))(void))(void);
     """.trimIndent())
+
+    /* From ctype.h */
+    @Test
+    fun typedefNamedStruct() = roundtrip("""
+    struct FSID { int __val[2]; };
+    typedef struct FSID __fsid_t;
+    """.trimIndent(), true)
+
+    /*-------------------------------------------------------------------------------- Anonymous structs --*/
+
+    /* From ctype.h */
+    @Test
+    fun typedefAnonymousStruct() = roundtrip("""
+    typedef struct { int __val[2]; } __fsid_t;
+    """.trimIndent(), true)
+
+    /*-------------------------------------------------------------------------------- Storage classes ---*/
+
+    @Test
+    fun extern() = roundtrip("""
+    extern void f();
+    """.trimIndent())
+
+    /* from assert.h */
+    @Test
+    fun externAssertFail() = roundtrip("""
+        extern void __assert_fail (const char *__assertion, const char *__file, unsigned int __line, const char *__function);
+    """.trimIndent())
+
 }

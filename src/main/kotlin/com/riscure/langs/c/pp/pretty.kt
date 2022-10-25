@@ -48,10 +48,8 @@ object Pretty {
 
     private fun typePrefix(type: Type): String = when (type) {
         // This part should have been printed by the name-part printer
-        is Type.Array  ->
-            throw RuntimeException("Failed to pretty-print ill-formed type.")
-        is Type.Fun    ->
-            throw RuntimeException("Failed to pretty-print ill-formed type.")
+        is Type.Array  -> throw RuntimeException("Failed to pretty-print ill-formed type.")
+        is Type.Fun    -> throw RuntimeException("Failed to pretty-print ill-formed type.")
 
         // Possible remainders:
         is Type.Ptr    -> "${typePrefix(type.pointeeType)}*"
@@ -59,9 +57,12 @@ object Pretty {
         is Type.Float  -> floatKind(type.kind)
         is Type.Int    -> integerKind(type.kind)
         is Type.Named  -> type.id
-        is Type.Struct -> "(struct ${type.id})"
-        is Type.Union  -> "(union ${type.id})"
+        is Type.Struct -> "struct ${type.id}" // with parens it doesn't parse
+        is Type.Union  -> "union ${type.id}"  // same.
         is Type.Void   -> "void"
+
+        // inline compound declarations are entirely printed prefix.
+        is Type.InlineCompound -> lhs(type.declaration)
     }
 
     fun prototype(thefun: TopLevel.Fun): String {
@@ -70,6 +71,36 @@ object Pretty {
     }
 
     fun typedef(typedef: TopLevel.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
+
+    fun storage(storage: Storage): String = when (storage) {
+        Storage.Default -> ""
+        Storage.Extern  -> "extern"
+        Storage.Static  -> "static"
+        Storage.Auto    -> "auto"
+        Storage.Register -> "register"
+    }
+
+    fun lhs(toplevel: TopLevel): String = when (toplevel) {
+        is TopLevel.Var       -> with(toplevel) { "${storage(storage)} ${declaration(name, type)}" }
+        is TopLevel.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}"     }
+        is TopLevel.Typedef   -> typedef(toplevel)
+        is TopLevel.Composite -> with(toplevel) {
+            when (structOrUnion) {
+                StructOrUnion.Struct -> "struct ${maybeName(name)}{ ${fields(fields)} }"
+                StructOrUnion.Union -> "union ${maybeName(name)}{ ${fields(fields) }}"
+            }
+        }
+        is TopLevel.EnumDef   -> "enum ${toplevel.name} { TODO } "
+    }
+
+    private fun maybeName(name: String) = if (name.isEmpty()) "" else "$name "
+
+    fun field(field: Field) = when {
+        field.anonymous -> TODO()
+        field.bitfield.isDefined() -> TODO()
+        else -> declaration(field.name, field.type)
+    }
+    fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
 }
 
 /**
@@ -91,44 +122,24 @@ class AstWriters(
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: TopLevel): Either<Throwable, Writer> = when (toplevel) {
-        is TopLevel.Var -> {
-            text(Pretty.declaration(toplevel.name, toplevel.type))
-                .right()
-                .flatMap { lhs ->
-                    val rhs = if (toplevel.isDefinition) {
-                        getBodySource(toplevel).map { body -> text(" =$body;") }
-                    } else {
-                        semicolon.right()
-                    }
+    fun print(toplevel: TopLevel): Either<Throwable, Writer> =
+        rhs(toplevel).map { rhs -> text(Pretty.lhs(toplevel)) andThen rhs }
 
-                    rhs.map { lhs andThen it }
+    fun rhs(toplevel: TopLevel): Either<Throwable,Writer> = when (toplevel) {
+        is TopLevel.Var ->
+                if (toplevel.isDefinition) {
+                    getBodySource(toplevel).map { body -> text(" =$body;") }
+                } else {
+                    semicolon.right()
                 }
-        }
-
-        is TopLevel.Fun -> {
-            text(Pretty.prototype(toplevel))
-                .right()
-                .flatMap { lhs ->
-                    val rhs = if (toplevel.isDefinition) {
-                        getBodySource(toplevel).map { body -> text(" {$body}") }
-                    } else {
-                        semicolon.right()
-                    }
-
-                    rhs.map { lhs andThen it }
+        is TopLevel.Fun ->
+                if (toplevel.isDefinition) {
+                    getBodySource(toplevel).map { body -> text(" {$body}") }
+                } else {
+                    semicolon.right()
                 }
-        }
-
-        is TopLevel.Typedef ->
-            text(Pretty.typedef(toplevel)).right()
-
-        is TopLevel.Composite ->
-            getBodySource(toplevel)
-                .map { rhs -> text("struct ${toplevel.name} $rhs;") }
-
-        is TopLevel.EnumDef ->
-            getBodySource(toplevel)
-                .map { rhs -> text("enum ${toplevel.name} {$rhs};") }
+        is TopLevel.Typedef   -> semicolon.right()
+        is TopLevel.Composite -> semicolon.right()
+        is TopLevel.EnumDef   -> semicolon.right()
     }
 }
