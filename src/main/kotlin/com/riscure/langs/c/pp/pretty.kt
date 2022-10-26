@@ -30,14 +30,25 @@ object Pretty {
 
     fun declaration(ident: String, type: Type): String {
         val (remainingType, decl) = namePart(type, ident)
-        return "${typePrefix(remainingType)} $decl".trim()
+        return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
+
+    private fun typeAttrs(attrs: Attrs) =
+        attrs.joinToString(separator=" ") { when (it) {
+            is Attr.AlignAs   -> TODO()
+            Attr.Constant     -> "const"
+            Attr.Restrict     -> "restrict"
+            Attr.Volatile     -> "volatile"
+            is Attr.NamedAttr -> TODO()
+        }}
 
     private fun formals(params: List<Param>): String =
         params.joinToString(separator=", ") { declaration(it.name, it.type) }
 
+    private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
+
     private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
-        is Type.Ptr   -> namePart(type.pointeeType, "*${name}")
+        is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrs)}${name}")
         is Type.Fun   -> {
             // this is strange, but true, I think
             namePart(type.returnType, "($name)(${formals(type.params)})")

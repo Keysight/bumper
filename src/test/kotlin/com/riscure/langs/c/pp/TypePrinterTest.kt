@@ -29,7 +29,7 @@ class TypePrinterTest {
                 .getOrHandle { throw it }
 
             // get the typedef
-            ast.decls.find { it.kind == EntityKind.Typedef }!!
+            ast.decls[0]!!
         } finally {
             file.delete()
         }
@@ -180,4 +180,25 @@ class TypePrinterTest {
         extern void __assert_fail (const char *__assertion, const char *__file, unsigned int __line, const char *__function);
     """.trimIndent())
 
+    /*-------------------------------------------------------------------------------- Attributes -------*/
+
+    @Test
+    fun constParamPointee() = roundtrip("""
+        void f(const char *x);
+    """.trimIndent())
+
+    @Test
+    fun constParamPtr() = roundtrip("""
+        void f(char * const x);
+    """.trimIndent())
+
+    @Test
+    fun nonConstCharParam() = roundtrip("""
+        void f(char x);
+    """.trimIndent())
+
+    @Test
+    fun constCharParam() = roundtrip("""
+        void f(const char x);
+    """.trimIndent())
 }
