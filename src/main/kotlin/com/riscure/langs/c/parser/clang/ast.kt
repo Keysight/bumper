@@ -317,10 +317,18 @@ fun CXType.asType(): Result<Type> =
         CXType_Int -> Type.Int(IKind.IInt).right()
         CXType_Long -> Type.Int(IKind.ILong).right()
         CXType_LongLong -> Type.Int(IKind.ILongLong).right()
-
         CXType_Float -> Type.Float(FKind.FFloat).right()
         CXType_Double -> Type.Float(FKind.FDouble).right()
         CXType_LongDouble -> Type.Float(FKind.FLongDouble).right()
+        CXType_Complex ->
+            clang_getElementType(this)
+                .asType()
+                .flatMap {
+                    when (it) {
+                        is Type.Float -> Type.Complex(it.kind).right()
+                        else          -> "Complex element type is not a float.".left()
+                    }
+                }
 
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()

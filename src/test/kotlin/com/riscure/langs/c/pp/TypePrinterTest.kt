@@ -201,4 +201,27 @@ class TypePrinterTest {
     fun constCharParam() = roundtrip("""
         void f(const char x);
     """.trimIndent())
+
+    /*-------------------------------------------------------------------------------- Complex nums ------*/
+
+    @Test
+    fun complex() = roundtrip("""
+        typedef _Complex MyComplex;
+    """.trimIndent(), true)
+
+    @Test
+    fun floatComplex() = roundtrip("""
+        typedef float _Complex MyComplex;
+    """.trimIndent())
+
+    @Test
+    fun doubleComplex() = roundtrip("""
+        typedef double _Complex MyComplex;
+    """.trimIndent())
+
+    @Test
+    fun longDoubleComplex() = roundtrip("""
+        typedef long double _Complex MyComplex;
+    """.trimIndent())
+
 }
