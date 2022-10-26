@@ -98,13 +98,14 @@ object Pretty {
         is TopLevel.Typedef   -> typedef(toplevel)
         is TopLevel.Composite -> with(toplevel) {
             when (structOrUnion) {
-                StructOrUnion.Struct -> "struct ${maybeName(name)}{ ${fields(fields)} }"
-                StructOrUnion.Union -> "union ${maybeName(name)}{ ${fields(fields) }}"
+                StructOrUnion.Struct -> "struct ${maybeName(name)}${maybeFields(fields)}"
+                StructOrUnion.Union -> "union ${maybeName(name)}${maybeFields(fields)}"
             }
         }
         is TopLevel.EnumDef   -> "enum ${toplevel.name} { TODO } "
     }
 
+    private fun maybeFields(fields: List<Field>) = if (fields.isEmpty()) "" else " { ${fields(fields)}; }"
     private fun maybeName(name: String) = if (name.isEmpty()) "" else "$name "
     private fun bitFieldSpec(bitfield: Option<Int>): String =
         bitfield

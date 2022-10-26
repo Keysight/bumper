@@ -176,11 +176,17 @@ fun CXCursor.asEnumDecl(): Result<TopLevel.EnumDef> =
 
 fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        type()
-            .fields()
-            .map { it.asField() }
-            .sequence()
-            .map { fields -> TopLevel.Composite(this.spelling(), StructOrUnion.Struct, fields) }
+        // We check if this is the definition,
+        // because clang visits fields of the canonical/definition cursor regardless.
+        // Which would lead to duplicate definitions in the ast.
+        val fields = if (clang_isCursorDefinition(this).toBool()) {
+            type()
+                .fields()
+                .map { it.asField() }
+                .sequence()
+        } else listOf<Field>().right()
+
+        fields.map { TopLevel.Composite(this.spelling(), StructOrUnion.Struct, it) }
     }
 
 fun CXType.fields(): List<CXCursor> {
