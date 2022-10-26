@@ -358,6 +358,11 @@ fun CXType.asType(): Result<Type> =
                     .map { args -> Type.Fun(retType, args, false) }
             }
 
+        CXType_Atomic ->
+            clang_Type_getValueType(this)
+                .asType()
+                .map { Type.Atomic(it) }
+
         // Special type kind for inline declarations.
         // Clang elaborated the inline declaration to a top-level entity.
         // We represent it inline, so that pretty-printing recovers the original,

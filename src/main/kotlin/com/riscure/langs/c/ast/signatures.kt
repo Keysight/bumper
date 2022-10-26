@@ -107,12 +107,6 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
-    data class Complex(
-        val kind: FKind,
-        override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-    }
     data class Ptr (
         val pointeeType: Type,
         override val attrs: Attrs = listOf()
@@ -155,6 +149,21 @@ sealed class Type {
     }
     data class Enum (
         val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+
+    /* _Complex */
+    data class Complex(
+        val kind: FKind,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    /* _Atomic */
+    data class Atomic(
+        val el: Type,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
