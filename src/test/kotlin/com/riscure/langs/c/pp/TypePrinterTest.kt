@@ -146,6 +146,18 @@ class TypePrinterTest {
     typedef int (*(*(broWatVoid(void)))(void))(void);
     """.trimIndent())
 
+    /*-------------------------------------------------------------------------------- Struct declarations --*/
+
+    @Test
+    fun typedefStructDeclaration() = roundtrip("""
+        struct A;
+    """.trimIndent())
+
+    @Test
+    fun emptyStructDefinition() = roundtrip("""
+        struct A {};
+    """.trimIndent())
+
     /*-------------------------------------------------------------------------------- Named structs --*/
 
     @Test

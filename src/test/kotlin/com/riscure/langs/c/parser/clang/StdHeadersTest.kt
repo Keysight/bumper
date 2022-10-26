@@ -119,7 +119,7 @@ class StdHeadersTest {
                 Type.function(
                     Type.int,
                     Param("__format", Type.Ptr(Type.char.const()).restrict()),
-                    vararg = true
+                    variadic = true
                 )
             )
         )

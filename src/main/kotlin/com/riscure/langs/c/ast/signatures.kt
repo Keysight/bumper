@@ -191,8 +191,8 @@ sealed class Type {
         fun array(el: Type, size: Option<Long>) = Array(el, size)
 
         @JvmStatic
-        fun function(returns: Type, vararg params: Param, vararg: Boolean = false) =
-            Fun(returns, params.toList(), vararg)
+        fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
+            Fun(returns, params.toList(), variadic)
 
     }
 }
