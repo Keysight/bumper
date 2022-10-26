@@ -35,7 +35,7 @@ object Pretty {
 
     private fun typeAttrs(attrs: Attrs) =
         attrs.joinToString(separator=" ") { when (it) {
-            is Attr.AlignAs   -> TODO()
+            is Attr.AlignAs   -> "__attribute__ ((aligned(${it.alignment})))"
             Attr.Constant     -> "const"
             Attr.Restrict     -> "restrict"
             Attr.Volatile     -> "volatile"
@@ -67,11 +67,13 @@ object Pretty {
         is Type.Enum   -> type.id
         is Type.Float  -> floatKind(type.kind)
         is Type.Int    -> integerKind(type.kind)
-        is Type.Complex -> "${floatKind(type.kind)} _Complex"
         is Type.Named  -> type.id
         is Type.Struct -> "struct ${type.id}" // with parens it doesn't parse
         is Type.Union  -> "union ${type.id}"  // same.
         is Type.Void   -> "void"
+
+        is Type.Complex -> "${floatKind(type.kind)} _Complex"
+        is Type.Atomic  -> "_Atomic ${typePrefix(type.el)}"
 
         // inline compound declarations are entirely printed prefix.
         is Type.InlineCompound -> lhs(type.declaration)

@@ -202,6 +202,26 @@ class TypePrinterTest {
         void f(const char x);
     """.trimIndent())
 
+    /* from tgmath.h */
+    @Test
+    fun clangOverloadable() = roundtrip("""
+        static double __attribute__((__overloadable__)) __tg_promote(int);
+    """.trimIndent(), true)
+
+    /* from tgmath.h */
+    @Test
+    fun aligned() = roundtrip("""
+        struct my_struct {
+          int a __attribute__ ((aligned(16)));
+        };
+    """.trimIndent(), true)
+
+    /* from stdatomic.h */
+    @Test
+    fun alignedMultiple() = roundtrip("""
+        typedef struct { __attribute__ ((aligned(8))) long long __clang_max_align_nonce1; __attribute__ ((aligned(16))) long double __clang_max_align_nonce2 } max_align_t;
+    """.trimIndent(), true)
+
     /*-------------------------------------------------------------------------------- Complex nums ------*/
 
     @Test

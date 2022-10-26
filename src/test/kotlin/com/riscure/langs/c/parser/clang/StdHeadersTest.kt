@@ -84,7 +84,6 @@ class StdHeadersTest {
             "signal",
             "stdalign",
             "stdarg",
-            "stdatomic",
             "stdbool",
             "stddef",
             "stdint",
