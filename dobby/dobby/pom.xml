@@ -88,8 +88,6 @@
                 </executions>
                 <configuration>
                     <args>
-                        <arg>-Xcontext-receivers</arg>
-                        <arg>-Xskip-prerelease-check</arg>
                         <arg>-Xextended-compiler-checks</arg>
                     </args>
                     <compilerPlugins>

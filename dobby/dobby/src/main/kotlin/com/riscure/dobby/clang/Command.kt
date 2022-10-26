@@ -11,38 +11,33 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     /**
      * Return a command without [opt] or any of its aliases.
      */
-    context(Spec)
-    fun filter(opts: Set<OptionSpec>): Command {
+    fun filter(spec: Spec, opts: Set<OptionSpec>): Command {
         return this.copy(
-            optArgs = optArgs.filter { (argSpec, _) -> !opts.any { blacklisted -> equal(argSpec, blacklisted) } }
+            optArgs = optArgs.filter { (argSpec, _) -> !opts.any { blacklisted -> spec.equal(argSpec, blacklisted) } }
         )
     }
 
     /**
      * Check if this command contains [opt] or any of its aliases.
      */
-    context(Spec)
-    fun contains(opts: Set<OptionSpec>): Boolean {
-        return optArgs.any { (argSpec, _) -> opts.any { listed -> equal(listed, argSpec)} }
+    fun contains(spec: Spec, opts: Set<OptionSpec>): Boolean {
+        return optArgs.any { (argSpec, _) -> opts.any { listed -> spec.equal(listed, argSpec)} }
     }
 
     /**
      * Returns this command without [opt] or any of its aliases.
      */
-    context(Spec)
-    fun filter(opt: OptionSpec): Command = filter(setOf(opt))
+    fun filter(spec: Spec, opt: OptionSpec): Command = filter(spec, setOf(opt))
 
     /**
      * Returns true iff this command contains [opt] or any of its aliases.
      */
-    context(Spec)
-    fun contains(opt: OptionSpec): Boolean = contains(setOf(opt))
+    fun contains(spec: Spec, opt: OptionSpec): Boolean = contains(spec, setOf(opt))
 
     /**
      * Removes any alias of [arg.opt] and then adds [arg].
      */
-    context(Spec)
-    fun replace(arg: Arg): Command = filter(arg.opt) + arg
+    fun replace(spec: Spec, arg: Arg): Command = filter(spec, arg.opt) + arg
 
     /**
      * Adds [arg] to the (rear of) the options of this command

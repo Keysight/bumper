@@ -22,7 +22,7 @@ internal class SpecTest {
 
 
     @Test
-    fun outputFilter() = with(s) {
+    fun outputFilter() {
         val c = Command(
             listOf(
                 Arg(o, "hi"),
@@ -31,15 +31,15 @@ internal class SpecTest {
             ), listOf()
         )
 
-        val d = c.filter(setOf(output2))
+        val d = c.filter(s, setOf(output2))
         assertEquals(1, d.optArgs.size)
 
-        val e = c.filter(setOf(s.get("mv5")))
+        val e = c.filter(s, setOf(s.get("mv5")))
         assertEquals(2, e.optArgs.size)
     }
 
     @Test
-    fun mv5Filter() = with(s) {
+    fun mv5Filter() {
         val c = Command(
             listOf(
                 Arg(o, "hi"),
@@ -48,7 +48,7 @@ internal class SpecTest {
             ), listOf()
         )
 
-        assertEquals(2, c.filter(setOf(s.get("mcpu_EQ"))).optArgs.size)
+        assertEquals(2, c.filter(s, setOf(s.get("mcpu_EQ"))).optArgs.size)
 
         val d = Command(
             listOf(
@@ -58,22 +58,22 @@ internal class SpecTest {
             ), listOf()
         )
 
-        assertEquals(2, c.filter(setOf(s.get("mv5"))).optArgs.size)
+        assertEquals(2, c.filter(s, setOf(s.get("mv5"))).optArgs.size)
     }
 
 
     @Test
-    fun filterSame() = with(s) {
+    fun filterSame() {
         val c = Command(listOf(Arg(s["o"])), listOf())
-        assertEquals(0, c.filter(s["o"]).optArgs.size)
-        assertEquals(1, c.replace(Arg(s["o"], listOf("someOutput.o"))).optArgs.size)
+        assertEquals(0, c.filter(s, s["o"]).optArgs.size)
+        assertEquals(1, c.replace(s, Arg(s["o"], listOf("someOutput.o"))).optArgs.size)
     }
 
     @Test
-    fun filterO0() = with(s) {
+    fun filterO0() {
         val c = Command(listOf(Arg(s["O0"])), listOf())
 
         // This is not registered as an alias
-        println(c.filter(s["O"]))
+        println(c.filter(s, s["O"]))
     }
 }
