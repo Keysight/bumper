@@ -68,7 +68,7 @@ sealed class Attr {
     object Constant : Attr()
     object Volatile : Attr()
     object Restrict : Attr()
-    data class AlignAs(val alignment: Int) : Attr()
+    data class AlignAs(val alignment: Long) : Attr()
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
@@ -85,56 +85,82 @@ typealias Attrs = List<Attr>
 /* Types */
 sealed class Type {
     abstract val attrs: Attrs
+    abstract fun withAttrs(attrs: Attrs): Type
+
+    fun const() = withAttrs(attrs + Attr.Constant)
+    fun restrict() = withAttrs(attrs + Attr.Restrict)
 
     data class Void (
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Int (
         val kind: IKind,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Float (
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Ptr (
         val pointeeType: Type,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Array(
         val elementType: Type,
         val size: Option<Long> = None,
         override val attrs: Attrs = listOf()
-    ) : Type()
+    ) : Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Fun(
         val returnType: Type,
         val params: List<Param>,
         val vararg: Boolean       = false,
         override val attrs: Attrs = listOf()
-    ) : Type()
+    ) : Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Named (
         val id: Ident,
         val underlying: Type,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Struct (
         val id: Ident,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Union (
         val id: Ident,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
     data class Enum (
         val id: Ident,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
 
     /* A distinguished type for inline compound type declarations */
     data class InlineCompound (
         val declaration: TopLevel.CompoundTypeDecl,
         override val attrs: Attrs = listOf()
-    ): Type()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
 
     companion object {
         @JvmStatic

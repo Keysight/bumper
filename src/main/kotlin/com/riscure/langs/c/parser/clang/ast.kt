@@ -208,9 +208,10 @@ fun CXCursor.asField(): Result<Field> =
         .asType()
         .map { type ->
             val id = identifier().getOrElse { "" }
+            val attrs = this.cursorAttributes(type())
             Field(
                 id,
-                type,
+                type.withAttrs(type.attrs + attrs),
                 clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) },
                 id.isEmpty()
             )
@@ -268,7 +269,8 @@ fun CXCursor.asParam(): Result<Param> =
     ifKind(CXCursor_ParmDecl, "parameter declaration") {
         type()
             .asType()
-            .map { type -> Param(spelling(), type) }
+            .map { type ->
+                Param(spelling(), type) }
     }
 
 fun CXCursor.asAnonymousCompound(): Result<Type> =
@@ -360,3 +362,54 @@ fun CXType.asType(): Result<Type> =
 
         else -> "Could not parse type of kind '${kindName()}'".left()
     }
+    // And add the attributes
+    .map { type -> type.withAttrs(getTypeAttrs()) }
+
+fun CXType.getTypeAttrs(): Attrs {
+    val attrs = mutableListOf<Attr>()
+    if (clang_isVolatileQualifiedType(this).toBool())
+        attrs.add(Attr.Volatile)
+    if (clang_isRestrictQualifiedType(this).toBool())
+        attrs.add(Attr.Restrict)
+    if (clang_isConstQualifiedType(this).toBool())
+        attrs.add(Attr.Constant)
+    return attrs
+}
+
+fun CXCursor.cursorAttributes(type: CXType): Attrs =
+    collect(Monoid.list(), true) {
+        if (clang_isAttribute(kind()).toBool()) {
+            this.asAttribute(type).orNone().toList()
+        } else listOf()
+    }
+
+fun CXCursor.asAttribute(type: CXType): Result<Attr> = when (kind()) {
+    CXCursor_ConstAttr      -> Attr.Constant.right()
+    CXCursor_AlignedAttr    ->
+        type.getAlignment()
+            .toEither { "Could not get alignment for type with alignment attribute." }
+            .map { Attr.AlignAs(it) }
+
+    /* TODO
+    CXCursor_UnexposedAttr  -> TODO()
+    CXCursor_AnnotateAttr   -> TODO()
+    CXCursor_AsmLabelAttr   -> TODO()
+    CXCursor_PackedAttr     -> TODO()
+    CXCursor_PureAttr       -> TODO()
+    CXCursor_NoDuplicateAttr -> TODO()
+    CXCursor_VisibilityAttr -> TODO()
+    CXCursor_ConvergentAttr -> TODO()
+    CXCursor_WarnUnusedAttr -> TODO()
+    CXCursor_WarnUnusedResultAttr -> TODO()
+    */
+
+    else -> "Not a recognized attribute?".left()
+}
+
+fun CXType.getAlignment(): Option<Long> {
+    val align = clang_Type_getAlignOf(this)
+    return when {
+        align < 0 -> none()
+        else      -> align.some()
+    }
+}

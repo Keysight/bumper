@@ -12,9 +12,9 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 
-fun CXCursor.spelling(): String = clang.clang_getCursorSpelling(this).string
-fun CXCursor.kindName(): String = clang.clang_getCursorKindSpelling(kind()).string
-fun CXType.kindName(): String = clang.clang_getTypeKindSpelling(kind()).string
+fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
+fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
+fun CXType.kindName(): String = clang_getTypeKindSpelling(kind()).string
 
 /**
  * Get the list of child cursors from a cursor.
@@ -34,18 +34,18 @@ fun <T> CXCursor.collect(monoid: Monoid<T>, recursive: Boolean, visitor: CXCurso
         override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
             ts.add(visitor(self!!))
 
-            return if (recursive) clang.CXChildVisit_Recurse else clang.CXChildVisit_Continue
+            return if (recursive) CXChildVisit_Recurse else CXChildVisit_Continue
         }
     }
 
-    clang.clang_visitChildren(this, wrapped, null)
-    wrapped.deallocate()
+    try { clang_visitChildren(this, wrapped, null) }
+    finally { wrapped.deallocate() }
 
-    return ts.combineAll(monoid)
+    return ts.fold(monoid)
 }
 
 fun CXCursor.getExtent(): Option<CXSourceRange> {
-    val ptr = clang.clang_getCursorExtent(this)
+    val ptr = clang_getCursorExtent(this)
     return if (ptr.isNull) None else ptr.some()
 }
 
@@ -96,4 +96,4 @@ fun CXCursor.enclosingToplevelEntity(): Option<CXCursor> =
         }
         .toOption()
 
-fun CXType.spelling(): String = clang.clang_getTypeSpelling(this).string
+fun CXType.spelling(): String = clang_getTypeSpelling(this).string

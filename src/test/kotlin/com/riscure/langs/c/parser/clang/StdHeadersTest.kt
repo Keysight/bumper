@@ -107,10 +107,10 @@ class StdHeadersTest {
                 "assert", "__assert_fail",
                 Type.function(
                     Type.Void(),
-                    Param("__assertion", Type.Ptr(Type.char)),
-                    Param("__file", Type.Ptr(Type.char)),
+                    Param("__assertion", Type.Ptr(Type.char.const())),
+                    Param("__file", Type.Ptr(Type.char.const())),
                     Param("__line", Type.uint),
-                    Param("__function", Type.Ptr(Type.char)),
+                    Param("__function", Type.Ptr(Type.char.const())),
                 )
             ),
 
@@ -119,7 +119,7 @@ class StdHeadersTest {
                 "stdio", "printf",
                 Type.function(
                     Type.int,
-                    Param("__format", Type.Ptr(Type.char, attrs = listOf(Attr.Constant))),
+                    Param("__format", Type.Ptr(Type.char.const()).restrict()),
                     vararg = true
                 )
             )
