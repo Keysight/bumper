@@ -1,13 +1,19 @@
 package com.riscure.langs.c.pp
 
-import arrow.core.*
-import com.riscure.langs.c.ast.*
+import arrow.core.flatMap
+import arrow.core.getOrHandle
+import com.riscure.langs.c.ast.EntityKind
+import com.riscure.langs.c.ast.TopLevel
 import com.riscure.langs.c.parser.clang.ClangParser
-import kotlin.test.*
-import java.io.StringWriter
-import java.nio.file.Path
 import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
+/**
+ * Manual roundtrip tests (of the same kind as StdHeadersTest but handcrafted).
+ * This tests for internal consistency of parsing and pretty-printing.
+ * If the parser always yields the empty translation unit, this test succeeds.
+ */
 class TypePrinterTest {
 
     fun parse(input: String): TopLevel {

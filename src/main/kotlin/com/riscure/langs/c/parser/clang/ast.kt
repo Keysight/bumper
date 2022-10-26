@@ -246,14 +246,20 @@ fun CXCursor.getParameters(): Result<List<Param>> {
 }
 
 fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
-    asFunctionDecl().map { it.copy(isDefinition = true)}
+    asFunctionDecl()
+        .map { it.copy(isDefinition = true)}
 
 fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
         this.getReturnType().flatMap { resultType ->
             this.getParameters().map { params ->
-                /* TODO, fill in the constants */
-                TopLevel.Fun(spelling(), false, resultType, params, false)
+                TopLevel.Fun(
+                    spelling(),
+                    clang_Cursor_isFunctionInlined(this).toBool(),
+                    resultType,
+                    params,
+                    clang_Cursor_isVariadic(this).toBool()
+                )
             }
         }
     }

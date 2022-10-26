@@ -109,7 +109,7 @@ sealed class Type {
     data class Fun(
         val returnType: Type,
         val params: List<Param>,
-        val vararg: Boolean,
+        val vararg: Boolean       = false,
         override val attrs: Attrs = listOf()
     ) : Type()
     data class Named (
@@ -135,14 +135,33 @@ sealed class Type {
         val declaration: TopLevel.CompoundTypeDecl,
         override val attrs: Attrs = listOf()
     ): Type()
+
+    companion object {
+        @JvmStatic
+        val char = Int(IKind.IChar)
+        @JvmStatic
+        val uint = Int(IKind.IUInt)
+        @JvmStatic
+        val int = Int(IKind.IInt)
+        @JvmStatic
+        val ulong = Int(IKind.IULong)
+
+        @JvmStatic
+        fun array(el: Type, size: Option<Long>) = Array(el, size)
+
+        @JvmStatic
+        fun function(returns: Type, vararg params: Param, vararg: Boolean = false) =
+            Fun(returns, params.toList(), vararg)
+
+    }
 }
 
 /* Struct or union field */
 data class Field(
     val name: String
   , val type: Type
-  , val bitfield: Option<Int>
-  , val anonymous: Boolean
+  , val bitfield: Option<Int> = none()
+  , val anonymous: Boolean    = false
 )
 
 enum class StructOrUnion { Struct, Union }
@@ -351,6 +370,7 @@ data class TranslationUnit(
 
     val functions: List<TopLevel.Fun> get() = decls.functions()
     val functionDefinitions: List<TopLevel.Fun> get() = decls.functions().definitions()
+    val structs: List<TopLevel.Composite> get() = decls.structs()
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -452,6 +472,10 @@ data class TranslationUnit(
 
 fun List<TopLevel>.functions(): List<TopLevel.Fun> =
     filterIsInstance<TopLevel.Fun>()
+
+fun List<TopLevel>.structs(): List<TopLevel.Composite> =
+    filterIsInstance<TopLevel.Composite>()
+        .filter { it.structOrUnion == StructOrUnion.Struct }
 
 fun List<TopLevel.Fun>.definitions(): List<TopLevel.Fun> =
     filter { it.isDefinition }
