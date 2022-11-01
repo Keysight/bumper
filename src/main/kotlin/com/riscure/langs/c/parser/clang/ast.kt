@@ -28,7 +28,7 @@ private fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Re
     return whenMatch()
 }
 
-fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit> {
+fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit<CXCursor>> {
     if (this.kind() != CXCursor_TranslationUnit) {
         return "Expected translation unit, got cursor of kind ${this.kindName()}".left()
     }
@@ -37,12 +37,12 @@ fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit> {
         // somehow e.g. an empty ';' results in top-level UnexposedDecls
         // not sure what else causes them.
         .filter { it.kind() != CXCursor_UnexposedDecl }
-        .map { it.asTopLevel() }
+        .map { it.asDeclaration() }
         .sequence()
         .map { TranslationUnit(tuid, it) }
 }
 
-fun CXCursor.asTopLevel(): Result<TopLevel> =
+fun CXCursor.asDeclaration(): Result<Declaration<CXCursor>> =
     (when (kind()) {
         CXCursor_FunctionDecl ->
             if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
@@ -140,42 +140,42 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
 }
 
 
-fun CXCursor.asTypedef(): Result<TopLevel.Typedef> =
+fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
     ifKind (CXCursor_TypedefDecl, "typedef") {
         clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
-            TopLevel.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
+            Declaration.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
         }
     }
 
 
-fun CXCursor.asEnumDecl(): Result<TopLevel.EnumDef> =
+fun CXCursor.asEnumDecl(): Result<Declaration.EnumDef> =
     ifKind (CXCursor_EnumDecl, "enum declaration") {
-        TopLevel.EnumDef(spelling(), listOf()).right() // TODO enumerators
+        Declaration.EnumDef(spelling(), listOf()).right() // TODO enumerators
     }
 
-fun CXCursor.asStructDecl(): Result<TopLevel.Composite> =
+fun CXCursor.asStructDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        TopLevel.Composite(
+        Declaration.Composite(
             this.spelling(),
             StructOrUnion.Struct,
             listOf() // TODO
         ).right()
     }
 
-fun CXCursor.asUnionDecl(): Result<TopLevel.Composite> =
+fun CXCursor.asUnionDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_UnionDecl, "union declaration") {
-        TopLevel.Composite(
+        Declaration.Composite(
             this.spelling(),
             StructOrUnion.Union,
             listOf() // TODO
         ).right()
     }
 
-fun CXCursor.asVarDecl(): Result<TopLevel.Var> =
+fun CXCursor.asVarDecl(): Result<Declaration.Var> =
     ifKind (CXCursor_VarDecl, "variable declaration") {
         clang_getCursorType(this)
             .asType()
-            .map { TopLevel.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
+            .map { Declaration.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
     }
 
 fun CXCursor.getReturnType(): Result<Type> {
@@ -191,15 +191,15 @@ fun CXCursor.getParameters(): Result<List<Param>> {
         .sequence()
 }
 
-fun CXCursor.asFunctionDef(): Result<TopLevel.Fun> =
-    asFunctionDecl().map { it.copy(isDefinition = true)}
+fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
+    asFunctionDecl().map { it.copy(body = TODO())}
 
-fun CXCursor.asFunctionDecl(): Result<TopLevel.Fun> =
+fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
         this.getReturnType().flatMap { resultType ->
             this.getParameters().map { params ->
                 /* TODO, fill in the constants */
-                TopLevel.Fun(spelling(), false, resultType, params, false)
+                Declaration.Fun(spelling(), false, resultType, params, false)
             }
         }
     }

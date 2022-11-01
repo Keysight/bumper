@@ -14,7 +14,7 @@ import kotlin.test.*
 
 /**
  * C Declarations are strange. They can appear in many places.
- * We test some edge cases caused by strangely located declarations.
+ * We test some edge cases of frontend functionality for various declarations.
  */
 internal class DeclarationsTest {
     private val storage = Storage.temporary("FrontendTest").getOrHandle { throw it }

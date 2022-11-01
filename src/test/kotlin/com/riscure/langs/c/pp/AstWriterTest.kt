@@ -1,10 +1,9 @@
 package com.riscure.langs.c.pp
 
 import arrow.core.*
-import com.riscure.langs.c.ast.TopLevel
+import com.riscure.langs.c.ast.Declaration
 import com.riscure.langs.c.ast.TranslationUnit
 import com.riscure.langs.c.parser.clang.ClangParser
-import java.io.StringWriter
 import java.nio.charset.Charset
 import kotlin.io.path.*
 import kotlin.test.*
@@ -21,7 +20,7 @@ internal class AstWriterTest {
             .getOrHandle { throw it }
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())
-        fun bodyPrinter(tl : TopLevel) =
+        fun bodyPrinter(tl : Declaration) =
             extractor.rhsOf(tl)
 
         return AstWriters { bodyPrinter(it) }
@@ -133,7 +132,7 @@ internal class AstWriterTest {
                         .filter { it.name != "g" }
                         // turn f into a prototype
                         .map { tl ->
-                            if (tl is TopLevel.Fun && tl.name == "f") {
+                            if (tl is Declaration.Fun && tl.name == "f") {
                                 tl.copy(isDefinition = false)
                             } else tl
                         }

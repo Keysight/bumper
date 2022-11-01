@@ -139,4 +139,14 @@ internal class ClangUnitStateTest {
         assertContains(tls, "func_a")
         assertContains(tls, "func_b")
     }
+
+    @Test
+    fun test10() = literal("""
+        typedef struct { int __val[2]; } __fsid_t;
+        typedef __fsid_t fsid_t;
+    """.trimIndent()) { ast, unit ->
+        val fsid = assertNotNull(ast.decls.find { it.name == "fsid_t" })
+        val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedToplevels(fsid)).value.map { it.name }
+        assertContains(tls, "__fsid_t")
+    }
 }

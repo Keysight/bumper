@@ -2,10 +2,8 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import com.riscure.langs.c.ast.Location
-import com.riscure.langs.c.ast.SourceRange
-import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.TopLevel
+import com.riscure.langs.c.analyses.Dependencies
+import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.*
 import org.bytedeco.llvm.clang.*
@@ -14,70 +12,26 @@ import java.nio.file.Path
 
 typealias Result<T> = Either<Throwable, T>
 
-class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState {
+class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState<CXCursor> {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
     private val _ast by lazy { rootCursor.asTranslationUnit(tuid) }
-
-    // We have to keep track of this, because clang_getCursor(CXLocation)
-    // maps to the innermost ast element at that location.
-    // Although we can step up from that to the lexical or semantic parent,
-    // we cannot reliably find the enclosing top-level declaration using the libclang API.
-    private val tlLocationToCursor: Map<Location, CXCursor> =
-        rootCursor
-            .topLevelCursors()
-            .flatMap { tlc ->
-                tlc.getStart()
-                    .map { Pair(it, tlc) }
-                    .toList()
-            }
-            .toMap()
 
     override fun close() = cxunit.close()
 
     override fun ast() = _ast.mapLeft { Throwable(it) }
 
-    /**
-     * Get the cursor representing a toplevel declaration using
-     * [tl].meta.location.
-     */
-    fun getCursor(tl: TopLevel): Option<CXCursor> = tl.meta.location
-        .map { it.begin }
-        .flatMap { tlLocationToCursor[it].toOption() }
-
-    /**
-     * Map a cursor to the top-level entity that encloses it in the source, without reparsing.
-     */
-    private fun getTopLevel(cursor: CXCursor): Result<TopLevel> =
-        cursor.right()
-            .flatMap { it.getRange().toEither { Throwable("Failed to get location for cursor") }}
-            .flatMap { range ->
-                ast().flatMap { ast ->
-                    ast.getAtLocation(range.begin).toEither { Throwable("Failed to get AST node at location") }
-                }
-            }
-
-    override fun getReferencedToplevels(decl: TopLevel): Result<Set<TLID>> =
-        decl
-            .getCursor().toEither { Throwable("Failed to get cursor for toplevel declaration") }
-            .flatMap { cursor ->
-                cursor
-                    // collect cursors for nodes that are references
-                    .collect(Monoid.list(), true) { getReferenced().toList() }
-                    // only keep those that reference top-level entities
-                    .filter { it.isTopLevelEntity() }
-                    .map { getTopLevel(it) }
-                    .sequence() // bubble errors up
-                    .map { it.map { it.tlid } .toSet() }
-            }
-
-    override fun getSource(decl: TopLevel): Option<String> =
-        decl.getCursor()
-            .flatMap { it.filterNullCursor() }
-            .map { cursor -> clang.clang_getCursorPrettyPrinted(cursor, null) }
-            .filter { !it.isNull }
-            .map { it.string }
+    override fun getReferencedDeclarations(decl: Declaration<CXCursor>): Result<Set<TLID>> {
+        fun extractor(cursor: CXCursor): Either<String, Set<TLID>> {
+            val reffed = cursor.collect(Monoid.list(), true) { getReferenced().toList() }
+            TODO()
         }
+
+        return Dependencies(::extractor)
+            .getDependencies(decl)
+            .mapLeft { Throwable(it) }
+    }
+}
 
 /**
  * In the context of a ClangUnitState we can convert some things
@@ -90,12 +44,6 @@ class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState 
 context(ClangUnitState)
 fun Location.getCursor()  =
     clang.clang_getCursor(cxunit, cx())
-
-/**
- * Returns the cursor that represent this top-level,
- */
-context(ClangUnitState)
-fun TopLevel.getCursor(): Option<CXCursor> = getCursor(this)
 
 context(ClangUnitState)
 fun SourceRange.cx(): CXSourceRange =

@@ -63,33 +63,4 @@ fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
 fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
 fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
 
-fun CXCursor.topLevelCursors() =
-    this.translationUnit()
-        .children()
-        .filter { it.kind() != CXCursor_UnexposedDecl }
-
-/**
- *  Check if the cursor represents a top-level declaration/definition
- *  A struct field name or enum element name are not top-level entities.
- **/
-fun CXCursor.isTopLevelEntity() =
-    // something is top-level entity cursor when it is a direct child
-    // of the translationUnit cursor.
-    // This is not the same as the lexical/semantic parent of this being the translation unit,
-    // because that is also true for cursor that only describe the return type of a funcion declaration, for example.
-    (topLevelCursors().find { clang_equalCursors(it, this).toBool() }) != null
-
-/**
- * Get the top-level entity cursor whose range encloses the range of [this].
- */
-fun CXCursor.enclosingToplevelEntity(): Option<CXCursor> =
-    topLevelCursors()
-        .find { tl ->
-            tl
-                .getRange()
-                .flatMap { tlRange -> this.getRange().map { tlRange.encloses(it) }}
-                .getOrElse { false }
-        }
-        .toOption()
-
 fun CXType.spelling(): String = clang.clang_getTypeSpelling(this).string

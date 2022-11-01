@@ -2,7 +2,7 @@ package com.riscure.langs.c.pp
 
 import arrow.core.*
 import com.riscure.langs.c.ast.SourceRange
-import com.riscure.langs.c.ast.TopLevel
+import com.riscure.langs.c.ast.Declaration
 import java.io.File
 import java.nio.charset.Charset
 
@@ -40,8 +40,8 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
      * This can fail if the top-level entity has no source location, or if the location is somehow not valid,
      * or if we otherwise fail to extract the rhs from the source.
      */
-    fun rhsOf(tl: TopLevel): Either<Throwable, String> = when (tl) {
-        is TopLevel.Fun ->
+    fun rhsOf(tl: Declaration): Either<Throwable, String> = when (tl) {
+        is Declaration.Fun ->
             if (!tl.isDefinition)
                 Either.Right("")
             else
@@ -49,10 +49,10 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
                     .toEither { Throwable("Cannot extract source for top-level entity without location") }
                     .flatMap { sourceOf(it) }
                     .flatMap { functionBodyOf(it) }
-        is TopLevel.Composite -> "".right() // TODO
-        is TopLevel.EnumDef -> "".right() // TODO
-        is TopLevel.Typedef -> "".right()
-        is TopLevel.Var ->
+        is Declaration.Composite -> "".right() // TODO
+        is Declaration.EnumDef -> "".right() // TODO
+        is Declaration.Typedef -> "".right()
+        is Declaration.Var ->
             if (!tl.isDefinition)
                 Either.Right("")
             else

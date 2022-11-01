@@ -92,10 +92,22 @@ sealed class Type {
     data class Ptr    (val pointeeType: Type, override val attrs: Attrs = listOf()): Type()
     data class Array  (val elementType: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
     data class Fun    (val returnType: Type, val params: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
-    data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type()
-    data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type()
-    data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type()
-    data class Enum   (val id: Ident, override val attrs: Attrs = listOf()): Type()
+    data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type() {
+        /** Get the TLID of the referenced typedef */
+        val tlid: TLID get() = TLID.typedef(id)
+    }
+    data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+        /** Get the TLID of the referenced struct */
+        val tlid: TLID get() = TLID.struct(id)
+    }
+    data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+        /** Get the TLID of the referenced union */
+        val tlid: TLID get() = TLID.union(id)
+    }
+    data class Enum   (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+        /** Get the TLID of the referenced enum */
+        val tlid: TLID get() = TLID.enum(id)
+    }
 }
 
 /* Struct or union field */
@@ -139,8 +151,10 @@ data class Meta(
     }
 }
 
-/* TODO fun possibly missing attributes and storage fields, as well as a pragma thingy? */
-sealed interface TopLevel {
+/**
+ * The type of declarations, parameterized by the type that represents statements.
+ */
+sealed interface Declaration<out Exp, out Stmt> {
     val name: Ident
 
     /**
@@ -148,13 +162,13 @@ sealed interface TopLevel {
      * top-level entity.
      */
     val meta: Meta
-    fun withMeta(meta: Meta): TopLevel
+    fun withMeta(meta: Meta): Declaration<Exp, Stmt>
 
     /**
      * Storage for the top-level entity (e.g., default or static).
      */
     val storage: Storage
-    fun withStorage(storage: Storage): TopLevel
+    fun withStorage(storage: Storage): Declaration<Exp, Stmt>
 
     val tlid: TLID
     val kind: EntityKind get() = tlid.kind
@@ -164,35 +178,39 @@ sealed interface TopLevel {
         fun definesType(): Type
     }
 
-    data class Var(
+    data class Var<Exp>(
         override val name: Ident,
         val type: Type,
-        val isDefinition: Boolean = false,
+        val rhs: Option<Exp>          = None,
         override val storage: Storage = Storage.Default,
-        override val meta: Meta = Meta.default
-    ): TopLevel {
+        override val meta: Meta       = Meta.default
+    ): Declaration<Exp, Nothing> {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+
+        val isDefinition: Boolean get() = rhs.isDefined()
 
         override val tlid: TLID get() =
             if (isDefinition) TLID(name, EntityKind.VarDef)
             else TLID(name, EntityKind.VarDecl)
     }
 
-    data class Fun(
+    data class Fun<Stmt>(
         override val name: Ident,
         val inline: Boolean,
         val returnType: Type,
         val params: List<Param>,
-        val vararg: Boolean,
-        val isDefinition: Boolean = false,
+        val vararg: Boolean           = false,
+        val body: Option<Stmt>        = None,
         override val storage: Storage = Storage.Default,
-        override val meta: Meta = Meta.default,
-    ): TopLevel {
+        override val meta: Meta       = Meta.default,
+    ): Declaration<Nothing, Stmt> {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
         fun type(): Type = Type.Fun(returnType, params, vararg)
+
+        val isDefinition: Boolean get() = body.isDefined()
 
         override val tlid: TLID get() =
             TLID(name, if (isDefinition) EntityKind.FunDef else EntityKind.FunDecl)
@@ -204,7 +222,7 @@ sealed interface TopLevel {
         val fields: FieldDecls,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike {
         override fun definesType(): Type =
             when (structOrUnion) {
                 StructOrUnion.Struct -> Type.Struct(name)
@@ -226,7 +244,7 @@ sealed interface TopLevel {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun definesType(): Type = Type.Named(name, underlyingType)
@@ -239,7 +257,7 @@ sealed interface TopLevel {
         val enumerators: List<Enumerator>,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): TopLevel, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val tlid: TLID get() = TLID(name, EntityKind.Enum)
@@ -247,14 +265,15 @@ sealed interface TopLevel {
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
-        EntityKind.FunDecl -> this is Fun && !isDefinition
-        EntityKind.FunDef -> this is Fun && isDefinition
-        EntityKind.Enum -> this is EnumDef
-        EntityKind.Struct -> this is Composite && structOrUnion == StructOrUnion.Struct
-        EntityKind.Union -> this is Composite && structOrUnion == StructOrUnion.Union
-        EntityKind.Typedef -> this is Typedef
-        EntityKind.VarDecl -> this is Var && !isDefinition
-        EntityKind.VarDef -> this is Var && isDefinition
+        EntityKind.FunDecl    -> this is Fun && !isDefinition
+        EntityKind.FunDef     -> this is Fun && isDefinition
+        EntityKind.Enum       -> this is EnumDef
+        EntityKind.Struct     -> this is Composite && structOrUnion == StructOrUnion.Struct
+        EntityKind.Union      -> this is Composite && structOrUnion == StructOrUnion.Union
+        EntityKind.Typedef    -> this is Typedef
+        EntityKind.VarDecl    -> this is Var && !isDefinition
+        EntityKind.VarDef     -> this is Var && isDefinition
+        EntityKind.Enumerator -> false
     }
 }
 
@@ -262,6 +281,7 @@ enum class EntityKind {
     FunDecl,
     FunDef,
     Enum,
+    Enumerator,
     Struct,
     Union,
     Typedef,
@@ -275,12 +295,12 @@ enum class EntityKind {
     }
 
     companion object {
-        fun kindOf(toplevel: TopLevel) = toplevel.kind
+        fun <E,T> kindOf(toplevel: Declaration<E, T>) = toplevel.kind
     }
 }
 
 /**
- * Identifies a top-level entity uniquely within a translation unit.
+ * Identifies a declaration uniquely within a translation unit.
  */
 data class TLID(val name: String, val kind: EntityKind) {
     companion object {
@@ -291,27 +311,31 @@ data class TLID(val name: String, val kind: EntityKind) {
         @JvmStatic fun struct(name: String) = TLID(name, EntityKind.Struct)
         @JvmStatic fun union(name: String) = TLID(name, EntityKind.Union)
         @JvmStatic fun enum(name: String) = TLID(name, EntityKind.Enum)
+        @JvmStatic fun enumerator(name: String) = TLID(name, EntityKind.Enumerator)
+        @JvmStatic fun typedef(name: String) = TLID(name, EntityKind.Typedef)
     }
 }
 
-data class TranslationUnit(
+data class TranslationUnit<E, T>(
     val tuid: TUID,
-    val decls: List<TopLevel>
+
+    /** The declarations at the top-level of the file. */
+    val decls: List<Declaration<E, T>>
 ) {
     /**
      * Find a top-level element in this translation unit, based
      * on a given [TLID] [id].
      */
-    fun get(id: TLID): Option<TopLevel> = decls
+    fun get(id: TLID): Option<Declaration<E, T>> = decls
         .find { it.name == id.name && it.ofKind(id.kind) }
         .toOption()
 
-    fun update(id: TLID, f: (decl: TopLevel) -> TopLevel) = copy(decls = decls.map {
+    fun update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) = copy(decls = decls.map {
         if (it.tlid == id) f(it) else it
     })
 
-    val functions: List<TopLevel.Fun> get() = decls.functions()
-    val functionDefinitions: List<TopLevel.Fun> get() = decls.functions().definitions()
+    val functions: List<Declaration.Fun<T>> get() = decls.functions()
+    val functionDefinitions: List<Declaration.Fun<T>> get() = decls.functions().definitions()
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -321,9 +345,11 @@ data class TranslationUnit(
     fun dropDefinition(def: TLID) = when (def.kind) {
         EntityKind.FunDef -> {
             // check if the translation unit has a separate declaration
-            when (val decl = get(def.copy(kind = EntityKind.FunDecl))) {
-                is Some -> copy(decls = decls.filter { it.tlid == def })                   // drop the whole definition
-                is None -> update(def) { (it as TopLevel.Fun).copy(isDefinition = false) } // turn def into declaration
+            when (get(def.copy(kind = EntityKind.FunDecl))) {
+                // drop the whole definition
+                is Some -> copy(decls = decls.filter { it.tlid == def })
+                // turn def into declaration
+                is None -> update(def) { (it as Declaration.Fun).copy(body = None) }
             }
         }
 
@@ -331,10 +357,11 @@ data class TranslationUnit(
         else -> this
     }
 
-    fun dropDefinitions(vararg defs: TLID) = defs.fold(this, { acc, it -> acc.dropDefinition(it) })
+    fun dropDefinitions(vararg defs: TLID) =
+        defs.fold(this) { acc, it -> acc.dropDefinition(it) }
 
     /* Map locations to top-level declarations */
-    fun getAtLocation(loc: Location): Option<TopLevel> =
+    fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
         decls
             .find { decl ->
                 when (val range = decl.meta.location) {
@@ -345,7 +372,7 @@ data class TranslationUnit(
             .toOption()
 
     /* Map locations to top-level declarations */
-    fun getEnclosing(range: SourceRange): Option<TopLevel> =
+    fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
         decls
             .find { decl ->
                 when (val loc = decl.meta.location) {
@@ -356,7 +383,7 @@ data class TranslationUnit(
             .toOption()
 
     /* Map locations to top-level declarations */
-    fun getEnclosing(loc: Location): Option<TopLevel> =
+    fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
         decls
             .find { decl ->
                 when (val range = decl.meta.location) {
@@ -369,19 +396,21 @@ data class TranslationUnit(
 
     // Indexing a translation unit
     val symbols get() = decls.map { tl -> Symbol(tuid, tl.tlid) }
-    val index get() = Index.create(symbols)
+    val index   get() = Index.create(symbols)
 
     /**
      * We can use an index as a whitelist to mask a translation unit.
-     * This returns a translation unit AST with everything filtered that is not whitelisted.
-     * It will be smart about function prototypes.
+     * This returns a translation unit AST with only those decls that are whitelisted.
+     *
+     * If the whitelist contains a function prototype, [mask] will do the right thing
+     * when it encounters a function definition.
      */
-    fun mask(whitelist: Index): TranslationUnit {
+    fun mask(whitelist: Index): TranslationUnit<E, T> {
         fun check(i: Symbol) = whitelist.symbols.contains(i)
         return copy(decls = decls.flatMap { entity ->
             when (entity) {
                 // functions are special.
-                is TopLevel.Fun -> {
+                is Declaration.Fun -> {
                     val funDef = Symbol(tuid, TLID.function(entity.name))
                     val funDec = Symbol(tuid, TLID.prototype(entity.name))
 
@@ -395,7 +424,7 @@ data class TranslationUnit(
                             // check if the tu also contains a separate declaration.
                             // if so, just keep that one, else, turn this one into a declaration
                             if (symbols.contains(funDec)) listOf()
-                            else listOf(entity.copy(isDefinition = false))
+                            else listOf(entity.copy(body = None))
                         // otherwise: not whitelisted
                         else -> listOf()
                     }
@@ -411,14 +440,14 @@ data class TranslationUnit(
 
 /* filters for toplevel declarations */
 
-fun List<TopLevel>.functions(): List<TopLevel.Fun> =
-    filterIsInstance<TopLevel.Fun>()
+fun <E, T> List<Declaration<E, T>>.functions(): List<Declaration.Fun<T>> =
+    filterIsInstance<Declaration.Fun<T>>()
 
-fun List<TopLevel.Fun>.definitions(): List<TopLevel.Fun> =
+fun <T> List<Declaration.Fun<T>>.definitions(): List<Declaration.Fun<T>> =
     filter { it.isDefinition }
 
-fun List<TopLevel.Fun>.declarations(): List<TopLevel.Fun> =
+fun <T> List<Declaration.Fun<T>>.declarations(): List<Declaration.Fun<T>> =
     filter { !it.isDefinition }
 
-fun List<TopLevel>.typelike(): List<TopLevel.Typelike> =
-    filterIsInstance<TopLevel.Typelike>()
+fun <E, T> List<Declaration<E, T>>.typelike(): List<Declaration.Typelike> =
+    filterIsInstance<Declaration.Typelike>()

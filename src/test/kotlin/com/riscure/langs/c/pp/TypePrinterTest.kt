@@ -4,13 +4,11 @@ import arrow.core.*
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.ClangParser
 import kotlin.test.*
-import java.io.StringWriter
-import java.nio.file.Path
 import kotlin.io.path.writeText
 
 class TypePrinterTest {
 
-    fun parse(input: String): TopLevel.Typedef {
+    fun parse(input: String): Declaration.Typedef {
         val file = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
 
         return try {

@@ -64,12 +64,12 @@ object Pretty {
         is Type.Void   -> "void"
     }
 
-    fun prototype(thefun: TopLevel.Fun): String {
+    fun prototype(thefun: Declaration.Fun): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
         return declaration("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
     }
 
-    fun typedef(typedef: TopLevel.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
+    fun typedef(typedef: Declaration.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
 }
 
 /**
@@ -81,7 +81,7 @@ class AstWriters(
      * A factory for writers for top-level entity bodies.
      * It is expected that the bodyWriter includes the non-mandatory whitespace around the rhs's.
      */
-    val getBodySource: (toplevel: TopLevel) -> Either<Throwable, String>
+    val getBodySource: (toplevel: Declaration) -> Either<Throwable, String>
 ) {
     private val semicolon = text(";")
 
@@ -91,8 +91,8 @@ class AstWriters(
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: TopLevel): Either<Throwable, Writer> = when (toplevel) {
-        is TopLevel.Var -> {
+    fun print(toplevel: Declaration): Either<Throwable, Writer> = when (toplevel) {
+        is Declaration.Var -> {
             text(Pretty.declaration(toplevel.name, toplevel.type))
                 .right()
                 .flatMap { lhs ->
@@ -106,7 +106,7 @@ class AstWriters(
                 }
         }
 
-        is TopLevel.Fun -> {
+        is Declaration.Fun -> {
             text(Pretty.prototype(toplevel))
                 .right()
                 .flatMap { lhs ->
@@ -120,14 +120,14 @@ class AstWriters(
                 }
         }
 
-        is TopLevel.Typedef ->
+        is Declaration.Typedef ->
             text(Pretty.typedef(toplevel)).right()
 
-        is TopLevel.Composite ->
+        is Declaration.Composite ->
             getBodySource(toplevel)
                 .map { rhs -> text("struct ${toplevel.name} $rhs;") }
 
-        is TopLevel.EnumDef ->
+        is Declaration.EnumDef ->
             getBodySource(toplevel)
                 .map { rhs -> text("enum ${toplevel.name} {$rhs};") }
     }

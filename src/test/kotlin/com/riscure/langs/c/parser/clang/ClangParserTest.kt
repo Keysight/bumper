@@ -3,7 +3,6 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.*
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.pp.Pretty
-import org.junit.jupiter.api.Disabled
 import kotlin.test.*
 import java.io.File
 import java.nio.file.Path
@@ -29,9 +28,9 @@ class ClangParserTest {
     fun test001() {
         parsed("/parser-tests/001-minimal-main.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Fun)
+            assertTrue(tu.decls[0] is Declaration.Fun)
 
-            val fn = tu.decls[0] as TopLevel.Fun
+            val fn = tu.decls[0] as Declaration.Fun
             assertEquals("main", fn.name)
         }
     }
@@ -40,9 +39,9 @@ class ClangParserTest {
     fun test002() {
         parsed("/parser-tests/002-main-with-params.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Fun)
+            assertTrue(tu.decls[0] is Declaration.Fun)
 
-            val fn = tu.decls[0] as TopLevel.Fun
+            val fn = tu.decls[0] as Declaration.Fun
             assertEquals("main", fn.name)
 
             assertEquals(2, fn.params.size)
@@ -57,7 +56,7 @@ class ClangParserTest {
     fun test003() {
         parsed("/parser-tests/003-function-decl.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Fun)
+            assertTrue(tu.decls[0] is Declaration.Fun)
         }
     }
 
@@ -65,8 +64,8 @@ class ClangParserTest {
     fun test004() {
         parsed("/parser-tests/004-struct-decl.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Composite)
-            assertEquals(StructOrUnion.Struct, (tu.decls[0] as TopLevel.Composite).structOrUnion)
+            assertTrue(tu.decls[0] is Declaration.Composite)
+            assertEquals(StructOrUnion.Struct, (tu.decls[0] as Declaration.Composite).structOrUnion)
         }
     }
 
@@ -74,8 +73,8 @@ class ClangParserTest {
     fun test005() {
         parsed("/parser-tests/005-struct-def.c") { tu ->
             assertEquals(1, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Composite)
-            assertEquals(StructOrUnion.Struct, (tu.decls[0] as TopLevel.Composite).structOrUnion)
+            assertTrue(tu.decls[0] is Declaration.Composite)
+            assertEquals(StructOrUnion.Struct, (tu.decls[0] as Declaration.Composite).structOrUnion)
         }
     }
 
@@ -83,8 +82,8 @@ class ClangParserTest {
     fun test006() {
         parsed("/parser-tests/006-anonymous-struct.c") { tu ->
             assertEquals(2, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Composite)
-            assertEquals(StructOrUnion.Struct, (tu.decls[0] as TopLevel.Composite).structOrUnion)
+            assertTrue(tu.decls[0] is Declaration.Composite)
+            assertEquals(StructOrUnion.Struct, (tu.decls[0] as Declaration.Composite).structOrUnion)
         }
     }
 
@@ -92,14 +91,14 @@ class ClangParserTest {
     fun test007() {
         parsed("/parser-tests/007-named-struct-with-var.c") { tu ->
             assertEquals(3, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Composite)
+            assertTrue(tu.decls[0] is Declaration.Composite)
 
-            assertTrue(tu.decls[1] is TopLevel.Var)
-            val book = tu.decls[1] as TopLevel.Var
+            assertTrue(tu.decls[1] is Declaration.Var)
+            val book = tu.decls[1] as Declaration.Var
             assertEquals(Type.Struct("Book"), book.type)
 
-            assertTrue(tu.decls[2] is TopLevel.Var)
-            val another = tu.decls[2] as TopLevel.Var
+            assertTrue(tu.decls[2] is Declaration.Var)
+            val another = tu.decls[2] as Declaration.Var
             assertEquals(Type.Struct("Book"), another.type)
 
         }
@@ -109,11 +108,11 @@ class ClangParserTest {
     fun test008() {
         parsed("/parser-tests/008-typedef.c") { tu ->
             assertEquals(3, tu.decls.size)
-            assertTrue(tu.decls[0] is TopLevel.Composite)
-            assertTrue(tu.decls[1] is TopLevel.Typedef)
+            assertTrue(tu.decls[0] is Declaration.Composite)
+            assertTrue(tu.decls[1] is Declaration.Typedef)
 
-            assertTrue(tu.decls[2] is TopLevel.Var)
-            val another = tu.decls[2] as TopLevel.Var
+            assertTrue(tu.decls[2] is Declaration.Var)
+            val another = tu.decls[2] as Declaration.Var
             assertEquals(Type.Named("mybook", Type.Struct("Book")), another.type)
         }
     }
@@ -263,7 +262,7 @@ class ClangParserTest {
         parsed("/parser-tests/018-global-with-function-pointers.c") { tu, unit ->
             val ds = tu.decls
 
-            println(ds.filterIsInstance<TopLevel.Typedef>().map { it.underlyingType })
+            println(ds.filterIsInstance<Declaration.Typedef>().map { it.underlyingType })
             println(ds)
         }
     }
@@ -300,10 +299,10 @@ class ClangParserTest {
         parsed("/parser-tests/021-weird-types.c") { tu ->
             val ds = tu.decls
             tu.decls
-                .filterIsInstance<TopLevel.Typedef>()
+                .filterIsInstance<Declaration.Typedef>()
                 .forEach { println(show(it.name, it.underlyingType)) }
             tu.decls
-                .filterIsInstance<TopLevel.Fun>()
+                .filterIsInstance<Declaration.Fun>()
                 .forEach { println(Pretty.prototype(it)) }
         }
     }
