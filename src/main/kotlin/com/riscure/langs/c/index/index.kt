@@ -4,35 +4,6 @@ import arrow.core.*
 import com.riscure.langs.c.ast.TLID
 import java.nio.file.Path
 
-/* Uniquely identify a translation unit */
-data class TUID(
-    /* Translation units are identified by their main (preprocessed) file */
-    val main: Path
-)
-
-/* Uniquely identify a symbol across translation units */
-data class Symbol(
-    val unit: TUID,
-    val entity: TLID
-) {
-    val name get() = entity.name
-    val kind get() = entity.kind
-
-    companion object {
-        @JvmStatic
-        fun varDecl(unit: TUID, name: String) = Symbol(unit, TLID.varDecl(name))
-
-        @JvmStatic
-        fun varDef(unit: TUID, name: String) = Symbol(unit, TLID.varDef(name))
-
-        @JvmStatic
-        fun prototype(unit: TUID, name: String) = Symbol(unit, TLID.prototype(name))
-
-        @JvmStatic
-        fun function(unit: TUID, name: String) = Symbol(unit, TLID.function(name))
-    }
-}
-
 open class IndexException(msg: String, cause: Exception? = null) : Exception(msg, cause)
 class MissingDefinition(name: String): IndexException("No definition found for name '$name'")
 class MultipleDefinitions(name: String, matches: Collection<Symbol>): IndexException(

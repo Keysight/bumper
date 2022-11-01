@@ -286,10 +286,11 @@ data class TLID(val name: String, val kind: EntityKind) {
     companion object {
         @JvmStatic fun varDecl(name: String) = TLID(name, EntityKind.VarDecl)
         @JvmStatic fun varDef(name: String) = TLID(name, EntityKind.VarDef)
-
         @JvmStatic fun function(name: String) = TLID(name, EntityKind.FunDef)
-
         @JvmStatic fun prototype(name: String) = TLID(name, EntityKind.FunDecl)
+        @JvmStatic fun struct(name: String) = TLID(name, EntityKind.Struct)
+        @JvmStatic fun union(name: String) = TLID(name, EntityKind.Union)
+        @JvmStatic fun enum(name: String) = TLID(name, EntityKind.Enum)
     }
 }
 
