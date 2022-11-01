@@ -5,12 +5,14 @@
 package com.riscure.langs.c.parser
 
 import arrow.core.*
+import arrow.typeclasses.Monoid
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.clang.*
 import com.riscure.toBool
 import org.bytedeco.javacpp.*
+import org.bytedeco.javacpp.annotation.ByVal
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
@@ -28,7 +30,7 @@ private fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Re
     return whenMatch()
 }
 
-fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit<CXCursor>> {
+fun CXCursor.asTranslationUnit(tuid: TUID): Result<_TranslationUnit<CXCursor,CXCursor>> {
     if (this.kind() != CXCursor_TranslationUnit) {
         return "Expected translation unit, got cursor of kind ${this.kindName()}".left()
     }
@@ -36,13 +38,20 @@ fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit<CXCursor>> {
     return this.children()
         // somehow e.g. an empty ';' results in top-level UnexposedDecls
         // not sure what else causes them.
-        .filter { it.kind() != CXCursor_UnexposedDecl }
+        .filter { cursor -> when {
+            // somehow e.g. an empty ';' results in top-level UnexposedDecls
+            // not sure what else causes them.
+            cursor.kind() == CXCursor_UnexposedDecl -> false
+            // Clang expands typedef struct {..} to two top-level declarations, one of which is anonymous.
+            cursor.isAnonymousDeclaration()         -> false
+            else                                    -> true
+        }}
         .map { it.asDeclaration() }
         .sequence()
-        .map { TranslationUnit(tuid, it) }
+        .map { _TranslationUnit(tuid, it) }
 }
 
-fun CXCursor.asDeclaration(): Result<Declaration<CXCursor>> =
+fun CXCursor.asDeclaration(): Result<Declaration<CXCursor, CXCursor>> =
     (when (kind()) {
         CXCursor_FunctionDecl ->
             if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
@@ -59,6 +68,19 @@ fun CXCursor.asDeclaration(): Result<Declaration<CXCursor>> =
         it.withMeta(getMetadata())
           .withStorage(getStorage())
     }
+
+/**
+ * Some top-level declarations are elaborated from inline compound type declarations.
+ * That is: they don't appear as top-level entities in the source file, but rather
+ * as nested declarations elsewhere lower in the tree. Clang elaborates/desugars this to a top-level declaration.
+ * Some of those are anonymous. This detects those anonymous declarations.
+ */
+fun CXCursor.isAnonymousDeclaration(): Boolean =
+    // clang_isAnonymous and related don't work as expected
+    kind() in listOf(CXCursor_EnumDecl, CXCursor_StructDecl, CXCursor_UnionDecl)
+            && !isValidIdentifier(spelling())
+
+private fun isValidIdentifier(string: String) = Regex("[_a-zA-Z][_a-zA-Z0-9]*").matches(string)
 
 /**
  * Collects storage for a toplevel declaration cursor.
@@ -143,7 +165,7 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
 fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
     ifKind (CXCursor_TypedefDecl, "typedef") {
         clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
-            Declaration.Typedef(clang_getTypedefName(clang_getCursorType(this)).string, type)
+            Declaration.Typedef(clang_getTypedefName(type()).string, type)
         }
     }
 
@@ -155,27 +177,83 @@ fun CXCursor.asEnumDecl(): Result<Declaration.EnumDef> =
 
 fun CXCursor.asStructDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        Declaration.Composite(
-            this.spelling(),
-            StructOrUnion.Struct,
-            listOf() // TODO
-        ).right()
+        // We check if this is the definition,
+        // because clang visits fields of the canonical/definition cursor regardless.
+        // Which would lead to duplicate definitions in the ast.
+        val fields = if (clang_isCursorDefinition(this).toBool()) {
+            type()
+                .fields()
+                .map { it.asField() }
+                .sequence()
+        } else listOf<Field>().right()
+
+        fields.map { Declaration.Composite(this.spelling(), StructOrUnion.Struct, it) }
     }
 
 fun CXCursor.asUnionDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_UnionDecl, "union declaration") {
-        Declaration.Composite(
-            this.spelling(),
-            StructOrUnion.Union,
-            listOf() // TODO
-        ).right()
+        // We check if this is the definition,
+        // because clang visits fields of the canonical/definition cursor regardless.
+        // Which would lead to duplicate definitions in the ast.
+        val fields = if (clang_isCursorDefinition(this).toBool()) {
+            type()
+                .fields()
+                .map { it.asField() }
+                .sequence()
+        } else listOf<Field>().right()
+
+        fields.map { Declaration.Composite(this.spelling(), StructOrUnion.Union, it) }
     }
 
-fun CXCursor.asVarDecl(): Result<Declaration.Var> =
+fun CXType.fields(): List<CXCursor> {
+    val ts = mutableListOf<CXCursor>()
+    val wrapped = object: CXFieldVisitor() {
+        override fun call(@ByVal field: CXCursor?, p2: CXClientData?): Int {
+            ts.add(field!!)
+            return CXVisit_Continue
+        }
+    }
+
+    clang_Type_visitFields(this, wrapped, null)
+    wrapped.deallocate()
+
+    return ts
+}
+
+fun CXCursor.identifier(): Option<String> {
+    val s = spelling()
+    return if (isValidIdentifier(s)) s.some() else none()
+}
+
+fun CXCursor.asField(): Result<Field> =
+    type()
+        .asType()
+        .map { type ->
+            val id = identifier().getOrElse { "" }
+            val attrs = this.cursorAttributes(type())
+            Field(
+                id,
+                type.withAttrs(type.attrs + attrs),
+                clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) },
+                id.isEmpty()
+            )
+        }
+
+fun CXCursor.asVarDecl(): Result<Declaration.Var<CXCursor>> =
     ifKind (CXCursor_VarDecl, "variable declaration") {
-        clang_getCursorType(this)
+        type()
             .asType()
-            .map { Declaration.Var(this.spelling(), it, clang_isCursorDefinition(this).toBool()) }
+            .flatMap { type ->
+                val rhs: Option<Result<CXCursor>> = if (clang_isCursorDefinition(this).toBool()) {
+                    val subexps = this.children().filter { clang_isExpression(it.kind()).toBool() }
+                    if (subexps.size != 1) {
+                        "Failed to extract right-hand side of variable declaration.".left().some()
+                    } else subexps[0].right().some()
+                } else None
+
+                rhs.sequenceEither()
+                   .map { Declaration.Var(this.spelling(), type, it) }
+            }
     }
 
 fun CXCursor.getReturnType(): Result<Type> {
@@ -198,26 +276,45 @@ fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
         this.getReturnType().flatMap { resultType ->
             this.getParameters().map { params ->
-                /* TODO, fill in the constants */
-                Declaration.Fun(spelling(), false, resultType, params, false)
+                Declaration.Fun(
+                    spelling(),
+                    clang_Cursor_isFunctionInlined(this).toBool(),
+                    resultType,
+                    params,
+                    clang_Cursor_isVariadic(this).toBool()
+                )
             }
         }
     }
 
 fun CXCursor.asParam(): Result<Param> =
     ifKind(CXCursor_ParmDecl, "parameter declaration") {
-        clang_getCursorType(this)
+        type()
             .asType()
-            .map { type -> Param(spelling(), type) }
+            .map { type ->
+                Param(spelling(), type) }
     }
 
-/* Type declarations yield an assignable type */
-fun CXCursor.asTypeDeclType(): Result<Type> =
+fun CXCursor.asAnonymousCompound(): Result<Type> =
     when(kind()) {
-        CXCursor_EnumDecl   -> Type.Enum(spelling()).right()
-        CXCursor_StructDecl -> Type.Struct(spelling()).right()
-        CXCursor_UnionDecl  -> Type.Union(spelling()).right()
-        else -> "Expected a type declaration, got ${kindName()}".left()
+        CXCursor_EnumDecl   -> asEnumDecl().map   { Type.InlineDeclaration(it) }
+        CXCursor_StructDecl -> asStructDecl().map { Type.InlineDeclaration(it) }
+        CXCursor_UnionDecl  -> asUnionDecl().map  { Type.InlineDeclaration(it) }
+        else -> "Expected a compound type declaration, got ${kindName()}".left()
+    }
+
+fun CXCursor.asElaboratedType(): Result<Type> =
+    if (isAnonymousDeclaration()) asAnonymousCompound()
+    else {
+        // if the elaborated type is not anon, we process it
+        // as a top-level entity.
+        // and here we just turn it into a reference to the top-level.
+        when(kind()) {
+            CXCursor_EnumDecl   -> Type.Enum(spelling()).right()
+            CXCursor_StructDecl -> Type.Struct(spelling()).right()
+            CXCursor_UnionDecl  -> Type.Union(spelling()).right()
+            else -> "Expected a compound type declaration, got ${kindName()}".left()
+        }
     }
 
 /* Typedefs yield an assignable type */
@@ -242,16 +339,23 @@ fun CXType.asType(): Result<Type> =
         CXType_Int -> Type.Int(IKind.IInt).right()
         CXType_Long -> Type.Int(IKind.ILong).right()
         CXType_LongLong -> Type.Int(IKind.ILongLong).right()
-
         CXType_Float -> Type.Float(FKind.FFloat).right()
         CXType_Double -> Type.Float(FKind.FDouble).right()
         CXType_LongDouble -> Type.Float(FKind.FLongDouble).right()
+        CXType_Complex ->
+            clang_getElementType(this)
+                .asType()
+                .flatMap {
+                    when (it) {
+                        is Type.Float -> Type.Complex(it.kind).right()
+                        else          -> "Complex element type is not a float.".left()
+                    }
+                }
 
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()
-        CXType_Elaborated -> clang_getTypeDeclaration(this).asTypeDeclType()
         CXType_Enum    -> TODO()
-        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(),it) }
+        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(), it) }
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()
@@ -276,7 +380,71 @@ fun CXType.asType(): Result<Type> =
                     .map { args -> Type.Fun(retType, args, false) }
             }
 
+        CXType_Atomic ->
+            clang_Type_getValueType(this)
+                .asType()
+                .map { Type.Atomic(it) }
+
+        // Special type kind for inline declarations.
+        // Clang elaborated the inline declaration to a top-level entity.
+        // We represent it inline, so that pretty-printing recovers the original,
+        // and we do not expose new names after pretty-printing.
+        // The elaborated declaration can have a name! If the anonymous declaration is in a function parameter,
+        // the name is not visible outside of the function body.
+        CXType_Elaborated -> clang_getTypeDeclaration(this).asElaboratedType()
+
         // others that could occur in C?
 
         else -> "Could not parse type of kind '${kindName()}'".left()
     }
+    // And add the attributes
+    .map { type -> type.withAttrs(getTypeAttrs()) }
+
+fun CXType.getTypeAttrs(): Attrs {
+    val attrs = mutableListOf<Attr>()
+    if (clang_isVolatileQualifiedType(this).toBool())
+        attrs.add(Attr.Volatile)
+    if (clang_isRestrictQualifiedType(this).toBool())
+        attrs.add(Attr.Restrict)
+    if (clang_isConstQualifiedType(this).toBool())
+        attrs.add(Attr.Constant)
+    return attrs
+}
+
+fun CXCursor.cursorAttributes(type: CXType): Attrs =
+    collect(Monoid.list(), true) {
+        if (clang_isAttribute(kind()).toBool()) {
+            this.asAttribute(type).orNone().toList()
+        } else listOf()
+    }
+
+fun CXCursor.asAttribute(type: CXType): Result<Attr> = when (kind()) {
+    CXCursor_ConstAttr      -> Attr.Constant.right()
+    CXCursor_AlignedAttr    ->
+        type.getAlignment()
+            .toEither { "Could not get alignment for type with alignment attribute." }
+            .map { Attr.AlignAs(it) }
+
+    /* TODO
+    CXCursor_UnexposedAttr  -> TODO()
+    CXCursor_AnnotateAttr   -> TODO()
+    CXCursor_AsmLabelAttr   -> TODO()
+    CXCursor_PackedAttr     -> TODO()
+    CXCursor_PureAttr       -> TODO()
+    CXCursor_NoDuplicateAttr -> TODO()
+    CXCursor_VisibilityAttr -> TODO()
+    CXCursor_ConvergentAttr -> TODO()
+    CXCursor_WarnUnusedAttr -> TODO()
+    CXCursor_WarnUnusedResultAttr -> TODO()
+    */
+
+    else -> "Not a recognized attribute?".left()
+}
+
+fun CXType.getAlignment(): Option<Long> {
+    val align = clang_Type_getAlignOf(this)
+    return when {
+        align < 0 -> none()
+        else      -> align.some()
+    }
+}

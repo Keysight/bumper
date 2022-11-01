@@ -40,7 +40,7 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
      * This can fail if the top-level entity has no source location, or if the location is somehow not valid,
      * or if we otherwise fail to extract the rhs from the source.
      */
-    fun rhsOf(tl: Declaration): Either<Throwable, String> = when (tl) {
+    fun rhsOf(tl: Declaration<*,*>): Either<Throwable, String> = when (tl) {
         is Declaration.Fun ->
             if (!tl.isDefinition)
                 Either.Right("")
@@ -49,32 +49,33 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
                     .toEither { Throwable("Cannot extract source for top-level entity without location") }
                     .flatMap { sourceOf(it) }
                     .flatMap { functionBodyOf(it) }
-        is Declaration.Composite -> "".right() // TODO
-        is Declaration.EnumDef -> "".right() // TODO
-        is Declaration.Typedef -> "".right()
         is Declaration.Var ->
             if (!tl.isDefinition)
                 Either.Right("")
-            else
-                tl.meta.location
-                    .toEither { Throwable("Cannot extract source for top-level entity without location") }
-                    .flatMap { sourceOf(it) }
-                    .flatMap { varBodyOf(it) }
+            else sourceOf(tl).flatMap { varBodyOf(it) }
+
+        // no rhs
+        is Declaration.Composite -> "".right()
+        is Declaration.EnumDef -> "".right()
+        is Declaration.Typedef -> "".right()
     }
 
+    private fun sourceOf(tl: Declaration<*,*>) =
+        tl.meta.location
+            .toEither { Throwable("Cannot extract source for top-level entity without location") }
+            .flatMap { sourceOf(it) }
+
+    // FIXME, this will fail if the parameters contain anonymous structs
     private fun functionBodyOf(src: String): Either<Throwable, String> =
         Regex("[^{]*\\{(.*)\\}[^}]*", RegexOption.DOT_MATCHES_ALL).find(src)
             .toOption()
             .toEither { Throwable("Failed to extract function body") }
-            .map {
-                it.groupValues[1]
-            }
+            .map { it.groupValues[1] }
 
     private fun varBodyOf(src: String): Either<Throwable, String> =
         Regex("[^=]*=(.*)$", RegexOption.DOT_MATCHES_ALL).find(src)
             .toOption()
             .toEither { Throwable("Failed to extract right-hand side of variable definition.") }
-            .map {
-                it.groupValues[1]
-            }
+            .map { it.groupValues[1] }
+
 }

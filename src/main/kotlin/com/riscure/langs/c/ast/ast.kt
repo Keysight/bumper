@@ -68,7 +68,7 @@ sealed class Attr {
     object Constant : Attr()
     object Volatile : Attr()
     object Restrict : Attr()
-    data class AlignAs(val alignment: Int) : Attr()
+    data class AlignAs(val alignment: Long) : Attr()
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
@@ -85,28 +85,126 @@ typealias Attrs = List<Attr>
 /* Types */
 sealed class Type {
     abstract val attrs: Attrs
+    abstract fun withAttrs(attrs: Attrs): Type
 
-    data class Void   (override val attrs: Attrs = listOf()): Type()
-    data class Int    (val kind: IKind, override val attrs: Attrs = listOf()): Type()
-    data class Float  (val kind: FKind, override val attrs: Attrs = listOf()): Type()
-    data class Ptr    (val pointeeType: Type, override val attrs: Attrs = listOf()): Type()
-    data class Array  (val elementType: Type, val size: Option<Long> = None, override val attrs: Attrs = listOf()): Type()
-    data class Fun    (val returnType: Type, val params: List<Param>, val vararg: Boolean, override val attrs: Attrs = listOf()): Type()
-    data class Named  (val id: Ident, val underlying: Type, override val attrs: Attrs = listOf()): Type() {
+    fun const() = withAttrs(attrs + Attr.Constant)
+    fun restrict() = withAttrs(attrs + Attr.Restrict)
+
+    data class Void (
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Int (
+        val kind: IKind,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Float (
+        val kind: FKind,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Ptr (
+        val pointeeType: Type,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Array(
+        val elementType: Type,
+        val size: Option<Long> = None,
+        override val attrs: Attrs = listOf()
+    ) : Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Fun(
+        val returnType: Type,
+        val params: List<Param>,
+        val vararg: Boolean       = false,
+        override val attrs: Attrs = listOf()
+    ) : Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    data class Named (
+        val id: Ident,
+        val underlying: Type,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+
         /** Get the TLID of the referenced typedef */
         val tlid: TLID get() = TLID.typedef(id)
     }
-    data class Struct (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+    data class Struct (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         /** Get the TLID of the referenced struct */
         val tlid: TLID get() = TLID.struct(id)
     }
-    data class Union  (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+    data class Union (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+
         /** Get the TLID of the referenced union */
         val tlid: TLID get() = TLID.union(id)
     }
-    data class Enum   (val id: Ident, override val attrs: Attrs = listOf()): Type() {
+    data class Enum (
+        val id: Ident,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+
         /** Get the TLID of the referenced enum */
         val tlid: TLID get() = TLID.enum(id)
+    }
+
+    /* _Complex */
+    data class Complex(
+        val kind: FKind,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+    /* _Atomic */
+    data class Atomic(
+        val el: Type,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+
+    /* A distinguished type for inline compound type declarations */
+    data class InlineDeclaration (
+        val declaration: Declaration.CompoundTypeDecl,
+        override val attrs: Attrs = listOf()
+    ): Type() {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+
+    companion object {
+        @JvmStatic
+        val char = Int(IKind.IChar)
+        @JvmStatic
+        val uint = Int(IKind.IUInt)
+        @JvmStatic
+        val int = Int(IKind.IInt)
+        @JvmStatic
+        val ulong = Int(IKind.IULong)
+
+        @JvmStatic
+        fun array(el: Type, size: Option<Long>) = Array(el, size)
+
+        @JvmStatic
+        fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
+            Fun(returns, params.toList(), variadic)
+
     }
 }
 
@@ -114,8 +212,8 @@ sealed class Type {
 data class Field(
     val name: String
   , val type: Type
-  , val bitfield: Int?
-  , val anonymous: Boolean
+  , val bitfield: Option<Int> = none()
+  , val anonymous: Boolean    = false
 )
 
 enum class StructOrUnion { Struct, Union }
@@ -174,8 +272,9 @@ sealed interface Declaration<out Exp, out Stmt> {
     val kind: EntityKind get() = tlid.kind
 
     /* Mixin */
-    interface Typelike {
-        fun definesType(): Type
+    sealed interface Typelike { fun definesType(): Type }
+    sealed interface CompoundTypeDecl: Declaration<Nothing, Nothing>, Typelike {
+        val isAnonymous get() = name.isEmpty()
     }
 
     data class Var<Exp>(
@@ -195,7 +294,7 @@ sealed interface Declaration<out Exp, out Stmt> {
             else TLID(name, EntityKind.VarDecl)
     }
 
-    data class Fun<Stmt>(
+    data class Fun<out Stmt>(
         override val name: Ident,
         val inline: Boolean,
         val returnType: Type,
@@ -222,7 +321,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val fields: FieldDecls,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun definesType(): Type =
             when (structOrUnion) {
                 StructOrUnion.Struct -> Type.Struct(name)
@@ -244,7 +343,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun definesType(): Type = Type.Named(name, underlyingType)
@@ -257,7 +356,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val enumerators: List<Enumerator>,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike {
+    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val tlid: TLID get() = TLID(name, EntityKind.Enum)
@@ -316,7 +415,8 @@ data class TLID(val name: String, val kind: EntityKind) {
     }
 }
 
-data class TranslationUnit<E, T>(
+typealias TranslationUnit = _TranslationUnit<*,*>
+data class _TranslationUnit<out E, out T>(
     val tuid: TUID,
 
     /** The declarations at the top-level of the file. */
@@ -326,16 +426,13 @@ data class TranslationUnit<E, T>(
      * Find a top-level element in this translation unit, based
      * on a given [TLID] [id].
      */
-    fun get(id: TLID): Option<Declaration<E, T>> = decls
+    operator fun get(id: TLID): Option<Declaration<E, T>> = decls
         .find { it.name == id.name && it.ofKind(id.kind) }
-        .toOption()
-
-    fun update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) = copy(decls = decls.map {
-        if (it.tlid == id) f(it) else it
-    })
+        .toOption() // FIXME should also find inline declarations.
 
     val functions: List<Declaration.Fun<T>> get() = decls.functions()
     val functionDefinitions: List<Declaration.Fun<T>> get() = decls.functions().definitions()
+    val structs: List<Declaration.Composite> get() = decls.structs()
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -405,7 +502,7 @@ data class TranslationUnit<E, T>(
      * If the whitelist contains a function prototype, [mask] will do the right thing
      * when it encounters a function definition.
      */
-    fun mask(whitelist: Index): TranslationUnit<E, T> {
+    fun mask(whitelist: Index): _TranslationUnit<E, T> {
         fun check(i: Symbol) = whitelist.symbols.contains(i)
         return copy(decls = decls.flatMap { entity ->
             when (entity) {
@@ -438,10 +535,17 @@ data class TranslationUnit<E, T>(
     }
 }
 
+fun <E,T> _TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
+    copy(decls = decls.map { if (it.tlid == id) f(it) else it })
+
 /* filters for toplevel declarations */
 
 fun <E, T> List<Declaration<E, T>>.functions(): List<Declaration.Fun<T>> =
     filterIsInstance<Declaration.Fun<T>>()
+
+fun <E,T> List<Declaration<E, T>>.structs(): List<Declaration.Composite> =
+    filterIsInstance<Declaration.Composite>()
+        .filter { it.structOrUnion == StructOrUnion.Struct }
 
 fun <T> List<Declaration.Fun<T>>.definitions(): List<Declaration.Fun<T>> =
     filter { it.isDefinition }

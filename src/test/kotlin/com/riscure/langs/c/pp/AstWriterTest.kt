@@ -1,15 +1,15 @@
 package com.riscure.langs.c.pp
 
 import arrow.core.*
-import com.riscure.langs.c.ast.Declaration
-import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.ClangParser
+import org.bytedeco.llvm.clang.CXCursor
 import java.nio.charset.Charset
 import kotlin.io.path.*
 import kotlin.test.*
 
 internal class AstWriterTest {
-    fun literal(input: String, transform: (unit: TranslationUnit) -> TranslationUnit = {it}): String {
+    fun literal(input: String, transform: (unit: _TranslationUnit<CXCursor, CXCursor>) -> _TranslationUnit<Any?, Any?> = {it}): String {
         val file = createTempFile(suffix = ".c").apply {
             writeText(input)
         }
@@ -20,7 +20,7 @@ internal class AstWriterTest {
             .getOrHandle { throw it }
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())
-        fun bodyPrinter(tl : Declaration) =
+        fun bodyPrinter(tl : Declaration<*,*>) =
             extractor.rhsOf(tl)
 
         return AstWriters { bodyPrinter(it) }
@@ -106,7 +106,11 @@ internal class AstWriterTest {
         assertEquals(input, literal(input))
         assertEquals(
             output,
-            literal(input) { ast -> ast.copy(decls = ast.decls.filter { it.name != "g" }) }
+            literal(input) { ast -> ast.copy(
+                decls = ast
+                    .decls
+                    .filter { it.name != "g" })
+            }
         )
     }
 
@@ -133,7 +137,7 @@ internal class AstWriterTest {
                         // turn f into a prototype
                         .map { tl ->
                             if (tl is Declaration.Fun && tl.name == "f") {
-                                tl.copy(isDefinition = false)
+                                tl.copy(body = None)
                             } else tl
                         }
                 )}

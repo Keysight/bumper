@@ -13,41 +13,56 @@ class Dependencies<E, T>(
     val tAnalyzer: (T) -> Result
 ) {
 
-    fun getDependencies(decl: Declaration<E,T>): Result = when (decl) {
+    private fun Result.merge(that: Result) =
+        flatMap { left ->
+            that.map { right -> left + right }
+        }
+
+    fun Declaration<E,T>.getDependencies(): Result = when (this) {
         is Declaration.Var       ->
-            decl.rhs
+            rhs
                 .map(eAnalyzer)
                 .getOrElse { setOf<TLID>().right() }
-                .map { it + decl.type.getDependencies() }
+                .merge(type.getDependencies())
         is Declaration.Composite ->
-            decl.fields
-                .flatMap { getDependencies(it) }
-                .toSet()
-                .right()
+            fields
+                .map { it.type.getDependencies() }
+                .sequence()
+                .map { it.flatten().toSet() }
         is Declaration.EnumDef   ->
             setOf<TLID>().right()
         is Declaration.Fun       ->
-            decl.body
+            body
                 .map(tAnalyzer)
                 .getOrElse { setOf<TLID>().right() }
-                .map { it + decl.returnType.getDependencies() + decl.params.flatMap { getDependencies(it) }}
+                .merge(returnType.getDependencies())
+                .merge(params.getDependencies())
         is Declaration.Typedef   ->
-            decl.underlyingType.getDependencies().right()
+            underlyingType.getDependencies()
     }
 
-    fun Type.getDependencies(): Set<TLID> = when(this) {
-        is Type.Fun    -> returnType.getDependencies() + params.flatMap { it.type.getDependencies() }
-        is Type.Array  -> elementType.getDependencies()
-        is Type.Ptr    -> pointeeType.getDependencies()
-        is Type.Named  -> setOf(tlid)
-        is Type.Struct -> setOf(tlid)
-        is Type.Union  -> setOf(tlid)
-        is Type.Int    -> setOf()
-        is Type.Enum   -> setOf()
-        is Type.Float  -> setOf()
-        is Type.Void   -> setOf()
+    fun Type.getDependencies(): Result = when (this) {
+        is Type.Fun               ->
+            returnType
+                .getDependencies()
+                .merge(params.getDependencies())
+        is Type.Array             -> elementType.getDependencies()
+        is Type.Ptr               -> pointeeType.getDependencies()
+        is Type.Named             -> setOf(tlid).right()
+        is Type.Struct            -> setOf(tlid).right()
+        is Type.Union             -> setOf(tlid).right()
+        is Type.Int               -> setOf<TLID>().right()
+        is Type.Enum              -> setOf<TLID>().right()
+        is Type.Float             -> setOf<TLID>().right()
+        is Type.Void              -> setOf<TLID>().right()
+        is Type.Atomic            -> el.getDependencies()
+        is Type.Complex           -> setOf<TLID>().right()
+        is Type.InlineDeclaration -> declaration.getDependencies()
     }
 
-    fun getDependencies(param: Param): Set<TLID> = TODO()
-    fun getDependencies(param: Field): Set<TLID> = TODO()
+    private fun List<Param>.getDependencies(): Result =
+        this
+            .map { it.type.getDependencies() }
+            .sequence()
+            .map { it.flatten().toSet() }
 }

@@ -12,24 +12,33 @@ import java.nio.file.Path
 
 typealias Result<T> = Either<Throwable, T>
 
-class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState<CXCursor> {
+class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-    private val _ast by lazy { rootCursor.asTranslationUnit(tuid) }
+    private val _ast by lazy { rootCursor.asTranslationUnit(tuid).mapLeft { Throwable(it) } }
 
     override fun close() = cxunit.close()
 
-    override fun ast() = _ast.mapLeft { Throwable(it) }
+    override fun ast() = _ast
 
-    override fun getReferencedDeclarations(decl: Declaration<CXCursor>): Result<Set<TLID>> {
+    override fun getReferencedDeclarations(decl: TLID): Either<Throwable, Set<TLID>> {
+
         fun extractor(cursor: CXCursor): Either<String, Set<TLID>> {
             val reffed = cursor.collect(Monoid.list(), true) { getReferenced().toList() }
             TODO()
         }
 
-        return Dependencies(::extractor)
-            .getDependencies(decl)
-            .mapLeft { Throwable(it) }
+        return _ast
+            .flatMap {
+                it[decl].toEither { Throwable("Declaration ${decl.name} not found in translation unit ${tuid.main}") }
+            }
+            .flatMap { d:Declaration<CXCursor,CXCursor> ->
+                with (Dependencies(::extractor, ::extractor)) {
+                    d
+                        .getDependencies()
+                        .mapLeft { Throwable(it) }
+                }
+            }
     }
 }
 

@@ -12,14 +12,16 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 
-fun CXCursor.spelling(): String = clang.clang_getCursorSpelling(this).string
-fun CXCursor.kindName(): String = clang.clang_getCursorKindSpelling(kind()).string
-fun CXType.kindName(): String = clang.clang_getTypeKindSpelling(kind()).string
+fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
+fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
+fun CXType.kindName(): String = clang_getTypeKindSpelling(kind()).string
 
 /**
  * Get the list of child cursors from a cursor.
  */
 fun CXCursor.children(): List<CXCursor> = collect(Monoid.list(), false) { listOf(this) }
+
+fun CXCursor.type(): CXType = clang_getCursorType(this)
 
 /**
  * Collect some data from the [recursive] children of a cursor.
@@ -32,18 +34,18 @@ fun <T> CXCursor.collect(monoid: Monoid<T>, recursive: Boolean, visitor: CXCurso
         override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
             ts.add(visitor(self!!))
 
-            return if (recursive) clang.CXChildVisit_Recurse else clang.CXChildVisit_Continue
+            return if (recursive) CXChildVisit_Recurse else CXChildVisit_Continue
         }
     }
 
-    clang.clang_visitChildren(this, wrapped, null)
-    wrapped.deallocate()
+    try { clang_visitChildren(this, wrapped, null) }
+    finally { wrapped.deallocate() }
 
-    return ts.combineAll(monoid)
+    return ts.fold(monoid)
 }
 
 fun CXCursor.getExtent(): Option<CXSourceRange> {
-    val ptr = clang.clang_getCursorExtent(this)
+    val ptr = clang_getCursorExtent(this)
     return if (ptr.isNull) None else ptr.some()
 }
 
@@ -63,4 +65,35 @@ fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
 fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
 fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
 
-fun CXType.spelling(): String = clang.clang_getTypeSpelling(this).string
+fun CXCursor.topLevelCursors() =
+    this.translationUnit()
+        .children()
+        .filter { it.kind() != CXCursor_UnexposedDecl }
+
+/**
+ *  Check if the cursor represents a top-level declaration/definition.
+ *  A struct field name or enum element name are not top-level entities,
+ *  but it could be a globally visible inline type declaration,
+ *  because those are elaborated to top-level declarations.
+ **/
+fun CXCursor.isTopLevelEntity() =
+    // something is top-level entity cursor when it is a direct child
+    // of the translationUnit cursor.
+    // This is not the same as the lexical/semantic parent of this being the translation unit,
+    // because that is also true for cursor that only describe the return type of a funcion declaration, for example.
+    (topLevelCursors().find { clang_equalCursors(it, this).toBool() }) != null
+
+/**
+ * Get the top-level entity cursor whose range encloses the range of [this].
+ */
+fun CXCursor.enclosingToplevelEntity(): Option<CXCursor> =
+    topLevelCursors()
+        .find { tl ->
+            tl
+                .getRange()
+                .flatMap { tlRange -> this.getRange().map { tlRange.encloses(it) }}
+                .getOrElse { false }
+        }
+        .toOption()
+
+fun CXType.spelling(): String = clang_getTypeSpelling(this).string

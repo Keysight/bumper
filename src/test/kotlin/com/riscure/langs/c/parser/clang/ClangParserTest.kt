@@ -3,6 +3,7 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.*
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.pp.Pretty
+import org.junit.jupiter.api.Disabled
 import kotlin.test.*
 import java.io.File
 import java.nio.file.Path
@@ -148,6 +149,7 @@ class ClangParserTest {
      * It #includes stdio.h, so it is a big file. This shows that we can find
      * the declarations from the original file, by filtering by presumedLocation.
      */
+    @Disabled("Removed getSource from unit")
     @Test
     fun test011() {
         parsed("/parser-tests/011-preprocessed-demo.c") { tu1, unit1 ->
@@ -181,7 +183,8 @@ class ClangParserTest {
                 assertEquals(1, fs2.size)
                 val fn2 = fs2[0]
 
-                assertEquals(unit1.getSource(fn1), unit2.getSource(fn2))
+                // FIXME
+                // assertEquals(unit1.getSource(fn1), unit2.getSource(fn2))
             }
         }
     }
@@ -209,6 +212,7 @@ class ClangParserTest {
         }
     }
 
+    @Disabled("Removed UnitState.getSource")
     @Test
     fun test013() {
         parsed("/parser-tests/013-cpp-define.c") { tu, unit ->
@@ -216,22 +220,24 @@ class ClangParserTest {
             assertEquals(1, ds.size)
             val fn = ds[0]
 
-            val source = unit.getSource(fn).getOrElse { "" }
-            assertFalse("DELEIPEMACRO".toRegex().containsMatchIn(source))
+            // FIXME
+            // val source = unit.getSource(fn).getOrElse { "" }
+            // assertFalse("DELEIPEMACRO".toRegex().containsMatchIn(source))
         }
     }
 
     @Test
+    @Disabled("Removed UnitState.getSource")
     fun test014() {
         parsed("/parser-tests/014-cpp-ifdef.c") { tu, unit ->
             val ds = tu.decls
             assertEquals(1, ds.size)
             val fn = ds[0]
 
-            val source = unit.getSource(fn).getOrElse { "" }
-            assertFalse("bad".toRegex().containsMatchIn(source))
-            println(fn.meta.location)
-            println(fn.meta.presumedLocation)
+//            val source = unit.getSource(fn).getOrElse { "" }
+//            assertFalse("bad".toRegex().containsMatchIn(source))
+//            println(fn.meta.location)
+//            println(fn.meta.presumedLocation)
         }
     }
 
@@ -302,7 +308,7 @@ class ClangParserTest {
                 .filterIsInstance<Declaration.Typedef>()
                 .forEach { println(show(it.name, it.underlyingType)) }
             tu.decls
-                .filterIsInstance<Declaration.Fun>()
+                .filterIsInstance<Declaration.Fun<*>>()
                 .forEach { println(Pretty.prototype(it)) }
         }
     }

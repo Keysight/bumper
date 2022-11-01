@@ -1,14 +1,20 @@
 package com.riscure.langs.c.pp
 
-import arrow.core.*
+import arrow.core.flatMap
+import arrow.core.getOrHandle
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.parser.clang.ClangParser
 import kotlin.test.*
 import kotlin.io.path.writeText
 
+/**
+ * Manual roundtrip tests (of the same kind as StdHeadersTest but handcrafted).
+ * This tests for internal consistency of parsing and pretty-printing.
+ * If the parser always yields the empty translation unit, this test succeeds.
+ */
 class TypePrinterTest {
 
-    fun parse(input: String): Declaration.Typedef {
+    fun parse(input: String): Declaration<*,*> {
         val file = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
 
         return try {
@@ -21,20 +27,23 @@ class TypePrinterTest {
                 .getOrHandle { throw it }
 
             // get the typedef
-            assertEquals(1, ast.decls.size)
-            assertIs(ast.decls[0])
+            ast.decls[0]!!
         } finally {
             file.delete()
         }
     }
 
-    fun roundtrip(input: String) {
-        println("Roundtrip test for: ${input}")
-        val typedef1 = parse(input)
-        val typedef2 = parse("${Pretty.typedef(typedef1)};")
-            .withMeta(typedef1.meta) // not the same
+    fun roundtrip(input: String, debug: Boolean = false) {
+        println("Roundtrip test for:\n$input")
+        val ast1 = parse(input)
+        if (debug) println("Pretty:\n" + Pretty.lhs(ast1) + ";")
 
-        assertEquals(typedef1, typedef2)
+        val ast2 = parse("${Pretty.lhs(ast1)};")
+            .withMeta(ast1.meta) // not the same
+
+        if (debug) println("ASTs:\n- $ast1\n- $ast2" )
+
+        assertEquals(ast1, ast2)
     }
 
     /* function type */
@@ -134,4 +143,115 @@ class TypePrinterTest {
     fun wat() = roundtrip("""
     typedef int (*(*(broWatVoid(void)))(void))(void);
     """.trimIndent())
+
+    /*-------------------------------------------------------------------------------- Struct declarations --*/
+
+    @Test
+    fun typedefStructDeclaration() = roundtrip("""
+        struct A;
+    """.trimIndent())
+
+    @Test
+    fun emptyStructDefinition() = roundtrip("""
+        struct A {};
+    """.trimIndent())
+
+    /*-------------------------------------------------------------------------------- Named structs --*/
+
+    @Test
+    fun typedefNamedStructReference() = roundtrip("""
+    struct FSID { int __val[2]; };
+    typedef struct FSID __fsid_t;
+    """.trimIndent())
+
+    @Test
+    fun typedefNamedStructInline() = roundtrip("""
+    typedef struct MyStruct { int m; } MyStruct;
+    """.trimIndent(), true)
+
+    /*-------------------------------------------------------------------------------- Anonymous structs --*/
+
+    /* From ctype.h */
+    @Test
+    fun typedefAnonymousStruct() = roundtrip("""
+    typedef struct { int __val[2]; } __fsid_t;
+    """.trimIndent(), true)
+
+    /*-------------------------------------------------------------------------------- Storage classes ---*/
+
+    @Test
+    fun extern() = roundtrip("""
+    extern void f();
+    """.trimIndent())
+
+    /* from assert.h */
+    @Test
+    fun externAssertFail() = roundtrip("""
+        extern void __assert_fail (const char *__assertion, const char *__file, unsigned int __line, const char *__function);
+    """.trimIndent())
+
+    /*-------------------------------------------------------------------------------- Attributes -------*/
+
+    @Test
+    fun constParamPointee() = roundtrip("""
+        void f(const char *x);
+    """.trimIndent())
+
+    @Test
+    fun constParamPtr() = roundtrip("""
+        void f(char * const x);
+    """.trimIndent())
+
+    @Test
+    fun nonConstCharParam() = roundtrip("""
+        void f(char x);
+    """.trimIndent())
+
+    @Test
+    fun constCharParam() = roundtrip("""
+        void f(const char x);
+    """.trimIndent())
+
+    /* from tgmath.h */
+    @Test
+    fun clangOverloadable() = roundtrip("""
+        static double __attribute__((__overloadable__)) __tg_promote(int);
+    """.trimIndent(), true)
+
+    /* from tgmath.h */
+    @Test
+    fun aligned() = roundtrip("""
+        struct my_struct {
+          int a __attribute__ ((aligned(16)));
+        };
+    """.trimIndent(), true)
+
+    /* from stdatomic.h */
+    @Test
+    fun alignedMultiple() = roundtrip("""
+        typedef struct { __attribute__ ((aligned(8))) long long __clang_max_align_nonce1; __attribute__ ((aligned(16))) long double __clang_max_align_nonce2 } max_align_t;
+    """.trimIndent(), true)
+
+    /*-------------------------------------------------------------------------------- Complex nums ------*/
+
+    @Test
+    fun complex() = roundtrip("""
+        typedef _Complex MyComplex;
+    """.trimIndent(), true)
+
+    @Test
+    fun floatComplex() = roundtrip("""
+        typedef float _Complex MyComplex;
+    """.trimIndent())
+
+    @Test
+    fun doubleComplex() = roundtrip("""
+        typedef double _Complex MyComplex;
+    """.trimIndent())
+
+    @Test
+    fun longDoubleComplex() = roundtrip("""
+        typedef long double _Complex MyComplex;
+    """.trimIndent())
+
 }

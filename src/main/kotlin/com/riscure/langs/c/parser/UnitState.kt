@@ -21,17 +21,17 @@ import java.io.Writer
  * and you have to promise to properly call close() when you're done with
  * the instance of UnitState.
  */
-interface UnitState<Stmt> : Closeable {
+interface UnitState: Closeable {
     class NoSource(val name: String):
         Exception("Failed to get source for top-level declaration '$name'")
 
     /**
      * Return the globally visible declarations that the given declaration refers to
      */
-    fun getReferencedDeclarations(decl: Declaration<Stmt>): Either<Throwable,Set<TLID>>
+    fun getReferencedDeclarations(decl: TLID): Either<Throwable,Set<TLID>>
 
     /**
      * Convert this translation unit to an AST.
      */
-    fun ast(): Either<Throwable, TranslationUnit<Stmt>>
+    fun ast(): Either<Throwable, TranslationUnit>
 }

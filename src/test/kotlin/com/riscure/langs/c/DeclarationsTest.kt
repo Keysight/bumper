@@ -61,7 +61,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedToplevels(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
             assertContains(tls.map { it.name }, "Inner")
 
             assertContains(ast.symbols, Symbol.struct(ast.tuid, "Inner"))

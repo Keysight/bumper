@@ -70,17 +70,6 @@ internal class FrontendTest {
         inputFile.delete()
     }
 
-    @Test
-    fun test001() {
-        processed("/parser-tests/001-minimal-main.c") { tu, unit ->
-            val ds = tu.decls
-            val writer = object: StringWriter(), Fallable by Fallable.tantrum {}
-
-            unit.writeSource(ds, writer)
-            assertEquals("int main() {\n};\n", writer.toString())
-        }
-    }
-
     /**
      * This tests a useful invariant. The following square commutes:
      *
@@ -146,7 +135,7 @@ internal class FrontendTest {
         """.trimIndent()
     ) { ast, unit ->
         val main = ast.decls.functions().filter { it.name == "test" }[0]!!
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedToplevels(main))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(main.tlid))
         val tls = refs.value.map { it.name }
         assertContains(tls, "printf")
     }
