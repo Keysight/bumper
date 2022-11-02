@@ -13,7 +13,7 @@ sealed class Constant {
     data class CFloat(val value: FloatConstant, val kind: FKind): Constant()
     data class CStr  (val value: String): Constant()
     data class CWStr (val value: List<String>): Constant()
-    data class CEnum (val value: Pair<Ident, Int>): Constant()
+    data class CEnum (val value: Pair<Ref, Int>): Constant()
 }
 
 /*

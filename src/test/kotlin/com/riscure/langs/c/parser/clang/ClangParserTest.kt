@@ -114,7 +114,7 @@ class ClangParserTest {
 
             assertTrue(tu.decls[2] is Declaration.Var)
             val another = tu.decls[2] as Declaration.Var
-            assertEquals(Type.Named("mybook", Type.Struct("Book")), another.type)
+            assertEquals(Type.Typedeffed("mybook"), another.type)
         }
     }
 

@@ -66,9 +66,9 @@ object Pretty {
         is Type.Ptr    -> "${typePrefix(type.pointeeType)}*"
         is Type.Enum   -> type.id
         is Type.Float  -> floatKind(type.kind)
-        is Type.Int    -> integerKind(type.kind)
-        is Type.Named  -> type.id
-        is Type.Struct -> "struct ${type.id}" // with parens it doesn't parse
+        is Type.Int        -> integerKind(type.kind)
+        is Type.Typedeffed -> type.id
+        is Type.Struct     -> "struct ${type.id}" // with parens it doesn't parse
         is Type.Union  -> "union ${type.id}"  // same.
         is Type.Void   -> "void"
 

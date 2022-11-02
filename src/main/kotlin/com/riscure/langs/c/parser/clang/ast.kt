@@ -90,7 +90,6 @@ fun Int.asStorage(): Storage = when (this) {
     CX_SC_Auto     -> Storage.Auto
     CX_SC_Extern   -> Storage.Extern
     CX_SC_Register -> Storage.Register
-    // TODO default or report error?
     else           -> Storage.Default
 }
 
@@ -359,7 +358,7 @@ fun CXType.asType(): Result<Type> =
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()
         CXType_Enum    -> TODO()
-        CXType_Typedef -> clang_getTypeDeclaration(this).asTypedefType().map { Type.Named(spelling(), it) }
+        CXType_Typedef -> Type.Typedeffed(spelling()).right()
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()

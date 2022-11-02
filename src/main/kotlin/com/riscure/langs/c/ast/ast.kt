@@ -8,8 +8,17 @@ import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import java.nio.file.Path
 
-typealias Name  = String
+/** The type of identifiers */
 typealias Ident = String
+
+/** The type of references to named entities */
+typealias Ref     = String
+
+/** The type of references to a type declaration */
+typealias TypedefRef = String
+typealias StructRef  = String
+typealias UnionRef   = String
+typealias EnumRef    = String
 
 data class Location(
     val sourceFile: Path,
@@ -59,7 +68,7 @@ enum class FKind {
 
 /* Attributes */
 sealed class AttrArg {
-    data class AnIdent(val value: String) : AttrArg()
+    data class AnIdent(val value: Ident) : AttrArg()
     data class AnInt(val value: Int) : AttrArg()
     data class AString(val value: String) : AttrArg()
 }
@@ -128,9 +137,8 @@ sealed class Type {
     ) : Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
-    data class Named (
-        val id: Ident,
-        val underlying: Type,
+    data class Typedeffed (
+        val id: TypedefRef,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -139,7 +147,7 @@ sealed class Type {
         val tlid: TLID get() = TLID.typedef(id)
     }
     data class Struct (
-        val id: Ident,
+        val id: StructRef,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -147,7 +155,7 @@ sealed class Type {
         val tlid: TLID get() = TLID.struct(id)
     }
     data class Union (
-        val id: Ident,
+        val id: UnionRef,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -156,7 +164,7 @@ sealed class Type {
         val tlid: TLID get() = TLID.union(id)
     }
     data class Enum (
-        val id: Ident,
+        val id: EnumRef,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -210,7 +218,7 @@ sealed class Type {
 
 /* Struct or union field */
 data class Field(
-    val name: String
+    val name: Ident
   , val type: Type
   , val bitfield: Option<Int> = none()
   , val anonymous: Boolean    = false
@@ -346,7 +354,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun definesType(): Type = Type.Named(name, underlyingType)
+        override fun definesType(): Type = Type.Typedeffed(name)
 
         override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
     }
@@ -402,17 +410,17 @@ enum class EntityKind {
  * Identifies a declaration that is visible at the file-level uniquely
  * within a translation unit.
  */
-data class TLID(val name: String, val kind: EntityKind) {
+data class TLID(val name: Ident, val kind: EntityKind) {
     companion object {
-        @JvmStatic fun varDecl(name: String) = TLID(name, EntityKind.VarDecl)
-        @JvmStatic fun varDef(name: String) = TLID(name, EntityKind.VarDef)
-        @JvmStatic fun function(name: String) = TLID(name, EntityKind.FunDef)
-        @JvmStatic fun prototype(name: String) = TLID(name, EntityKind.FunDecl)
-        @JvmStatic fun struct(name: String) = TLID(name, EntityKind.Struct)
-        @JvmStatic fun union(name: String) = TLID(name, EntityKind.Union)
-        @JvmStatic fun enum(name: String) = TLID(name, EntityKind.Enum)
-        @JvmStatic fun enumerator(name: String) = TLID(name, EntityKind.Enumerator)
-        @JvmStatic fun typedef(name: String) = TLID(name, EntityKind.Typedef)
+        @JvmStatic fun varDecl(name: Ident) = TLID(name, EntityKind.VarDecl)
+        @JvmStatic fun varDef(name: Ident) = TLID(name, EntityKind.VarDef)
+        @JvmStatic fun function(name: Ident) = TLID(name, EntityKind.FunDef)
+        @JvmStatic fun prototype(name: Ident) = TLID(name, EntityKind.FunDecl)
+        @JvmStatic fun struct(name: Ident) = TLID(name, EntityKind.Struct)
+        @JvmStatic fun union(name: Ident) = TLID(name, EntityKind.Union)
+        @JvmStatic fun enum(name: Ident) = TLID(name, EntityKind.Enum)
+        @JvmStatic fun enumerator(name: Ident) = TLID(name, EntityKind.Enumerator)
+        @JvmStatic fun typedef(name: Ident) = TLID(name, EntityKind.Typedef)
     }
 }
 
