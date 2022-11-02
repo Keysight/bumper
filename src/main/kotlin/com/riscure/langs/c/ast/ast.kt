@@ -399,7 +399,8 @@ enum class EntityKind {
 }
 
 /**
- * Identifies a declaration uniquely within a translation unit.
+ * Identifies a declaration that is visible at the file-level uniquely
+ * within a translation unit.
  */
 data class TLID(val name: String, val kind: EntityKind) {
     companion object {
@@ -415,8 +416,8 @@ data class TLID(val name: String, val kind: EntityKind) {
     }
 }
 
-typealias TranslationUnit = _TranslationUnit<*,*>
-data class _TranslationUnit<out E, out T>(
+typealias ErasedTranslationUnit = TranslationUnit<*,*>
+data class TranslationUnit<out E, out T>(
     val tuid: TUID,
 
     /** The declarations at the top-level of the file. */
@@ -502,7 +503,7 @@ data class _TranslationUnit<out E, out T>(
      * If the whitelist contains a function prototype, [mask] will do the right thing
      * when it encounters a function definition.
      */
-    fun mask(whitelist: Index): _TranslationUnit<E, T> {
+    fun mask(whitelist: Index): TranslationUnit<E, T> {
         fun check(i: Symbol) = whitelist.symbols.contains(i)
         return copy(decls = decls.flatMap { entity ->
             when (entity) {
@@ -535,7 +536,7 @@ data class _TranslationUnit<out E, out T>(
     }
 }
 
-fun <E,T> _TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
+fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
     copy(decls = decls.map { if (it.tlid == id) f(it) else it })
 
 /* filters for toplevel declarations */

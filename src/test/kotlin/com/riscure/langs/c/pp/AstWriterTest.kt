@@ -9,7 +9,7 @@ import kotlin.io.path.*
 import kotlin.test.*
 
 internal class AstWriterTest {
-    fun literal(input: String, transform: (unit: _TranslationUnit<CXCursor, CXCursor>) -> _TranslationUnit<Any?, Any?> = {it}): String {
+    fun literal(input: String, transform: (unit: TranslationUnit<CXCursor, CXCursor>) -> TranslationUnit<Any?, Any?> = {it}): String {
         val file = createTempFile(suffix = ".c").apply {
             writeText(input)
         }

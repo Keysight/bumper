@@ -31,13 +31,13 @@ class StdHeadersTest {
     private val storage = Storage.temporary("FrontendTest").getOrHandle { throw it }
     private val frontend = Frontend.clang(Path.of("clang"), storage)
 
-    private fun astOnly(input: String, opts: Options = listOf(), debug: Boolean = false): TranslationUnit {
+    private fun astOnly(input: String, opts: Options = listOf(), debug: Boolean = false): ErasedTranslationUnit {
         val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
         file.deleteOnExit()
         return process(file, opts, debug)
     }
 
-    private fun astOf(input: String, opts: Options = listOf(), debug: Boolean = false): Pair<TranslationUnit, String> {
+    private fun astOf(input: String, opts: Options = listOf(), debug: Boolean = false): Pair<ErasedTranslationUnit, String> {
         val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
         file.deleteOnExit()
         val ast = process(file, opts, debug)
@@ -52,7 +52,7 @@ class StdHeadersTest {
             .getOrHandle { throw it }
             .write())
     }
-    private fun process(test: File, opts: Options = listOf(), debug: Boolean = false): TranslationUnit {
+    private fun process(test: File, opts: Options = listOf(), debug: Boolean = false): ErasedTranslationUnit {
         if (debug) println(frontend.preprocessedAt(test, opts))
 
         val result = frontend

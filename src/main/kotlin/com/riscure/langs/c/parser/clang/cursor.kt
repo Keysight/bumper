@@ -6,10 +6,8 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import com.riscure.langs.c.parser.getRange
 import com.riscure.toBool
 import org.bytedeco.llvm.clang.*
-import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
@@ -19,21 +17,16 @@ fun CXType.kindName(): String = clang_getTypeKindSpelling(kind()).string
 /**
  * Get the list of child cursors from a cursor.
  */
-fun CXCursor.children(): List<CXCursor> = collect(Monoid.list(), false) { listOf(this) }
+fun CXCursor.children(): List<CXCursor> = fold(monoid = Monoid.list(), false) { listOf(this) }
 
 fun CXCursor.type(): CXType = clang_getCursorType(this)
 
-/**
- * Collect some data from the [recursive] children of a cursor.
- * The data we collect should implement the monoid typeclass,
- * so that we can combine them when we fold up the tree.
- */
-fun <T> CXCursor.collect(monoid: Monoid<T>, recursive: Boolean, visitor: CXCursor.() -> T): T {
-    val ts = mutableListOf<T>()
+fun <T> CXCursor.fold(acc: T, recursive: Boolean, visitor: CXCursor.(acc: T) -> T): T {
+    var accumulator = acc
+
     val wrapped = object: CXCursorVisitor() {
         override fun call(self: CXCursor?, parent: CXCursor?, p2: CXClientData?): Int {
-            ts.add(visitor(self!!))
-
+            accumulator = visitor(self!!, accumulator)
             return if (recursive) CXChildVisit_Recurse else CXChildVisit_Continue
         }
     }
@@ -41,8 +34,21 @@ fun <T> CXCursor.collect(monoid: Monoid<T>, recursive: Boolean, visitor: CXCurso
     try { clang_visitChildren(this, wrapped, null) }
     finally { wrapped.deallocate() }
 
-    return ts.fold(monoid)
+    return accumulator
 }
+
+/**
+ * Collect some data from the [recursive] children of a cursor.
+ * The data we collect should implement the monoid typeclass,
+ * so that we can combine them when we fold up the tree.
+ */
+fun <T> CXCursor.fold(monoid: Monoid<T>, recursive: Boolean, visitor: CXCursor.() -> T): T =
+    fold(monoid.empty(), recursive) { acc ->
+        val cursor = this
+        with(monoid) {
+            acc.combine(visitor(cursor))
+        }
+    }
 
 fun CXCursor.getExtent(): Option<CXSourceRange> {
     val ptr = clang_getCursorExtent(this)
@@ -58,42 +64,31 @@ fun CXCursor.isNullCursor() = filterNullCursor().isEmpty()
 
 /**
  * Get the cursor of the definition that is being referenced by [this] cursor.
+ *
+ * WARNING: Be careful how you use this. Clang happily returns cursors for many expressions that don't appear like
+ * references. Which cursor is returned exactly is also not always predictable.
  */
 fun CXCursor.getReferenced(): Option<CXCursor> = clang_getCursorReferenced(this).filterNullCursor()
-fun CXCursor.isReference()   = getReferenced().isDefined()
+
+@Deprecated("Useless: clang returns false for cursors of kind DeclRefExpr!?")
+fun CXCursor.isReference() =
+    // This is not the same as getReferenced().isDefined
+    // because clang returns something from getCursorReferenced for various cursors
+    // that are not references
+    clang_isReference(kind()).toBool()
+
 fun CXCursor.semanticParent() = clang_getCursorSemanticParent(this)
 fun CXCursor.lexicalParent() = clang_getCursorLexicalParent(this)
 fun CXCursor.translationUnit() = clang_getTranslationUnitCursor(clang_Cursor_getTranslationUnit(this))
 
-fun CXCursor.topLevelCursors() =
-    this.translationUnit()
-        .children()
-        .filter { it.kind() != CXCursor_UnexposedDecl }
-
-/**
- *  Check if the cursor represents a top-level declaration/definition.
- *  A struct field name or enum element name are not top-level entities,
- *  but it could be a globally visible inline type declaration,
- *  because those are elaborated to top-level declarations.
- **/
-fun CXCursor.isTopLevelEntity() =
-    // something is top-level entity cursor when it is a direct child
-    // of the translationUnit cursor.
-    // This is not the same as the lexical/semantic parent of this being the translation unit,
-    // because that is also true for cursor that only describe the return type of a funcion declaration, for example.
-    (topLevelCursors().find { clang_equalCursors(it, this).toBool() }) != null
-
-/**
- * Get the top-level entity cursor whose range encloses the range of [this].
- */
-fun CXCursor.enclosingToplevelEntity(): Option<CXCursor> =
-    topLevelCursors()
-        .find { tl ->
-            tl
-                .getRange()
-                .flatMap { tlRange -> this.getRange().map { tlRange.encloses(it) }}
-                .getOrElse { false }
-        }
-        .toOption()
-
 fun CXType.spelling(): String = clang_getTypeSpelling(this).string
+
+// TODO needs testing
+fun CXCursor.isLocalDefinition(): Boolean {
+    // Checking the inverse (that the semanticParent is the translation unit)
+    // does not work, because libclang sometimes returns some InvalidFile (?) cursor for some declarations.
+    val parent = semanticParent().kind()
+    return (clang_isStatement(parent).toBool() || parent == CXCursor_FunctionDecl)
+}
+
+fun CXCursor.isGlobalDefinition(): Boolean = !isLocalDefinition()

@@ -3,7 +3,7 @@ package com.riscure.langs.c
 import arrow.core.*
 import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.ErasedTranslationUnit
 import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.parser.UnitState
 import java.io.File
@@ -26,7 +26,7 @@ internal class DeclarationsTest {
     private fun literal(
         input: String,
         opts: Options = listOf(),
-        whenOk: (TranslationUnit, UnitState) -> Unit
+        whenOk: (ErasedTranslationUnit, UnitState) -> Unit
     ) {
         val file: File = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
         val result = frontend
@@ -42,6 +42,38 @@ internal class DeclarationsTest {
         }
     }
 
+    @Test
+    fun simpleLocalReference() =
+        literal("""
+            int main() {
+              int x;
+              return x;
+            }
+        """.trimIndent()) { ast , unit ->
+            val f = assertNotNull(ast.functions.find { it.name == "main" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertEquals(0, tls.size)
+        }
+
+
+    @Test
+    fun structReferenceInType() =
+        literal("""
+            struct S {};
+            int main() {
+              struct S *s;
+              return 0;
+            }
+        """.trimIndent()) { ast , unit ->
+            val f = assertNotNull(ast.functions.find { it.name == "main" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertContains(tls.map { it.name }, "S")
+            assertEquals(1, tls.size)
+        }
+
+
     /**
      * Global declarations can occur in a nested position in C.
      * In the following program, Inner is globally visible.
@@ -56,16 +88,16 @@ internal class DeclarationsTest {
             };
             
             void f() {
-              struct Inner i = { .i = 0 };
+              struct Inner inner = { .i = 0 };
+              inner.i = 1;
+              inner = inner;
             }
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
             val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
             assertContains(tls.map { it.name }, "Inner")
-
-            assertContains(ast.symbols, Symbol.struct(ast.tuid, "Inner"))
-            assertContains(ast.symbols, Symbol.struct(ast.tuid, "Outer"))
+            assertEquals(1, tls.size)
         }
 
     /**
@@ -79,7 +111,70 @@ internal class DeclarationsTest {
                 struct MoreInner { int i; } moreInner;
               } inner;
             };
+            
+            void f() {
+              struct MoreInner inner = { .i = 0 };
+            }
         """.trimIndent()) { ast , unit ->
-            assertContains(ast.symbols, Symbol.struct(ast.tuid, "MoreInner"))
+            val f = assertNotNull(ast.functions.find { it.name == "f" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertContains(tls.map { it.name }, "MoreInner")
+            assertEquals(1, tls.size)
+        }
+
+    /**
+     * We can depend on a typedef:
+     */
+    @Test
+    fun typedef() =
+        literal("""
+            typedef struct S {} MyS;
+            
+            void f() {
+              MyS i;
+            }
+        """.trimIndent()) { ast , unit ->
+            val f = assertNotNull(ast.functions.find { it.name == "f" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertContains(tls.map { it.name }, "MyS")
+            assertEquals(1, tls.size)
+        }
+
+    /**
+     * ... or on the declaration of a type within a typedef.
+     */
+    @Test
+    fun structDeclInTypedef() =
+        literal("""
+            typedef struct S {} MyS;
+            
+            void f() {
+              struct S s;
+            }
+        """.trimIndent()) { ast , unit ->
+            val f = assertNotNull(ast.functions.find { it.name == "f" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertContains(tls.map { it.name }, "S")
+            assertEquals(1, tls.size)
+        }
+
+    /**
+     * ... but we can't see local typedefs.
+     */
+    @Test
+    fun localTypedef() =
+        literal("""
+            void f() {
+              typedef struct S {} MyS;
+              MyS s;
+            }
+        """.trimIndent()) { ast , unit ->
+            val f = assertNotNull(ast.functions.find { it.name == "f" })
+
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            assertEquals(0, tls.size)
         }
 }

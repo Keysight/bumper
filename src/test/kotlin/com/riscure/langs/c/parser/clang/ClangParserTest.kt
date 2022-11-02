@@ -11,10 +11,10 @@ import kotlin.io.path.writeText
 
 class ClangParserTest {
 
-    private fun parsed(resource: String, whenOk: (ast: TranslationUnit) -> Unit) =
+    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) =
         parsed(resource) { ast, _ -> whenOk(ast) }
 
-    private fun parsed(resource: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
         val test = File(javaClass.getResource(resource)!!.file)
         ClangParser().parse(test).tap { it.use { unit ->
             when (val ast = unit.ast()) {

@@ -2,14 +2,12 @@ package com.riscure.langs.c.parser
 
 import arrow.core.*
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.Declaration
-import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.ErasedTranslationUnit
 import java.io.Closeable
-import java.io.Writer
 
 /**
  * The interface to the state of the parser. This negotiates between
- * the True Code representation of C programs (i.e., [TranslationUnit] and its siblings),
+ * the True Code representation of C programs (i.e., [ErasedTranslationUnit] and its siblings),
  * and the third-party parser representation of the same programs.
  *
  * It is parameterized by an opaque type of statements that make up definitions.
@@ -33,5 +31,5 @@ interface UnitState: Closeable {
     /**
      * Convert this translation unit to an AST.
      */
-    fun ast(): Either<Throwable, TranslationUnit>
+    fun ast(): Either<Throwable, ErasedTranslationUnit>
 }

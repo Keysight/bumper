@@ -3,25 +3,24 @@ package com.riscure.langs.c.analyses
 import arrow.core.*
 import com.riscure.langs.c.ast.*
 
-private typealias Result = Either<String, Set<TLID>>
+typealias Result = Either<String, Set<TLID>>
 
 /**
- * Implements a dependency analysis for declarations.
+ * Implements a dependency analysis for C programs.
  */
-class Dependencies<E, T>(
-    val eAnalyzer: (E) -> Result,
-    val tAnalyzer: (T) -> Result
-) {
+abstract class DependencyAnalysis<Exp,Stmt> {
+    abstract fun Exp.expDependencies(): Result
+    abstract fun Stmt.stmtDependencies(): Result
 
-    private fun Result.merge(that: Result) =
+    fun Result.merge(that: Result) =
         flatMap { left ->
             that.map { right -> left + right }
         }
 
-    fun Declaration<E,T>.getDependencies(): Result = when (this) {
+    fun Declaration<Exp,Stmt>.getDependencies(): Result = when (this) {
         is Declaration.Var       ->
             rhs
-                .map(eAnalyzer)
+                .map { it.expDependencies() }
                 .getOrElse { setOf<TLID>().right() }
                 .merge(type.getDependencies())
         is Declaration.Composite ->
@@ -33,7 +32,7 @@ class Dependencies<E, T>(
             setOf<TLID>().right()
         is Declaration.Fun       ->
             body
-                .map(tAnalyzer)
+                .map { it.stmtDependencies() }
                 .getOrElse { setOf<TLID>().right() }
                 .merge(returnType.getDependencies())
                 .merge(params.getDependencies())

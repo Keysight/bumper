@@ -1,17 +1,13 @@
 package com.riscure.langs.c
 
 import arrow.core.*
-import com.riscure.Fallable
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.ErasedTranslationUnit
 import com.riscure.langs.c.ast.functions
 import com.riscure.langs.c.parser.UnitState
-import com.riscure.langs.c.parser.clang.ClangUnitState
-import org.junit.jupiter.api.Disabled
 import java.io.File
-import java.io.StringWriter
 import java.nio.file.Path
 import kotlin.io.path.writeText
 
@@ -24,17 +20,17 @@ internal class FrontendTest {
         storage
     )
 
-    private fun literal(input: String, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
+    private fun literal(input: String, opts: Options = listOf(), whenOk: (ast: ErasedTranslationUnit, state: UnitState) -> Unit) {
         val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
         processed(file, opts, whenOk)
     }
 
-    private fun processed(resource: String, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
+    private fun processed(resource: String, opts: Options = listOf(), whenOk: (ast: ErasedTranslationUnit, state: UnitState) -> Unit) {
         val test = File(this.javaClass.getResource(resource)!!.file)
         processed(test, opts, whenOk)
     }
 
-    private fun processed(test: File, opts: Options = listOf(), whenOk: (ast: TranslationUnit, state: UnitState) -> Unit) {
+    private fun processed(test: File, opts: Options = listOf(), whenOk: (ast: ErasedTranslationUnit, state: UnitState) -> Unit) {
         val result = frontend
             .process(test, opts)
             .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
@@ -53,7 +49,7 @@ internal class FrontendTest {
         inputFile.writeText(input)
 
         val unit = assertIs<Either.Right<UnitState>>(frontend.process(inputFile, listOf()))
-        val ast  = assertIs<Either.Right<TranslationUnit>>(unit.value.ast())
+        val ast  = assertIs<Either.Right<ErasedTranslationUnit>>(unit.value.ast())
 
         inputFile.delete()
     }

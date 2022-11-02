@@ -2,26 +2,25 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.TranslationUnit
+import com.riscure.langs.c.ast.ErasedTranslationUnit
 import com.riscure.langs.c.ast.functions
-import com.riscure.langs.c.parser.asVarDecl
 import java.io.File
 import kotlin.io.path.writeText
 import kotlin.test.*
 
 internal class ClangUnitStateTest {
 
-    private fun literal(cstring: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun literal(cstring: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
         val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(cstring) } .toFile()
         parsed(file, whenOk)
     }
 
-    private fun parsed(resource: String, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
         val test = File(javaClass.getResource(resource)!!.file)
         parsed(test, whenOk)
     }
 
-    private fun parsed(test: File, whenOk: (ast: TranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(test: File, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
         when (val unit = ClangParser().parse(test)) {
             is Either.Left -> fail("Expected successful parse, got error: ${unit.value}")
             is Either.Right -> when (val ast = unit.value.ast()) {

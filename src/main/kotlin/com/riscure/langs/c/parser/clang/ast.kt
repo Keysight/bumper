@@ -2,14 +2,13 @@
  * This file contains the translation from the libclang API to the
  * JVM AST representing a C translation unit.
  */
-package com.riscure.langs.c.parser
+package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.TUID
-import com.riscure.langs.c.parser.clang.*
 import com.riscure.toBool
 import org.bytedeco.javacpp.*
 import org.bytedeco.javacpp.annotation.ByVal
@@ -30,7 +29,7 @@ private fun <T> CXCursor.ifKind(k: Int, expectation: String, whenMatch: () -> Re
     return whenMatch()
 }
 
-fun CXCursor.asTranslationUnit(tuid: TUID): Result<_TranslationUnit<CXCursor,CXCursor>> {
+fun CXCursor.asTranslationUnit(tuid: TUID): Result<TranslationUnit<CXCursor, CXCursor>> {
     if (this.kind() != CXCursor_TranslationUnit) {
         return "Expected translation unit, got cursor of kind ${this.kindName()}".left()
     }
@@ -48,7 +47,7 @@ fun CXCursor.asTranslationUnit(tuid: TUID): Result<_TranslationUnit<CXCursor,CXC
         }}
         .map { it.asDeclaration() }
         .sequence()
-        .map { _TranslationUnit(tuid, it) }
+        .map { TranslationUnit(tuid, it) }
 }
 
 fun CXCursor.asDeclaration(): Result<Declaration<CXCursor, CXCursor>> =
@@ -270,7 +269,12 @@ fun CXCursor.getParameters(): Result<List<Param>> {
 }
 
 fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
-    asFunctionDecl().map { it.copy(body = TODO())}
+    asFunctionDecl().flatMap { decl ->
+        Either
+            .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
+            .mapLeft { "Could not parse function body of ${decl.name}."}
+            .map { decl.copy(body = it.some()) }
+    }
 
 fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
@@ -412,9 +416,9 @@ fun CXType.getTypeAttrs(): Attrs {
 }
 
 fun CXCursor.cursorAttributes(type: CXType): Attrs =
-    collect(Monoid.list(), true) {
+    fold(monoid = Monoid.list(), true) {
         if (clang_isAttribute(kind()).toBool()) {
-            this.asAttribute(type).orNone().toList()
+            asAttribute(type).orNone().toList()
         } else listOf()
     }
 
