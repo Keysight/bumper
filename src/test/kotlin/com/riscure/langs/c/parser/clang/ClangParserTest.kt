@@ -11,15 +11,21 @@ import kotlin.io.path.writeText
 
 class ClangParserTest {
 
-    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) =
-        parsed(resource) { ast, _ -> whenOk(ast) }
+    private fun literal(cstring: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) {
+        val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(cstring) } .toFile()
+        parsed(file, whenOk)
+    }
 
-    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) {
         val test = File(javaClass.getResource(resource)!!.file)
+        parsed(test, whenOk)
+    }
+
+    private fun parsed(test: File, whenOk: (ast: ErasedTranslationUnit) -> Unit) {
         ClangParser().parse(test).tap { it.use { unit ->
             when (val ast = unit.ast()) {
-                is Either.Left -> fail("Expected successful parse, got error: ${ast.value}")
-                is Either.Right -> whenOk(ast.value, unit)
+                is Either.Left -> fail("Expected successful parse, got error", ast.value)
+                is Either.Right -> whenOk(ast.value)
             }
         }}
     }
@@ -131,7 +137,7 @@ class ClangParserTest {
 
     @Test
     fun test010() {
-        parsed("/parser-tests/010-demo-functions.c") { tu, unit ->
+        parsed("/parser-tests/010-demo-functions.c") { tu ->
             val fs = tu.decls
                 .functions()
                 .definitions()
@@ -149,10 +155,11 @@ class ClangParserTest {
      * It #includes stdio.h, so it is a big file. This shows that we can find
      * the declarations from the original file, by filtering by presumedLocation.
      */
+    /*
     @Disabled("Removed getSource from unit")
     @Test
     fun test011() {
-        parsed("/parser-tests/011-preprocessed-demo.c") { tu1, unit1 ->
+        parsed("/parser-tests/011-preprocessed-demo.c") { tu1 ->
             // Find function by filtering by original main file name
             val test = tu1.decls.filter { tld ->
                 with (unit1) {
@@ -187,7 +194,7 @@ class ClangParserTest {
                 // assertEquals(unit1.getSource(fn1), unit2.getSource(fn2))
             }
         }
-    }
+    }*/
 
     @Test
     fun test012() {
@@ -215,7 +222,7 @@ class ClangParserTest {
     @Disabled("Removed UnitState.getSource")
     @Test
     fun test013() {
-        parsed("/parser-tests/013-cpp-define.c") { tu, unit ->
+        parsed("/parser-tests/013-cpp-define.c") { tu ->
             val ds = tu.decls
             assertEquals(1, ds.size)
             val fn = ds[0]
@@ -229,7 +236,7 @@ class ClangParserTest {
     @Test
     @Disabled("Removed UnitState.getSource")
     fun test014() {
-        parsed("/parser-tests/014-cpp-ifdef.c") { tu, unit ->
+        parsed("/parser-tests/014-cpp-ifdef.c") { tu  ->
             val ds = tu.decls
             assertEquals(1, ds.size)
             val fn = ds[0]
@@ -243,7 +250,7 @@ class ClangParserTest {
 
     @Test
     fun test016() {
-        parsed("/parser-tests/016-global-with-initializer.c") { tu, unit ->
+        parsed("/parser-tests/016-global-with-initializer.c") { tu ->
             val ds = tu.decls
             assertEquals(1, ds.size)
             val x = ds[0]
@@ -254,7 +261,7 @@ class ClangParserTest {
 
     @Test
     fun test017() {
-        parsed("/parser-tests/017-global-with-array-initializer.c") { tu, unit ->
+        parsed("/parser-tests/017-global-with-array-initializer.c") { tu ->
             val ds = tu.decls
             assertEquals(1, ds.size)
             val x = ds[0]
@@ -265,7 +272,7 @@ class ClangParserTest {
 
     @Test
     fun test018() {
-        parsed("/parser-tests/018-global-with-function-pointers.c") { tu, unit ->
+        parsed("/parser-tests/018-global-with-function-pointers.c") { tu ->
             val ds = tu.decls
 
             println(ds.filterIsInstance<Declaration.Typedef>().map { it.underlyingType })
@@ -293,12 +300,12 @@ class ClangParserTest {
 
     @Test
     fun test021() {
-        fun show(ident: String, type: Type) =
+        fun show(ident: Option<Ident>, type: Type) =
             """
                 {
                   name: $ident
                   type: $type,
-                  pretty: ${Pretty.declaration(ident, type)},
+                  pretty: ${Pretty.declaration(ident.getOrElse { "" }, type)},
                 }
             """.trimIndent()
 
@@ -306,7 +313,7 @@ class ClangParserTest {
             val ds = tu.decls
             tu.decls
                 .filterIsInstance<Declaration.Typedef>()
-                .forEach { println(show(it.name, it.underlyingType)) }
+                .forEach { println(show(it.ident, it.underlyingType)) }
             tu.decls
                 .filterIsInstance<Declaration.Fun<*>>()
                 .forEach { println(Pretty.prototype(it)) }
@@ -322,5 +329,14 @@ class ClangParserTest {
         }
         val result = ClangParser().parse(file.toFile())
         assertIs<Either.Left<*>>(result)
+    }
+
+    @Test
+    fun testStructType() = literal("""
+        struct S {};
+        struct S s;
+    """.trimIndent()) { tu ->
+        val s = assertNotNull(tu.variables[0])
+        assertEquals(Type.Struct("S"), s.type)
     }
 }

@@ -19,7 +19,8 @@ typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
 
 class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit):
     UnitState<CXCursor, CXCursor>,
-    DependencyAnalysis<CXCursor, CXCursor> by ClangDependencyAnalysis()
+    ICursorParser by CursorParser(),
+    ClangDependencyAnalysis()
 {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)

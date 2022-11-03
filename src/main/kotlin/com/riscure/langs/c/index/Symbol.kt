@@ -11,14 +11,8 @@ data class Symbol(
     val kind get() = entity.kind
 
     companion object {
-        @JvmStatic fun varDecl(unit: TUID, name: String) = Symbol(unit, TLID.varDecl(name))
-
-        @JvmStatic fun varDef(unit: TUID, name: String) = Symbol(unit, TLID.varDef(name))
-
-        @JvmStatic fun prototype(unit: TUID, name: String) = Symbol(unit, TLID.prototype(name))
-
+        @JvmStatic fun variable(unit: TUID, name: String) = Symbol(unit, TLID.variable(name))
         @JvmStatic fun function(unit: TUID, name: String) = Symbol(unit, TLID.function(name))
-
         @JvmStatic fun struct(unit: TUID, name: String) = Symbol(unit, TLID.function(name))
         @JvmStatic fun union(unit: TUID, name: String) = Symbol(unit, TLID.union(name))
         @JvmStatic fun enum(unit: TUID, name: String) = Symbol(unit, TLID.enum(name))

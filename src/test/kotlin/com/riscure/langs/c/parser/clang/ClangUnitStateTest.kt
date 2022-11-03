@@ -30,7 +30,15 @@ internal class ClangUnitStateTest {
     }
 
     @Test
-    fun test01() = parsed("/analysis-tests/001-references-in-function.c") { ast, unit ->
+    fun test01() = literal("""
+        void f() {}
+        struct s {};
+        int main() {
+          struct s x;
+          f();
+        }
+    """.trimIndent()
+    ) { ast, unit ->
         val main = ast.decls
             .functions()
             .filter { it.name == "main" }[0]!!
@@ -45,18 +53,18 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test02() = parsed("/analysis-tests/002-references-in-global.c") { ast, unit ->
-        val main = ast.decls
+        val main = ast.variables
             .filter { it.name == "x" }
             .get(0)!!
 
-        // a enumerator is not a top-level declaration, technically.
+        // an enumerator is not a top-level declaration, technically.
         // so this is right
         assertEquals(setOf<TLID>().right(), unit.ofDecl(main))
     }
 
     @Test
     fun test03() = parsed("/analysis-tests/003-void-pointers.c") { ast, unit ->
-        val ptrs = ast.decls
+        val ptrs = ast.variables
             .filter { it.name == "pointers" }
             .get(0)!!
 
@@ -71,7 +79,7 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test04() = parsed("/analysis-tests/004-void-pointers-with-args.c") { ast, unit ->
-        val ptrs = ast.decls
+        val ptrs = ast.variables
             .filter { it.name == "pointers" }[0]!!
 
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
@@ -85,14 +93,14 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test06() = parsed("/analysis-tests/006-typedef-in-return-type.c") { ast, unit ->
-        val fn = ast.decls.filter{ it.name == "f" }[0]!!
+        val fn = ast.decls.filter{ it.ident == "f".some() }[0]!!
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fn))
         assertEquals(1, refs.value.size)
     }
 
     @Test
     fun test07() = parsed("/analysis-tests/007-void-pointers-with-struct-args.c") { ast, unit ->
-        val ptrs = ast.decls
+        val ptrs = ast.variables
             .filter { it.name == "pointers" }[0]!!
 
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
@@ -106,7 +114,7 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test08() = parsed("/analysis-tests/008-switch-dependency.c") { ast, unit ->
-        val ptrs = ast.decls
+        val ptrs = ast.variables
             .filter { it.name == "func_switch" }[0]!!
 
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
@@ -118,7 +126,7 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test09() = parsed("/analysis-tests/009-switch-dependency.c") { ast, unit ->
-        val ptrs = ast.decls
+        val ptrs = ast.functions
             .filter { it.name == "func_switch" }[0]!!
 
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
@@ -133,7 +141,7 @@ internal class ClangUnitStateTest {
         typedef struct { int __val[2]; } __fsid_t;
         typedef __fsid_t fsid_t;
     """.trimIndent()) { ast, unit ->
-        val fsid = assertNotNull(ast.decls.find { it.name == "fsid_t" })
+        val fsid = assertNotNull(ast.structs.find { it.ident == "fsid_t".some() })
         val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fsid)).value.map { it.name }
         assertContains(tls, "__fsid_t")
     }

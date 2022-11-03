@@ -8,7 +8,10 @@ import com.riscure.langs.c.ast.TLID
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
 
-class ClangDependencyAnalysis: DependencyAnalysis<CXCursor, CXCursor> {
+abstract class ClangDependencyAnalysis:
+    ICursorParser,
+    DependencyAnalysis<CXCursor, CXCursor>
+{
 
     private fun CXCursor.refDependencies(): Result {
         val def = clang_getCursorDefinition(this)

@@ -109,7 +109,7 @@ internal class AstWriterTest {
             literal(input) { ast -> ast.copy(
                 decls = ast
                     .decls
-                    .filter { it.name != "g" })
+                    .filter { it.ident != "g".some() })
             }
         )
     }
@@ -133,7 +133,7 @@ internal class AstWriterTest {
                 ast.copy(decls =
                     ast.decls
                         // remove g
-                        .filter { it.name != "g" }
+                        .filter { it.ident != "g".some() }
                         // turn f into a prototype
                         .map { tl ->
                             if (tl is Declaration.Fun && tl.name == "f") {
