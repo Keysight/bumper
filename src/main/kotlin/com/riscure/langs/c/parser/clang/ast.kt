@@ -64,8 +64,10 @@ fun CXCursor.asDeclaration(): Result<Declaration<CXCursor, CXCursor>> =
         else -> "Expected toplevel declaration, got kind ${kindName()}".left()
     })
     .map {
-        it.withMeta(getMetadata())
-          .withStorage(getStorage())
+        it
+            .withMeta(getMetadata())
+            .withStorage(getStorage())
+            .withVisibility(getVisibility())
     }
 
 /**
@@ -79,7 +81,7 @@ fun CXCursor.isAnonymousDeclaration(): Boolean =
     kind() in listOf(CXCursor_EnumDecl, CXCursor_StructDecl, CXCursor_UnionDecl)
             && !isValidIdentifier(spelling())
 
-private fun isValidIdentifier(string: String) = Regex("[_a-zA-Z][_a-zA-Z0-9]*").matches(string)
+private fun isValidIdentifier(string: String) = Regex("[_a-zA-Z]\\w*").matches(string)
 
 /**
  * Collects storage for a toplevel declaration cursor.
@@ -159,25 +161,20 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
     }
 }
 
-fun CXCursor.getVisibility(): Result<Visibility> =
-    if (clang_isCursorDefinition(this).toBool()) {
-        (if (isLocalDefinition()) Visibility.Local else Visibility.Global).right()
-    } else "Cannot get visibility: expected definition, got ${kindName()}.".left()
+/** Gets the visibility of a definition */
+fun CXCursor.getVisibility(): Visibility =
+    if (isLocalDefinition()) Visibility.Local else Visibility.Global
 
 fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
     ifKind (CXCursor_TypedefDecl, "typedef") {
         clang_getTypedefDeclUnderlyingType(this)
             .asType()
-            .flatMap { type ->
-                getVisibility()
-                    .map { vis -> Declaration.Typedef(clang_getTypedefName(type()).string, type, vis) }
-            }
+            .map { type -> Declaration.Typedef(clang_getTypedefName(type()).string, type) }
     }
 
 fun CXCursor.asEnumDecl(): Result<Declaration.EnumDef> =
     ifKind (CXCursor_EnumDecl, "enum declaration") {
-        getVisibility()
-            .map { vis -> Declaration.EnumDef(spelling(), listOf(), vis) } // TODO enumerators
+        Declaration.EnumDef(spelling(), listOf()).right() // TODO enumerators
     }
 
 private fun CXCursor.asComposite(): Result<Declaration.Composite> {
@@ -191,10 +188,8 @@ private fun CXCursor.asComposite(): Result<Declaration.Composite> {
             .sequence()
     } else listOf<Field>().right()
 
-    return fields.flatMap { fs ->
-        getVisibility()
-            .map { Declaration.Composite(this.spelling(), StructOrUnion.Struct, fs, it) }
-    }
+    return fields
+        .map { fs -> Declaration.Composite(this.spelling(), StructOrUnion.Struct, fs) }
 }
 
 fun CXCursor.asStructDecl(): Result<Declaration.Composite> =
@@ -217,8 +212,9 @@ fun CXType.fields(): List<CXCursor> {
         }
     }
 
-    clang_Type_visitFields(this, wrapped, null)
-    wrapped.deallocate()
+    try {
+        clang_Type_visitFields(this, wrapped, null)
+    } finally { wrapped.deallocate() }
 
     return ts
 }
@@ -255,9 +251,7 @@ fun CXCursor.asVarDecl(): Result<Declaration.Var<CXCursor>> =
                 } else None
 
                 rhs.sequenceEither()
-                   .flatMap { def ->
-                       getVisibility().map { vis -> Declaration.Var(this.spelling(), type, def, vis) }
-                   }
+                   .map { def -> Declaration.Var(this.spelling(), type, def) }
             }
     }
 
@@ -285,17 +279,14 @@ fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
 fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
         getReturnType().flatMap { resultType ->
-            getParameters().flatMap { params ->
-                getVisibility().map { vis ->
-                    Declaration.Fun(
-                        spelling(),
-                        clang_Cursor_isFunctionInlined(this).toBool(),
-                        resultType,
-                        params,
-                        clang_Cursor_isVariadic(this).toBool(),
-                        visibility = vis
-                    )
-                }
+            getParameters().map { params ->
+                Declaration.Fun(
+                    spelling(),
+                    clang_Cursor_isFunctionInlined(this).toBool(),
+                    resultType,
+                    params,
+                    clang_Cursor_isVariadic(this).toBool(),
+                )
             }
         }
     }
@@ -338,24 +329,24 @@ fun CXCursor.asTypedefType(): Result<Type> =
 
 fun CXType.asType(): Result<Type> =
     when (kind()) {
-        CXType_Void -> Type.Void().right()
-        CXType_Bool -> Type.Int(IKind.IBoolean).right()
-        CXType_Char_U -> Type.Int(IKind.IUChar).right() // correct?
-        CXType_UChar  -> Type.Int(IKind.IUChar).right() // correct?
-        CXType_UShort  -> Type.Int(IKind.IUShort).right()
-        CXType_UInt  -> Type.Int(IKind.IUInt).right()
-        CXType_ULong  -> Type.Int(IKind.IULong).right()
-        CXType_ULongLong  -> Type.Int(IKind.IULongLong).right()
-        CXType_Char_S -> Type.Int(IKind.IChar).right() // correct?
-        CXType_SChar -> Type.Int(IKind.ISChar).right() // correct?
-        CXType_Short -> Type.Int(IKind.IShort).right()
-        CXType_Int -> Type.Int(IKind.IInt).right()
-        CXType_Long -> Type.Int(IKind.ILong).right()
-        CXType_LongLong -> Type.Int(IKind.ILongLong).right()
-        CXType_Float -> Type.Float(FKind.FFloat).right()
-        CXType_Double -> Type.Float(FKind.FDouble).right()
-        CXType_LongDouble -> Type.Float(FKind.FLongDouble).right()
-        CXType_Complex ->
+        CXType_Void            -> Type.Void().right()
+        CXType_Bool            -> Type.Int(IKind.IBoolean).right()
+        CXType_Char_U          -> Type.Int(IKind.IUChar).right() // correct?
+        CXType_UChar           -> Type.Int(IKind.IUChar).right() // correct?
+        CXType_UShort          -> Type.Int(IKind.IUShort).right()
+        CXType_UInt            -> Type.Int(IKind.IUInt).right()
+        CXType_ULong           -> Type.Int(IKind.IULong).right()
+        CXType_ULongLong       -> Type.Int(IKind.IULongLong).right()
+        CXType_Char_S          -> Type.Int(IKind.IChar).right() // correct?
+        CXType_SChar           -> Type.Int(IKind.ISChar).right() // correct?
+        CXType_Short           -> Type.Int(IKind.IShort).right()
+        CXType_Int             -> Type.Int(IKind.IInt).right()
+        CXType_Long            -> Type.Int(IKind.ILong).right()
+        CXType_LongLong        -> Type.Int(IKind.ILongLong).right()
+        CXType_Float           -> Type.Float(FKind.FFloat).right()
+        CXType_Double          -> Type.Float(FKind.FDouble).right()
+        CXType_LongDouble      -> Type.Float(FKind.FLongDouble).right()
+        CXType_Complex         ->
             clang_getElementType(this)
                 .asType()
                 .flatMap {
@@ -365,11 +356,11 @@ fun CXType.asType(): Result<Type> =
                     }
                 }
 
-        CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
-        CXType_Record  -> Type.Struct(spelling()).right()
-        CXType_Enum    -> TODO("Enum parsing")
-        CXType_Typedef -> TODO("Typedef parsing") // Type.Typedeffed(spelling()).right()
-        CXType_ConstantArray ->
+        CXType_Pointer         -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
+        CXType_Record          -> Type.Struct(spelling()).right()
+        CXType_Enum            -> TODO("Enum parsing")
+        CXType_Typedef         -> TODO("Typedef parsing") // Type.Typedeffed(spelling()).right()
+        CXType_ConstantArray   ->
             clang_getArrayElementType(this)
                 .asType()
                 .map { Type.Array(it, clang_getArraySize(this).some()) }
@@ -384,16 +375,16 @@ fun CXType.asType(): Result<Type> =
                 .asType()
                 .map { retType -> Type.Fun(retType, listOf(), false) }
         CXType_FunctionProto   ->
-        clang_getResultType(this)
-            .asType()
-            .flatMap { retType ->
-                (0 until clang_getNumArgTypes(this))
-                    .map { clang_getArgType(this, it).asType().map { type -> Param("", type) } }
-                    .sequence()
-                    .map { args -> Type.Fun(retType, args, false) }
-            }
+            clang_getResultType(this)
+                .asType()
+                .flatMap { retType ->
+                    (0 until clang_getNumArgTypes(this))
+                        .map { clang_getArgType(this, it).asType().map { type -> Param("", type) } }
+                        .sequence()
+                        .map { args -> Type.Fun(retType, args, false) }
+                }
 
-        CXType_Atomic ->
+        CXType_Atomic          ->
             clang_Type_getValueType(this)
                 .asType()
                 .map { Type.Atomic(it) }
@@ -404,11 +395,11 @@ fun CXType.asType(): Result<Type> =
         // and we do not expose new names after pretty-printing.
         // The elaborated declaration can have a name! If the anonymous declaration is in a function parameter,
         // the name is not visible outside of the function body.
-        CXType_Elaborated -> clang_getTypeDeclaration(this).asElaboratedType()
+        CXType_Elaborated      -> clang_getTypeDeclaration(this).asElaboratedType()
 
         // others that could occur in C?
 
-        else -> "Could not parse type of kind '${kindName()}'".left()
+        else                   -> "Could not parse type of kind '${kindName()}'".left()
     }
     // And add the attributes
     .map { type -> type.withAttrs(getTypeAttrs()) }

@@ -303,7 +303,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val name: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
-        override val visibility: Visibility,
+        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta       = Meta.default
     ): Declaration<Exp, Nothing> {
@@ -322,7 +322,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val params: List<Param>,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
-        override val visibility: Visibility,
+        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta       = Meta.default,
     ): Declaration<Nothing, Stmt> {
@@ -341,7 +341,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val name: Ident,
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
-        override val visibility: Visibility,
+        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
@@ -359,7 +359,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     data class Typedef(
         override val name: Ident,
         val underlyingType: Type,
-        override val visibility: Visibility,
+        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
@@ -373,7 +373,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     data class EnumDef(
         override val name: Ident,
         val enumerators: List<Enumerator>,
-        override val visibility: Visibility,
+        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
