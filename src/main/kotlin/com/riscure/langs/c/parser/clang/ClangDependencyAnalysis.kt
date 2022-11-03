@@ -1,14 +1,16 @@
 package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
+import com.riscure.langs.c.analyses.DependencyAnalysis
 import com.riscure.langs.c.analyses.Result
+import com.riscure.langs.c.analyses.union
 import com.riscure.langs.c.ast.TLID
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
 
-class ClangDependencyAnalysis: com.riscure.langs.c.analyses.DependencyAnalysis<CXCursor, CXCursor>() {
+class ClangDependencyAnalysis: DependencyAnalysis<CXCursor, CXCursor> {
 
-    fun CXCursor.refDependencies(): Result {
+    private fun CXCursor.refDependencies(): Result {
         val def = clang_getCursorDefinition(this)
 
         return if (def.isLocalDefinition()) {
@@ -25,16 +27,16 @@ class ClangDependencyAnalysis: com.riscure.langs.c.analyses.DependencyAnalysis<C
             when (kind()) {
                 CXCursor_VarDecl     ->
                     this.type().asType()
-                        .flatMap { it.getDependencies() }
-                        .merge(acc)
+                        .flatMap { ofType(it) }
+                        .union(acc)
                 CXCursor_DeclRefExpr ->
                     refDependencies()
-                        .merge(acc)
-                CXCursor_MemberRef   -> acc // TODO
+                        .union(acc)
+                CXCursor_MemberRef   -> acc
                 else                 -> acc
             }
         }
 
-    override fun CXCursor.expDependencies (): Result = cursorDependencies(this)
-    override fun CXCursor.stmtDependencies(): Result = cursorDependencies(this)
+    override fun ofExp(exp: CXCursor): Result = cursorDependencies(exp)
+    override fun ofStmt(stmt: CXCursor): Result = cursorDependencies(stmt)
 }

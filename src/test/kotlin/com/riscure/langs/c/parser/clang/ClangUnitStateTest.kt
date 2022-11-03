@@ -2,7 +2,6 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.ErasedTranslationUnit
 import com.riscure.langs.c.ast.functions
 import java.io.File
 import kotlin.io.path.writeText
@@ -10,17 +9,17 @@ import kotlin.test.*
 
 internal class ClangUnitStateTest {
 
-    private fun literal(cstring: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun literal(cstring: String, whenOk: (ast: ClangTranslationUnit, state: ClangUnitState) -> Unit) {
         val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(cstring) } .toFile()
         parsed(file, whenOk)
     }
 
-    private fun parsed(resource: String, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(resource: String, whenOk: (ast: ClangTranslationUnit, state: ClangUnitState) -> Unit) {
         val test = File(javaClass.getResource(resource)!!.file)
         parsed(test, whenOk)
     }
 
-    private fun parsed(test: File, whenOk: (ast: ErasedTranslationUnit, state: ClangUnitState) -> Unit) {
+    private fun parsed(test: File, whenOk: (ast: ClangTranslationUnit, state: ClangUnitState) -> Unit) {
         when (val unit = ClangParser().parse(test)) {
             is Either.Left -> fail("Expected successful parse, got error: ${unit.value}")
             is Either.Right -> when (val ast = unit.value.ast()) {
@@ -36,7 +35,7 @@ internal class ClangUnitStateTest {
             .functions()
             .filter { it.name == "main" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(main.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(main))
         assertEquals(2, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -52,7 +51,7 @@ internal class ClangUnitStateTest {
 
         // a enumerator is not a top-level declaration, technically.
         // so this is right
-        assertEquals(setOf<TLID>().right(), unit.getReferencedDeclarations(main.tlid))
+        assertEquals(setOf<TLID>().right(), unit.ofDecl(main))
     }
 
     @Test
@@ -61,7 +60,7 @@ internal class ClangUnitStateTest {
             .filter { it.name == "pointers" }
             .get(0)!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(ptrs.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -75,7 +74,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "pointers" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(ptrs.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -87,7 +86,7 @@ internal class ClangUnitStateTest {
     @Test
     fun test06() = parsed("/analysis-tests/006-typedef-in-return-type.c") { ast, unit ->
         val fn = ast.decls.filter{ it.name == "f" }[0]!!
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(fn.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fn))
         assertEquals(1, refs.value.size)
     }
 
@@ -96,7 +95,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "pointers" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(ptrs.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -110,7 +109,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "func_switch" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(ptrs.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
         val tls = refs.value.map { it.name }
 
         assertContains(tls, "func_a")
@@ -122,7 +121,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.decls
             .filter { it.name == "func_switch" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(ptrs.tlid))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
         val tls = refs.value.map { it.name }
 
         assertContains(tls, "func_a")
@@ -135,7 +134,7 @@ internal class ClangUnitStateTest {
         typedef __fsid_t fsid_t;
     """.trimIndent()) { ast, unit ->
         val fsid = assertNotNull(ast.decls.find { it.name == "fsid_t" })
-        val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(fsid.tlid)).value.map { it.name }
+        val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fsid)).value.map { it.name }
         assertContains(tls, "__fsid_t")
     }
 }

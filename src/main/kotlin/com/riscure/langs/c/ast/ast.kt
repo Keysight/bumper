@@ -8,6 +8,8 @@ import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import java.nio.file.Path
 
+enum class Visibility { Global, Local }
+
 /** The type of identifiers */
 typealias Ident = String
 
@@ -15,7 +17,7 @@ typealias Ident = String
 typealias Ref     = String
 
 /** The type of references to a type declaration */
-typealias TypedefRef = String
+data class TypedefRef(val byName: Ident, val declaration: Declaration.Typedef)
 typealias StructRef  = String
 typealias UnionRef   = String
 typealias EnumRef    = String
@@ -138,13 +140,13 @@ sealed class Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     data class Typedeffed (
-        val id: TypedefRef,
+        val ref: TypedefRef,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
 
-        /** Get the TLID of the referenced typedef */
-        val tlid: TLID get() = TLID.typedef(id)
+        /** Get the TLID of the referenced typedef iff it is globally scoped */
+        val tlid: Option<TLID> get() = ref.declaration.tlid
     }
     data class Struct (
         val id: StructRef,
@@ -182,7 +184,7 @@ sealed class Type {
     }
     /* _Atomic */
     data class Atomic(
-        val el: Type,
+        val elementType: Type,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -276,11 +278,23 @@ sealed interface Declaration<out Exp, out Stmt> {
     val storage: Storage
     fun withStorage(storage: Storage): Declaration<Exp, Stmt>
 
-    val tlid: TLID
-    val kind: EntityKind get() = tlid.kind
+    /**
+     * How the declaration is scoped.
+     */
+    val visibility: Visibility
+    fun withVisibility(visibility: Visibility): Declaration<Exp, Stmt>
+
+    fun toTLID(): TLID = TLID(name, kind)
+    val tlid: Option<TLID> get() =
+        when (visibility) {
+            Visibility.Local -> None
+            Visibility.Global-> toTLID().some()
+        }
+
+    val kind: EntityKind
 
     /* Mixin */
-    sealed interface Typelike { fun definesType(): Type }
+    sealed interface Typelike
     sealed interface CompoundTypeDecl: Declaration<Nothing, Nothing>, Typelike {
         val isAnonymous get() = name.isEmpty()
     }
@@ -288,18 +302,17 @@ sealed interface Declaration<out Exp, out Stmt> {
     data class Var<Exp>(
         override val name: Ident,
         val type: Type,
-        val rhs: Option<Exp>          = None,
+        val rhs: Option<Exp> = None,
+        override val visibility: Visibility,
         override val storage: Storage = Storage.Default,
         override val meta: Meta       = Meta.default
     ): Declaration<Exp, Nothing> {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         val isDefinition: Boolean get() = rhs.isDefined()
-
-        override val tlid: TLID get() =
-            if (isDefinition) TLID(name, EntityKind.VarDef)
-            else TLID(name, EntityKind.VarDecl)
+        override val kind: EntityKind get() = if (isDefinition) EntityKind.VarDef else EntityKind.VarDecl
     }
 
     data class Fun<out Stmt>(
@@ -309,66 +322,65 @@ sealed interface Declaration<out Exp, out Stmt> {
         val params: List<Param>,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
+        override val visibility: Visibility,
         override val storage: Storage = Storage.Default,
         override val meta: Meta       = Meta.default,
     ): Declaration<Nothing, Stmt> {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         fun type(): Type = Type.Fun(returnType, params, vararg)
 
         val isDefinition: Boolean get() = body.isDefined()
 
-        override val tlid: TLID get() =
-            TLID(name, if (isDefinition) EntityKind.FunDef else EntityKind.FunDecl)
+        override val kind: EntityKind get() = if (isDefinition) EntityKind.FunDef else EntityKind.FunDecl
     }
 
     data class Composite(
         override val name: Ident,
         val structOrUnion: StructOrUnion,
         val fields: FieldDecls,
+        override val visibility: Visibility,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
-        override fun definesType(): Type =
-            when (structOrUnion) {
-                StructOrUnion.Struct -> Type.Struct(name)
-                StructOrUnion.Union  -> Type.Union(name)
-            }
-
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
-        override val tlid: TLID get() =
-            TLID(name, when (structOrUnion) {
-                StructOrUnion.Union -> EntityKind.Union
+        override val kind: EntityKind get() =
+            when (structOrUnion) {
+                StructOrUnion.Union  -> EntityKind.Union
                 StructOrUnion.Struct -> EntityKind.Struct
-            })
+            }
     }
 
     data class Typedef(
         override val name: Ident,
         val underlyingType: Type,
+        override val visibility: Visibility,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun definesType(): Type = Type.Typedeffed(name)
+        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
-        override val tlid: TLID get() = TLID(name, EntityKind.Typedef )
+        override val kind: EntityKind get() = EntityKind.Typedef
     }
 
     data class EnumDef(
         override val name: Ident,
         val enumerators: List<Enumerator>,
+        override val visibility: Visibility,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override val tlid: TLID get() = TLID(name, EntityKind.Enum)
-        override fun definesType(): Type = Type.Enum(name)
+        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
+        override val kind: EntityKind get() = EntityKind.Enum
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
@@ -424,7 +436,13 @@ data class TLID(val name: Ident, val kind: EntityKind) {
     }
 }
 
-typealias ErasedTranslationUnit = TranslationUnit<*,*>
+typealias ErasedTranslationUnit = TranslationUnit<Any?, Any?>
+
+/**
+ * Forget the expressions/statements at the leaves.
+ */
+fun <E,T> TranslationUnit<E,T>.erase(): ErasedTranslationUnit = this
+
 data class TranslationUnit<out E, out T>(
     val tuid: TUID,
 
@@ -453,7 +471,7 @@ data class TranslationUnit<out E, out T>(
             // check if the translation unit has a separate declaration
             when (get(def.copy(kind = EntityKind.FunDecl))) {
                 // drop the whole definition
-                is Some -> copy(decls = decls.filter { it.tlid == def })
+                is Some -> copy(decls = decls.filter { d -> d.tlid.all { it != def } })
                 // turn def into declaration
                 is None -> update(def) { (it as Declaration.Fun).copy(body = None) }
             }
@@ -501,7 +519,7 @@ data class TranslationUnit<out E, out T>(
 
 
     // Indexing a translation unit
-    val symbols get() = decls.map { tl -> Symbol(tuid, tl.tlid) }
+    val symbols: List<Symbol> get() = TODO("Gotta fix them symbols") // decls.map { tl -> Symbol(tuid, tl.tlid) }
     val index   get() = Index.create(symbols)
 
     /**
@@ -536,8 +554,11 @@ data class TranslationUnit<out E, out T>(
                     }
                 }
 
-                // everything else is just directly checked against the whitelist
-                else -> listOf(entity).filter { check(Symbol(tuid, entity.tlid)) }
+                else ->
+                    // everything else is just directly checked against the whitelist
+                    if (entity.tlid.exists { id -> check(Symbol(tuid, id)) })
+                        listOf(entity)
+                    else listOf()
             }
         }
         )
@@ -545,7 +566,7 @@ data class TranslationUnit<out E, out T>(
 }
 
 fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
-    copy(decls = decls.map { if (it.tlid == id) f(it) else it })
+    copy(decls = decls.map { if (it.tlid.exists{ it == id }) f(it) else it })
 
 /* filters for toplevel declarations */
 

@@ -9,7 +9,18 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import java.nio.file.Path
 
-class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState {
+/**
+ * The Clang parser implementation now only analyzes upto expression/statements.
+ * And then remembers the cursor for those. These cursors are invalidated
+ * when the unit closes, so that would be a good time to upcast the AST
+ * to ErasedTranslationUnit using .erase()
+ */
+typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
+
+class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit):
+    UnitState<CXCursor, CXCursor>,
+    DependencyAnalysis<CXCursor, CXCursor> by ClangDependencyAnalysis()
+{
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
     private val _ast by lazy { rootCursor.asTranslationUnit(tuid).mapLeft { Throwable(it) } }
@@ -17,18 +28,6 @@ class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit) : UnitState 
     override fun close() = cxunit.close()
 
     override fun ast() = _ast
-
-    override fun getReferencedDeclarations(decl: TLID): Either<Throwable, Set<TLID>> {
-        val analyzer = ClangDependencyAnalysis()
-
-        return _ast
-            .flatMap {
-                it[decl].toEither { Throwable("Declaration ${decl.name} not found in translation unit ${tuid.main}") }
-            }
-            .flatMap { d:Declaration<CXCursor,CXCursor> ->
-                with(analyzer) { d.getDependencies().mapLeft { Throwable(it) }}
-            }
-    }
 }
 
 /**

@@ -5,63 +5,59 @@ import com.riscure.langs.c.ast.*
 
 typealias Result = Either<String, Set<TLID>>
 
+fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
+
 /**
  * Implements a dependency analysis for C programs.
  */
-abstract class DependencyAnalysis<Exp,Stmt> {
-    abstract fun Exp.expDependencies(): Result
-    abstract fun Stmt.stmtDependencies(): Result
+interface DependencyAnalysis<Exp,Stmt> {
+    fun ofExp(exp: Exp): Result
+    fun ofStmt(stmt: Stmt): Result
 
-    fun Result.merge(that: Result) =
-        flatMap { left ->
-            that.map { right -> left + right }
-        }
-
-    fun Declaration<Exp,Stmt>.getDependencies(): Result = when (this) {
+    fun ofDecl(decl: Declaration<Exp,Stmt>): Result = when (decl) {
         is Declaration.Var       ->
-            rhs
-                .map { it.expDependencies() }
+            decl.rhs
+                .map { ofExp(it) }
                 .getOrElse { setOf<TLID>().right() }
-                .merge(type.getDependencies())
+                .union(ofType(decl.type))
         is Declaration.Composite ->
-            fields
-                .map { it.type.getDependencies() }
+            decl.fields
+                .map { ofType(it.type) }
                 .sequence()
                 .map { it.flatten().toSet() }
         is Declaration.EnumDef   ->
             setOf<TLID>().right()
         is Declaration.Fun       ->
-            body
-                .map { it.stmtDependencies() }
+            decl.body
+                .map { ofStmt(it) }
                 .getOrElse { setOf<TLID>().right() }
-                .merge(returnType.getDependencies())
-                .merge(params.getDependencies())
+                .union(ofType(decl.returnType))
+                .union(ofParams(decl.params))
         is Declaration.Typedef   ->
-            underlyingType.getDependencies()
+            ofType(decl.underlyingType)
     }
 
-    fun Type.getDependencies(): Result = when (this) {
+    fun ofType(type: Type): Result = when (type) {
         is Type.Fun               ->
-            returnType
-                .getDependencies()
-                .merge(params.getDependencies())
-        is Type.Array             -> elementType.getDependencies()
-        is Type.Ptr        -> pointeeType.getDependencies()
-        is Type.Typedeffed -> setOf(tlid).right()
-        is Type.Struct     -> setOf(tlid).right()
-        is Type.Union             -> setOf(tlid).right()
+            ofType(type.returnType)
+                .union(ofParams(type.params))
+        is Type.Array             -> ofType(type.elementType)
+        is Type.Ptr               -> ofType(type.pointeeType)
+        is Type.Typedeffed        -> type.tlid.toList().toSet().right()
+        is Type.Struct            -> setOf(type.tlid).right()
+        is Type.Union             -> setOf(type.tlid).right()
         is Type.Int               -> setOf<TLID>().right()
         is Type.Enum              -> setOf<TLID>().right()
         is Type.Float             -> setOf<TLID>().right()
         is Type.Void              -> setOf<TLID>().right()
-        is Type.Atomic            -> el.getDependencies()
+        is Type.Atomic            -> ofType(type.elementType)
         is Type.Complex           -> setOf<TLID>().right()
-        is Type.InlineDeclaration -> declaration.getDependencies()
+        is Type.InlineDeclaration -> ofDecl(type.declaration)
     }
 
-    private fun List<Param>.getDependencies(): Result =
-        this
-            .map { it.type.getDependencies() }
+    private fun ofParams(params: List<Param>): Result =
+        params
+            .map { ofType(it.type) }
             .sequence()
             .map { it.flatten().toSet() }
 }

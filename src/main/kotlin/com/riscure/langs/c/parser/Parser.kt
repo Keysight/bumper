@@ -5,7 +5,7 @@ import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.index.TUID
 import java.io.File
 
-fun interface Parser<out S : UnitState> {
+fun interface Parser<Exp, Stmt, out S : UnitState<Exp,Stmt>> {
     class Error(input: File, reason: String) : Throwable("Failed to parse ${input}: ${reason}")
 
     /**

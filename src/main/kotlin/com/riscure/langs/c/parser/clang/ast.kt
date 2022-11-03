@@ -159,48 +159,53 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
     }
 }
 
+fun CXCursor.getVisibility(): Result<Visibility> =
+    if (clang_isCursorDefinition(this).toBool()) {
+        (if (isLocalDefinition()) Visibility.Local else Visibility.Global).right()
+    } else "Cannot get visibility: expected definition, got ${kindName()}.".left()
 
 fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
     ifKind (CXCursor_TypedefDecl, "typedef") {
-        clang_getTypedefDeclUnderlyingType(this).asType().map { type ->
-            Declaration.Typedef(clang_getTypedefName(type()).string, type)
-        }
+        clang_getTypedefDeclUnderlyingType(this)
+            .asType()
+            .flatMap { type ->
+                getVisibility()
+                    .map { vis -> Declaration.Typedef(clang_getTypedefName(type()).string, type, vis) }
+            }
     }
-
 
 fun CXCursor.asEnumDecl(): Result<Declaration.EnumDef> =
     ifKind (CXCursor_EnumDecl, "enum declaration") {
-        Declaration.EnumDef(spelling(), listOf()).right() // TODO enumerators
+        getVisibility()
+            .map { vis -> Declaration.EnumDef(spelling(), listOf(), vis) } // TODO enumerators
     }
+
+private fun CXCursor.asComposite(): Result<Declaration.Composite> {
+    // We check if this is the definition,
+    // because clang visits fields of the canonical/definition cursor regardless.
+    // Which would lead to duplicate definitions in the ast.
+    val fields = if (clang_isCursorDefinition(this).toBool()) {
+        type()
+            .fields()
+            .map { it.asField() }
+            .sequence()
+    } else listOf<Field>().right()
+
+    return fields.flatMap { fs ->
+        getVisibility()
+            .map { Declaration.Composite(this.spelling(), StructOrUnion.Struct, fs, it) }
+    }
+}
 
 fun CXCursor.asStructDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_StructDecl, "struct declaration") {
-        // We check if this is the definition,
-        // because clang visits fields of the canonical/definition cursor regardless.
-        // Which would lead to duplicate definitions in the ast.
-        val fields = if (clang_isCursorDefinition(this).toBool()) {
-            type()
-                .fields()
-                .map { it.asField() }
-                .sequence()
-        } else listOf<Field>().right()
-
-        fields.map { Declaration.Composite(this.spelling(), StructOrUnion.Struct, it) }
+        asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
     }
+
 
 fun CXCursor.asUnionDecl(): Result<Declaration.Composite> =
     ifKind (CXCursor_UnionDecl, "union declaration") {
-        // We check if this is the definition,
-        // because clang visits fields of the canonical/definition cursor regardless.
-        // Which would lead to duplicate definitions in the ast.
-        val fields = if (clang_isCursorDefinition(this).toBool()) {
-            type()
-                .fields()
-                .map { it.asField() }
-                .sequence()
-        } else listOf<Field>().right()
-
-        fields.map { Declaration.Composite(this.spelling(), StructOrUnion.Union, it) }
+        asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
     }
 
 fun CXType.fields(): List<CXCursor> {
@@ -250,7 +255,9 @@ fun CXCursor.asVarDecl(): Result<Declaration.Var<CXCursor>> =
                 } else None
 
                 rhs.sequenceEither()
-                   .map { Declaration.Var(this.spelling(), type, it) }
+                   .flatMap { def ->
+                       getVisibility().map { vis -> Declaration.Var(this.spelling(), type, def, vis) }
+                   }
             }
     }
 
@@ -277,15 +284,18 @@ fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
 
 fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
     ifKind(CXCursor_FunctionDecl, "function declaration") {
-        this.getReturnType().flatMap { resultType ->
-            this.getParameters().map { params ->
-                Declaration.Fun(
-                    spelling(),
-                    clang_Cursor_isFunctionInlined(this).toBool(),
-                    resultType,
-                    params,
-                    clang_Cursor_isVariadic(this).toBool()
-                )
+        getReturnType().flatMap { resultType ->
+            getParameters().flatMap { params ->
+                getVisibility().map { vis ->
+                    Declaration.Fun(
+                        spelling(),
+                        clang_Cursor_isFunctionInlined(this).toBool(),
+                        resultType,
+                        params,
+                        clang_Cursor_isVariadic(this).toBool(),
+                        visibility = vis
+                    )
+                }
             }
         }
     }
@@ -357,8 +367,8 @@ fun CXType.asType(): Result<Type> =
 
         CXType_Pointer -> clang_getPointeeType(this).asType().map { Type.Ptr(it) }
         CXType_Record  -> Type.Struct(spelling()).right()
-        CXType_Enum    -> TODO()
-        CXType_Typedef -> Type.Typedeffed(spelling()).right()
+        CXType_Enum    -> TODO("Enum parsing")
+        CXType_Typedef -> TODO("Typedef parsing") // Type.Typedeffed(spelling()).right()
         CXType_ConstantArray ->
             clang_getArrayElementType(this)
                 .asType()

@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.fail
 
+/*
 private val uint32 = Type.Typedeffed("__uint32_t")
 private val uint64 = Type.Typedeffed("__uint64_t")
 
@@ -197,3 +198,4 @@ class StdHeadersTest {
         assertEquals(fields, target.fields)
     }
 }
+*/

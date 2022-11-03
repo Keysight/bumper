@@ -67,13 +67,13 @@ object Pretty {
         is Type.Enum   -> type.id
         is Type.Float  -> floatKind(type.kind)
         is Type.Int        -> integerKind(type.kind)
-        is Type.Typedeffed -> type.id
+        is Type.Typedeffed -> type.ref.byName
         is Type.Struct     -> "struct ${type.id}" // with parens it doesn't parse
         is Type.Union  -> "union ${type.id}"  // same.
         is Type.Void   -> "void"
 
         is Type.Complex -> "${floatKind(type.kind)} _Complex"
-        is Type.Atomic  -> "_Atomic ${typePrefix(type.el)}"
+        is Type.Atomic  -> "_Atomic ${typePrefix(type.elementType)}"
 
         // inline compound declarations are entirely printed prefix.
         is Type.InlineDeclaration -> lhs(type.declaration)

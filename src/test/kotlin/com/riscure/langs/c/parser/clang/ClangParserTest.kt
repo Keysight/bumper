@@ -110,11 +110,11 @@ class ClangParserTest {
         parsed("/parser-tests/008-typedef.c") { tu ->
             assertEquals(3, tu.decls.size)
             assertTrue(tu.decls[0] is Declaration.Composite)
-            assertTrue(tu.decls[1] is Declaration.Typedef)
+            val mybook:  Declaration.Typedef = assertIs(tu.decls[1])
 
             assertTrue(tu.decls[2] is Declaration.Var)
             val another = tu.decls[2] as Declaration.Var
-            assertEquals(Type.Typedeffed("mybook"), another.type)
+            assertEquals(Type.Typedeffed(TypedefRef("mybook", mybook)), another.type)
         }
     }
 

@@ -3,9 +3,8 @@ package com.riscure.langs.c
 import arrow.core.*
 import com.riscure.dobby.clang.Options
 import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.ErasedTranslationUnit
-import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.parser.UnitState
+import com.riscure.langs.c.parser.clang.ClangTranslationUnit
+import com.riscure.langs.c.parser.clang.ClangUnitState
 import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.writeText
@@ -26,7 +25,7 @@ internal class DeclarationsTest {
     private fun literal(
         input: String,
         opts: Options = listOf(),
-        whenOk: (ErasedTranslationUnit, UnitState) -> Unit
+        whenOk: (ClangTranslationUnit, ClangUnitState) -> Unit
     ) {
         val file: File = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
         val result = frontend
@@ -52,7 +51,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "main" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertEquals(0, tls.size)
         }
 
@@ -68,7 +67,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "main" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertContains(tls.map { it.name }, "S")
             assertEquals(1, tls.size)
         }
@@ -95,7 +94,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertContains(tls.map { it.name }, "Inner")
             assertEquals(1, tls.size)
         }
@@ -118,7 +117,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertContains(tls.map { it.name }, "MoreInner")
             assertEquals(1, tls.size)
         }
@@ -137,7 +136,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertContains(tls.map { it.name }, "MyS")
             assertEquals(1, tls.size)
         }
@@ -156,7 +155,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertContains(tls.map { it.name }, "S")
             assertEquals(1, tls.size)
         }
@@ -174,7 +173,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.getReferencedDeclarations(f.tlid)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
             assertEquals(0, tls.size)
         }
 }
