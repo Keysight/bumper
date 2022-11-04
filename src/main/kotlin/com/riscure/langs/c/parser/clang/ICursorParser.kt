@@ -10,6 +10,6 @@ private typealias ParseResult<T> = Either<String, T>
 
 interface ICursorParser {
     fun CXCursor.asTranslationUnit(tuid: TUID): ParseResult<TranslationUnit<CXCursor, CXCursor>>
-    fun CXCursor.asDeclaration(): ParseResult<Declaration<CXCursor, CXCursor>>
-    fun CXType.asType(): ParseResult<Type>
+    fun CXCursor.asDeclaration(site: UnitSite): ParseResult<Declaration<CXCursor, CXCursor>>
+    fun CXType.asType(site:UnitSite): ParseResult<Type>
 }

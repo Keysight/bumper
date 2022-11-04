@@ -6,10 +6,14 @@ import arrow.core.*
 import com.riscure.langs.c.index.TUID
 import java.nio.file.Path
 
-enum class Visibility { Global, Local }
+/**
+ * Indicates whether a declaration is scoped at the level of the translation unit,
+ * or in some local scope.
+ */
+enum class Visibility { TUnit, Local }
 
-/** The type of identifiers */
-typealias Ident = String
+/** The type of raw identifiers */
+typealias Ident    = String
 
 /** The type of references to something (in practice T:Declaration) */
 data class Ref<T>(val byName: Ident, val reffed: T)
@@ -18,6 +22,7 @@ typealias StructRef  = Ref<Declaration.Composite>
 typealias UnionRef   = Ref<Declaration.Composite>
 typealias EnumRef    = Ref<Declaration.Enum>
 
+/** A source location */
 data class Location(
     val sourceFile: Path,
     /** The line number, with first line being 1 */
@@ -26,12 +31,13 @@ data class Location(
     val col: Int
 ) {
     /**
-     * compares the row and col of [this] to [other], ignoring the sourceFile.
+     * compares the row and col of this to [other], ignoring the sourceFile.
      */
     operator fun compareTo(other: Location): Int =
         Pair(row, col).compareTo(Pair(other.row, other.col))
 }
 
+/** A source range with a begin and end location. */
 data class SourceRange(
     /** begin location of the source range (inclusive) */
     val begin: Location,
@@ -39,7 +45,7 @@ data class SourceRange(
     val end: Location
 ) {
     /**
-     * Returns true iff [this] range fully encloses [other]
+     * Returns true iff this range fully encloses [other]
      */
     fun encloses(other: SourceRange): Boolean =
         file == other.file && begin <= other.begin && end >= other.end
@@ -51,6 +57,7 @@ data class SourceRange(
     val file get() = begin.sourceFile
 }
 
+/** Different integer kinds */
 enum class IKind {
       IBoolean
     , IChar, ISChar, IUChar
@@ -60,6 +67,7 @@ enum class IKind {
     , ILongLong, IULongLong
 }
 
+/** Different float kinds */
 enum class FKind {
     FFloat, FDouble, FLongDouble
 }
@@ -79,6 +87,7 @@ sealed class Attr {
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
+/** Different ways of storing values in C */
 enum class Storage {
     Default, // used for toplevel names without explicit storage
     Extern,
@@ -177,7 +186,7 @@ sealed class Type {
 
     /* A distinguished type for inline compound type declarations */
     data class InlineDeclaration (
-        val declaration: Declaration.CompoundTypeDecl,
+        val declaration: Declaration.TypeDeclaration,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -280,14 +289,18 @@ sealed interface Declaration<out Exp, out Stmt> {
     val tlid: Option<TLID> get() =
         when (visibility) {
             Visibility.Local -> None
-            Visibility.Global-> ident.map { TLID(it, kind) }
+            Visibility.TUnit -> ident.map { TLID(it, kind) }
         }
 
     val kind: EntityKind
 
     /* Mixin */
+
+    /** Everything that can be used as a type */
     sealed interface Typelike
-    sealed interface CompoundTypeDecl: Declaration<Nothing, Nothing>, Typelike
+
+    /** Everything that declares a new type: Struct, Union, Enum */
+    sealed interface TypeDeclaration: Declaration<Nothing, Nothing>, Typelike
 
     data class Var<out Exp>(
         val name: Ident,
@@ -310,7 +323,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val name: Ident,
         val inline: Boolean,
         val returnType: Type,
-        val params: List<Param>,
+        val params: Params,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
         override val visibility: Visibility = Visibility.Local,
@@ -329,6 +342,9 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val kind: EntityKind get() = EntityKind.Fun
     }
 
+    /**
+     * Struct or Union declaration or definition.
+     */
     data class Composite(
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
@@ -336,7 +352,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
+    ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
@@ -356,7 +372,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
+    ): Declaration<Nothing, Nothing>, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
@@ -375,7 +391,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike, CompoundTypeDecl {
+    ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
@@ -420,6 +436,27 @@ data class TLID(val name: Ident, val kind: EntityKind) {
         @JvmStatic fun enum(name: Ident) = TLID(name, EntityKind.Enum)
         @JvmStatic fun typedef(name: Ident) = TLID(name, EntityKind.Typedef)
     }
+}
+
+
+/**
+ * Paths leading into declarations to possible declaration sites in declarations.
+ */
+data class Site(val breadcrumbs: List<SiteMarker>) {
+    fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(Site(breadcrumbs + crumb))
+
+    companion object {
+        val root = Site(listOf())
+    }
+
+    sealed interface SiteMarker
+    data class Toplevel(val site: Int): SiteMarker
+    object VarType: SiteMarker
+    object FunctionReturn: SiteMarker
+    object Pointee: SiteMarker
+    data class FunctionParam(val param: Ident): SiteMarker
+    data class Member(val member: Ident): SiteMarker
+    object Typedef: SiteMarker
 }
 
 data class TranslationUnit<out E, out T>(
