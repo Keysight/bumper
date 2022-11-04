@@ -9,7 +9,6 @@ import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
 
 abstract class ClangDependencyAnalysis:
-    ICursorParser,
     DependencyAnalysis<CXCursor, CXCursor>
 {
 

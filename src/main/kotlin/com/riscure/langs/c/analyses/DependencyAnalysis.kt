@@ -2,16 +2,18 @@ package com.riscure.langs.c.analyses
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.parser.clang.ICursorParser
+import com.riscure.langs.c.index.Symbol
 
-typealias Result = Either<String, Set<TLID>>
+typealias Result = Either<String, Set<Symbol>>
 
 fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
 
 /**
  * Implements a dependency analysis for C programs.
  */
-interface DependencyAnalysis<Exp,Stmt>: ICursorParser {
+interface DependencyAnalysis<Exp,Stmt> {
+    val nil: Result get() = setOf<Symbol>().right()
+
     fun ofExp(exp: Exp): Result
     fun ofStmt(stmt: Stmt): Result
 
@@ -20,9 +22,9 @@ interface DependencyAnalysis<Exp,Stmt>: ICursorParser {
             decl.rhs
                 .map { ofExp(it) }
                 // if no rhs is given, no dependencies
-                .getOrElse { setOf<TLID>().right() }
+                .getOrElse { nil }
                 .union(ofType(decl.type))
-        is Declaration.Composite                                       ->
+        is Declaration.Composite ->
             decl.fields
                 .map { fields ->
                     fields
@@ -31,10 +33,9 @@ interface DependencyAnalysis<Exp,Stmt>: ICursorParser {
                         .map { it.flatten().toSet() }
                 }
                 // if no fields are defined, no dependencies
-                .getOrElse { setOf<TLID>().right() }
-        is Declaration.Enum ->
-            setOf<TLID>().right()
-        is Declaration.Fun                                             ->
+                .getOrElse { nil }
+        is Declaration.Enum      -> nil
+        is Declaration.Fun       ->
             decl.body
                 .map { ofStmt(it) }
                 // if no body, no dependencies
@@ -54,12 +55,12 @@ interface DependencyAnalysis<Exp,Stmt>: ICursorParser {
         is Type.Typedeffed        -> type.ref.reffed.tlid.toList().toSet().right()
         is Type.Struct            -> type.ref.reffed.tlid.toList().toSet().right()
         is Type.Union             -> type.ref.reffed.tlid.toList().toSet().right()
-        is Type.Int               -> setOf<TLID>().right()
-        is Type.Enum              -> setOf<TLID>().right()
-        is Type.Float             -> setOf<TLID>().right()
-        is Type.Void              -> setOf<TLID>().right()
+        is Type.Int               -> nil
+        is Type.Enum              -> nil
+        is Type.Float             -> nil
+        is Type.Void              -> nil
         is Type.Atomic            -> ofType(type.elementType)
-        is Type.Complex           -> setOf<TLID>().right()
+        is Type.Complex           -> nil
         is Type.InlineDeclaration -> ofDecl(type.declaration)
     }
 

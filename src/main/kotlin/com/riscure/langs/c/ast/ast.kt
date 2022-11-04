@@ -3,6 +3,7 @@
 package com.riscure.langs.c.ast
 
 import arrow.core.*
+import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import java.nio.file.Path
 
@@ -15,12 +16,13 @@ enum class Visibility { TUnit, Local }
 /** The type of raw identifiers */
 typealias Ident    = String
 
-/** The type of references to something (in practice T:Declaration) */
-data class Ref<T>(val byName: Ident, val reffed: T)
-typealias TypedefRef = Ref<Declaration.Typedef>
-typealias StructRef  = Ref<Declaration.Composite>
-typealias UnionRef   = Ref<Declaration.Composite>
-typealias EnumRef    = Ref<Declaration.Enum>
+/**
+ * The type of references to something (in practice T:Declaration)
+ *
+ * @property byName indicates the name by which the thing was referenced.
+ * @property symbol indicates to what declaration the name resolved.
+ */
+data class Ref(val byName: Ident, val resolution: Symbol)
 
 /** A source location */
 data class Location(
@@ -145,25 +147,25 @@ sealed class Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     data class Typedeffed (
-        val ref: TypedefRef,
+        val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     data class Struct (
-        val ref: StructRef,
+        val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     data class Union (
-        val ref: UnionRef,
+        val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     data class Enum (
-        val ref: EnumRef,
+        val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -257,6 +259,13 @@ data class Meta(
  */
 sealed interface Declaration<out Exp, out Stmt> {
     /**
+     * The [site] is a path from the root of the translation unit to this declaration.
+     * It uniquely identifies a declaration within the translation unit.
+     * Unlike the TLID, it can be used to distinguish between different declarations.
+     */
+    val site: Site
+
+    /**
      * Optional identifier, because some declarations can be anonymous.
      */
     val ident: Option<Ident>
@@ -286,13 +295,10 @@ sealed interface Declaration<out Exp, out Stmt> {
     val visibility: Visibility
     fun withVisibility(visibility: Visibility): Declaration<Exp, Stmt>
 
-    val tlid: Option<TLID> get() =
-        when (visibility) {
-            Visibility.Local -> None
-            Visibility.TUnit -> ident.map { TLID(it, kind) }
-        }
-
+    val tlid: Option<TLID> get() = ident.map { TLID(it, kind) }
     val kind: EntityKind
+
+    fun mkSymbol(tuid: TUID): Option<Symbol> = tlid.map { Symbol(tuid, it, site) }
 
     /* Mixin */
 
@@ -303,6 +309,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     sealed interface TypeDeclaration: Declaration<Nothing, Nothing>, Typelike
 
     data class Var<out Exp>(
+        override val site: Site,
         val name: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
@@ -320,6 +327,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     }
 
     data class Fun<out Stmt>(
+        override val site: Site,
         val name: Ident,
         val inline: Boolean,
         val returnType: Type,
@@ -346,6 +354,7 @@ sealed interface Declaration<out Exp, out Stmt> {
      * Struct or Union declaration or definition.
      */
     data class Composite(
+        override val site: Site,
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls>,
@@ -367,6 +376,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     }
 
     data class Typedef(
+        override val site: Site,
         override val ident: Option<Ident>,
         val underlyingType: Type,
         override val visibility: Visibility = Visibility.Local,
@@ -386,6 +396,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     }
 
     data class Enum(
+        override val site: Site,
         override val ident: Option<Ident>,
         val enumerators: Option<Enumerators>,
         override val visibility: Visibility = Visibility.Local,
@@ -425,7 +436,7 @@ enum class EntityKind {
 }
 
 /**
- * Identifies a declaration that is visible at the file-level within a translation unit.
+ * Name and kind pair
  */
 data class TLID(val name: Ident, val kind: EntityKind) {
     companion object {
