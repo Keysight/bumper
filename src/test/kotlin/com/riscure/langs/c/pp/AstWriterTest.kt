@@ -16,7 +16,7 @@ internal class AstWriterTest {
 
         val parser = ClangParser()
         val ast = parser.parse(file.toFile())
-            .flatMap { it.ast() }
+            .flatMap { it.ast }
             .getOrHandle { throw it }
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())

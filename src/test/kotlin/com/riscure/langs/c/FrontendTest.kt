@@ -45,7 +45,7 @@ internal class FrontendTest {
     ) {
         val result = frontend
             .process(test, opts)
-            .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
+            .flatMap { it.ast.map{ ast -> Pair(ast, it) }}
 
         when (result) {
             is Either.Left  -> fail("Expected successful processing, got error: ${result.value}")
@@ -61,7 +61,7 @@ internal class FrontendTest {
         inputFile.writeText(input)
 
         val unit = assertIs<Either.Right<ClangUnitState>>(frontend.process(inputFile, listOf()))
-        val ast  = assertIs<Either.Right<ClangTranslationUnit>>(unit.value.ast())
+        val ast  = assertIs<Either.Right<ClangTranslationUnit>>(unit.value.ast)
 
         inputFile.delete()
     }
@@ -143,7 +143,7 @@ internal class FrontendTest {
         """.trimIndent()
     ) { ast, unit ->
         val main = ast.decls.functions().filter { it.name == "test" }[0]!!
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(main))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(main))
         val tls = refs.value.map { it.name }
         assertContains(tls, "printf")
     }

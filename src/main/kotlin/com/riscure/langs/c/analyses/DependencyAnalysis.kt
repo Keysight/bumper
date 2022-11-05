@@ -38,8 +38,7 @@ interface DependencyAnalysis<Exp,Stmt> {
         is Declaration.Fun       ->
             decl.body
                 .map { ofStmt(it) }
-                // if no body, no dependencies
-                .getOrElse { setOf<TLID>().right() }
+                .getOrElse { nil } // if no body, no dependencies
                 .union(ofType(decl.returnType))
                 .union(ofParams(decl.params))
         is Declaration.Typedef   ->
@@ -52,9 +51,9 @@ interface DependencyAnalysis<Exp,Stmt> {
                 .union(ofParams(type.params))
         is Type.Array             -> ofType(type.elementType)
         is Type.Ptr               -> ofType(type.pointeeType)
-        is Type.Typedeffed        -> type.ref.reffed.tlid.toList().toSet().right()
-        is Type.Struct            -> type.ref.reffed.tlid.toList().toSet().right()
-        is Type.Union             -> type.ref.reffed.tlid.toList().toSet().right()
+        is Type.Typedeffed        -> setOf(type.ref.resolution).right()
+        is Type.Struct            -> setOf(type.ref.resolution).right()
+        is Type.Union             -> setOf(type.ref.resolution).right()
         is Type.Int               -> nil
         is Type.Enum              -> nil
         is Type.Float             -> nil

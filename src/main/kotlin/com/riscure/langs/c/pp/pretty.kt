@@ -113,7 +113,11 @@ object Pretty {
         is Some -> " { ${fields(fields.value)}; }"
     }
 
-    private fun maybeName(ident: Option<Ident>) = if (ident.isEmpty()) "" else "$ident "
+    private fun maybeName(ident: Option<Ident>) = when (ident) {
+        is None -> ""
+        is Some -> "${ident.value} "
+    }
+
     private fun bitFieldSpec(bitfield: Option<Int>): String =
         bitfield
             .map { " : ${it}" }

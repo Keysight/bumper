@@ -23,7 +23,7 @@ class TypePrinterTest {
 
             // parse the input
             val ast = parser.parse(file)
-                .flatMap { it.ast() }
+                .flatMap { it.ast }
                 .getOrHandle { throw it }
 
             // get the typedef
@@ -210,6 +210,12 @@ class TypePrinterTest {
     @Test
     fun constCharParam() = roundtrip("""
         void f(const char x);
+    """.trimIndent())
+
+    /* Allowed as C2x extension */
+    @Test
+    fun anonymousParameter() = roundtrip("""
+        void f(int);
     """.trimIndent())
 
     /* from tgmath.h */

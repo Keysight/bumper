@@ -30,7 +30,7 @@ internal class DeclarationsTest {
         val file: File = kotlin.io.path.createTempFile(suffix = ".c").apply { writeText(input) }.toFile()
         val result = frontend
             .process(file, opts)
-            .flatMap { it.ast().map { ast -> Pair(ast, it) } }
+            .flatMap { it.ast.map { ast -> Pair(ast, it) } }
         try {
             when (result) {
                 is Either.Left -> fail("Expected successful processing, got error: ${result.value}")
@@ -51,7 +51,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "main" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertEquals(0, tls.size)
         }
 
@@ -67,7 +67,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "main" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertContains(tls.map { it.name }, "S")
             assertEquals(1, tls.size)
         }
@@ -94,7 +94,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertContains(tls.map { it.name }, "Inner")
             assertEquals(1, tls.size)
         }
@@ -117,7 +117,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertContains(tls.map { it.name }, "MoreInner")
             assertEquals(1, tls.size)
         }
@@ -136,7 +136,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertContains(tls.map { it.name }, "MyS")
             assertEquals(1, tls.size)
         }
@@ -155,7 +155,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertContains(tls.map { it.name }, "S")
             assertEquals(1, tls.size)
         }
@@ -173,7 +173,7 @@ internal class DeclarationsTest {
         """.trimIndent()) { ast , unit ->
             val f = assertNotNull(ast.functions.find { it.name == "f" })
 
-            val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(f)).value
+            val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(f)).value
             assertEquals(0, tls.size)
         }
 }

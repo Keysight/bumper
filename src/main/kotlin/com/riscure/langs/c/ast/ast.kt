@@ -457,10 +457,12 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
     fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(Site(breadcrumbs + crumb))
 
     companion object {
-        val root = Site(listOf())
+        val root  = Site(listOf())
+        val local = Site(listOf(Local))
     }
 
     sealed interface SiteMarker
+    object Local: SiteMarker
     data class Toplevel(val site: Int): SiteMarker
     object VarType: SiteMarker
     object FunctionReturn: SiteMarker

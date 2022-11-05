@@ -11,29 +11,32 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 
 private typealias Result<T> = Either<String, T>
-private typealias ClangDeclaration = Declaration<CXCursor, CXCursor>
-private typealias CursorHash = Int
+typealias ClangDeclaration = Declaration<CXCursor, CXCursor>
+typealias CursorHash = Int
 
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.
  * The state is bound to a single translation unit.
  */
-class CursorParser(
+open class CursorParser(
     val tuid: TUID,
 
     /**
      * Mapping cursors of declarations to the parsed declarations.
      */
-    private val declarationTable: MutableMap<CursorHash, ClangDeclaration> = mutableMapOf(),
+    protected val declarationTable: MutableMap<CursorHash, ClangDeclaration> = mutableMapOf(),
 
     /**
      * A mapping of declarations to the cursor identifier of their corresponding definitions.
      */
-    private val resolutionTable: MutableMap<ErasedDeclaration, CursorHash> = mutableMapOf(),
+    protected val resolutionTable: MutableMap<ErasedDeclaration, CursorHash> = mutableMapOf(),
 ) {
 
     // Parser state management
     //-----------------------------------------------------------------------------------------------
+
+    val declarations: Map<CursorHash, ClangDeclaration> get() = declarationTable
+    val resolutions : Map<ErasedDeclaration, CursorHash> get() = resolutionTable
 
     /**
      * Record a parsed declaration in the parse state tables.

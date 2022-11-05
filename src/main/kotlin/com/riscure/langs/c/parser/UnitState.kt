@@ -19,15 +19,17 @@ import java.io.Closeable
  * and you have to promise to properly call close() when you're done with
  * the instance of UnitState.
  */
-interface UnitState<Exp,Stmt>:
-    DependencyAnalysis<Exp, Stmt>,
-    Closeable
-{
+interface UnitState<Exp,Stmt>: Closeable {
     class NoSource(val name: String):
         Exception("Failed to get source for top-level declaration '$name'")
 
     /**
      * Convert this translation unit to an AST.
      */
-    fun ast(): Either<Throwable, TranslationUnit<Exp, Stmt>>
+    val ast: Either<Throwable, TranslationUnit<Exp, Stmt>>
+
+    /**
+     * The dependency analyzer.
+     */
+    val dependencies: DependencyAnalysis<Exp,Stmt>
 }

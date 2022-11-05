@@ -3,6 +3,7 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.*
 import com.riscure.langs.c.ast.TLID
 import com.riscure.langs.c.ast.functions
+import com.riscure.langs.c.index.Symbol
 import java.io.File
 import kotlin.io.path.writeText
 import kotlin.test.*
@@ -22,7 +23,7 @@ internal class ClangUnitStateTest {
     private fun parsed(test: File, whenOk: (ast: ClangTranslationUnit, state: ClangUnitState) -> Unit) {
         when (val unit = ClangParser().parse(test)) {
             is Either.Left -> fail("Expected successful parse, got error: ${unit.value}")
-            is Either.Right -> when (val ast = unit.value.ast()) {
+            is Either.Right -> when (val ast = unit.value.ast) {
                 is Either.Left -> fail("Expected successful parse, got error: ${ast.value}")
                 is Either.Right -> whenOk(ast.value , unit.value)
             }
@@ -43,7 +44,7 @@ internal class ClangUnitStateTest {
             .functions()
             .filter { it.name == "main" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(main))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(main))
         assertEquals(2, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -59,7 +60,7 @@ internal class ClangUnitStateTest {
 
         // an enumerator is not a top-level declaration, technically.
         // so this is right
-        assertEquals(setOf<TLID>().right(), unit.ofDecl(main))
+        assertEquals(setOf<Symbol>().right(), unit.dependencies.ofDecl(main))
     }
 
     @Test
@@ -68,7 +69,7 @@ internal class ClangUnitStateTest {
             .filter { it.name == "pointers" }
             .get(0)!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -82,7 +83,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.variables
             .filter { it.name == "pointers" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -94,7 +95,7 @@ internal class ClangUnitStateTest {
     @Test
     fun test06() = parsed("/analysis-tests/006-typedef-in-return-type.c") { ast, unit ->
         val fn = ast.decls.filter{ it.ident == "f".some() }[0]!!
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fn))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(fn))
         assertEquals(1, refs.value.size)
     }
 
@@ -103,7 +104,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.variables
             .filter { it.name == "pointers" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(ptrs))
         assertEquals(3, refs.value.size)
         val tls = refs.value.map { it.name }
 
@@ -117,7 +118,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.variables
             .filter { it.name == "func_switch" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(ptrs))
         val tls = refs.value.map { it.name }
 
         assertContains(tls, "func_a")
@@ -129,7 +130,7 @@ internal class ClangUnitStateTest {
         val ptrs = ast.functions
             .filter { it.name == "func_switch" }[0]!!
 
-        val refs = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(ptrs))
+        val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(ptrs))
         val tls = refs.value.map { it.name }
 
         assertContains(tls, "func_a")
@@ -142,7 +143,7 @@ internal class ClangUnitStateTest {
         typedef __fsid_t fsid_t;
     """.trimIndent()) { ast, unit ->
         val fsid = assertNotNull(ast.structs.find { it.ident == "fsid_t".some() })
-        val tls = assertIs<Either.Right<Set<TLID>>>(unit.ofDecl(fsid)).value.map { it.name }
+        val tls = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(fsid)).value.map { it.name }
         assertContains(tls, "__fsid_t")
     }
 }

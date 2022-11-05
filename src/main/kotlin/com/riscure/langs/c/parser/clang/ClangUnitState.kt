@@ -3,6 +3,7 @@ package com.riscure.langs.c.parser.clang
 import arrow.core.*
 import com.riscure.langs.c.analyses.DependencyAnalysis
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.*
 import org.bytedeco.llvm.clang.*
@@ -17,18 +18,34 @@ import java.nio.file.Path
  */
 typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
 
-class ClangUnitState(val tuid: TUID, val cxunit: CXTranslationUnit):
-    UnitState<CXCursor, CXCursor>,
-    ICursorParser by CursorParser(),
-    ClangDependencyAnalysis()
-{
+class ClangUnitState(
+    val tuid: TUID,
+    val cxunit: CXTranslationUnit
+) : UnitState<CXCursor, CXCursor> {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-    private val _ast by lazy { rootCursor.asTranslationUnit(tuid).mapLeft { Throwable(it) } }
+    private val parser = CursorParser(tuid)
 
     override fun close() = cxunit.close()
 
-    override fun ast() = _ast
+    override val ast by lazy {
+        with (parser) {
+            rootCursor
+                .asTranslationUnit()
+                .mapLeft { Throwable(it) }
+        }
+    }
+
+    override val dependencies: DependencyAnalysis<CXCursor, CXCursor> by lazy {
+        // force parsing to populate the declaration and resolution table of the parser
+        ast
+
+        ClangDependencyAnalysis(
+            tuid,
+            parser.declarations.toMutableMap(),
+            parser.resolutions.toMutableMap()
+        )
+    }
 }
 
 /**
