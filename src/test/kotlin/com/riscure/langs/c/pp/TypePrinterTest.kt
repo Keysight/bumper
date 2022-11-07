@@ -27,7 +27,7 @@ class TypePrinterTest {
                 .getOrHandle { throw it }
 
             // get the typedef
-            ast.decls[0]!!
+            ast.toplevelDeclarations[0]!!
         } finally {
             file.delete()
         }

@@ -40,8 +40,8 @@ internal class ClangUnitStateTest {
         }
     """.trimIndent()
     ) { ast, unit ->
-        val main = ast.decls
-            .functions()
+        val main = ast.toplevelDeclarations
+            .functions
             .filter { it.name == "main" }[0]!!
 
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(main))
@@ -94,7 +94,7 @@ internal class ClangUnitStateTest {
 
     @Test
     fun test06() = parsed("/analysis-tests/006-typedef-in-return-type.c") { ast, unit ->
-        val fn = ast.decls.filter{ it.ident == "f".some() }[0]!!
+        val fn = ast.toplevelDeclarations.filter{ it.ident == "f".some() }[0]!!
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(fn))
         assertEquals(1, refs.value.size)
     }

@@ -147,7 +147,7 @@ class AstWriters(
     private val semicolon = text(";")
 
     fun print(unit: ErasedTranslationUnit): Either<Throwable,Writer> =
-        unit.decls
+        unit.toplevelDeclarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }

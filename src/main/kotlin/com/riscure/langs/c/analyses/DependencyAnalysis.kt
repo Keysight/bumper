@@ -9,7 +9,13 @@ typealias Result = Either<String, Set<Symbol>>
 fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
 
 /**
- * Implements a dependency analysis for C programs.
+ * Implements a dependency analysis for C programs:
+ * that is, it computes a set of symbols that a given AST element depends on,
+ * directly or transitively.
+ *
+ * This eagerly computes transitive dependencies, making use of caching
+ * to avoid recomputing dependencies for the same symbol multiple times.
+ * It maintains a stack to detect cycles in the dependency graph.
  */
 interface DependencyAnalysis<Exp,Stmt> {
     val nil: Result get() = setOf<Symbol>().right()

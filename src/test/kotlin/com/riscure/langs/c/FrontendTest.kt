@@ -142,7 +142,7 @@ internal class FrontendTest {
             }
         """.trimIndent()
     ) { ast, unit ->
-        val main = ast.decls.functions().filter { it.name == "test" }[0]!!
+        val main = ast.toplevelDeclarations.functions.filter { it.name == "test" }[0]!!
         val refs = assertIs<Either.Right<Set<TLID>>>(unit.dependencies.ofDecl(main))
         val tls = refs.value.map { it.name }
         assertContains(tls, "printf")

@@ -41,19 +41,22 @@ open class CursorParser(
     /**
      * Record a parsed declaration in the parse state tables.
      */
-    private fun rememberDeclaration(cursor: CXCursor, decl: ClangDeclaration) {
-        val id = cursor.hash()
+    private fun <T:ClangDeclaration> CXCursor.memoize(parse: () -> Result<T>): Result<T> {
+        val id = this.hash()
+        val result = parse.invoke()
 
-        declarationTable[id] = decl
+        return result.tap { decl ->
+            declarationTable[id] = decl
 
-        // Ask clang if this declaration has a definition.
-        // Store the cursor hash of the definition for now.
-        // This will allos us to find the corresponding ClangDeclaration from declarationTable
-        // once we parsed the entire translation unit. At this moment the definition might not yet
-        // been seen, because the declaration can be a forward declaration.
-        clang_getCursorDefinition(cursor)
-            .filterNullCursor()
-            .tap { resolutionTable[decl] = it.hash() }
+            // Ask clang if this declaration has a definition.
+            // Store the cursor hash of the definition for now.
+            // This will allow us to find the corresponding ClangDeclaration from declarationTable
+            // once we parsed the entire translation unit. At this moment the definition might not yet
+            // been seen, because the declaration can be a forward declaration.
+            clang_getCursorDefinition(this)
+                .filterNullCursor()
+                .tap { resolutionTable[decl] = it.hash() }
+        }
     }
 
     /**
@@ -104,7 +107,15 @@ open class CursorParser(
                     }
                 }
                 .sequence()
-                .flatMap { decls -> getDefinitions().map { TranslationUnit(tuid, decls, it) }}
+                .flatMap { toplevelDecls ->
+                    val unitDeclarations = declarations.values
+                        .filter { it.visibility == Visibility.TUnit }
+
+                    getDefinitions()
+                        .map {
+                            TranslationUnit(tuid, toplevelDecls, unitDeclarations, it)
+                        }
+                }
         }
 
     fun CXCursor.asDeclaration(site: Site): Result<Declaration<CXCursor, CXCursor>> {
@@ -131,10 +142,7 @@ open class CursorParser(
                 it
                     .withMeta(getMetadata())
                     .withStorage(getStorage())
-                    .withVisibility(getVisibility())
             }
-            // Record the parsed declaration in the symboltable
-            .tap { rememberDeclaration(this, it) }
     }
 
     private fun String.validateIdentifier(): Option<String> =
@@ -168,13 +176,9 @@ open class CursorParser(
         )
     }
 
-    /** Gets the visibility of a definition */
-    fun CXCursor.getVisibility(): Visibility =
-        if (isLocalDefinition()) Visibility.Local else Visibility.TUnit
-
-    fun CXCursor.asTypedef(site: Site): Result<Declaration.Typedef> =
+    fun CXCursor.asTypedef(site: Site): Result<Declaration.Typedef> = memoize {
         ifKind(CXCursor_TypedefDecl, "typedef") {
-            site.scope(Site.Typedef) {typedefSite ->
+            site.scope(Site.Typedef) { typedefSite ->
                 clang_getTypedefDeclUnderlyingType(this)
                     .asType(typedefSite)
                     .map { type ->
@@ -182,11 +186,13 @@ open class CursorParser(
                     }
             }
         }
+    }
 
-    fun CXCursor.asEnumDecl(site: Site): Result<Declaration.Enum> =
+    fun CXCursor.asEnumDecl(site: Site): Result<Declaration.Enum> = memoize {
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             Declaration.Enum(site, getIdentifier(), None).right() // TODO enumerators
         }
+    }
 
     private fun CXCursor.asComposite(site: Site): Result<Declaration.Composite> {
         // We check if this is the definition.
@@ -205,15 +211,17 @@ open class CursorParser(
             .map { fs -> Declaration.Composite(site, getIdentifier(), StructOrUnion.Struct, fs) }
     }
 
-    fun CXCursor.asStructDecl(site: Site): Result<Declaration.Composite> =
+    fun CXCursor.asStructDecl(site: Site): Result<Declaration.Composite> = memoize {
         ifKind(CXCursor_StructDecl, "struct declaration") {
             asComposite(site).map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
         }
+    }
 
-    fun CXCursor.asUnionDecl(site: Site): Result<Declaration.Composite> =
+    fun CXCursor.asUnionDecl(site: Site): Result<Declaration.Composite> = memoize {
         ifKind(CXCursor_UnionDecl, "union declaration") {
             asComposite(site).map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
         }
+    }
 
     fun CXType.fields(): List<CXCursor> {
         val ts = mutableListOf<CXCursor>()
@@ -254,7 +262,7 @@ open class CursorParser(
         }
     }
 
-    fun CXCursor.asVarDecl(site: Site): Result<Declaration.Var<CXCursor>> =
+    fun CXCursor.asVarDecl(site: Site): Result<Declaration.Var<CXCursor>> = memoize {
         ifKind(CXCursor_VarDecl, "variable declaration") {
             site.scope(Site.VarType) { typeSite ->
                 type()
@@ -272,6 +280,7 @@ open class CursorParser(
                     }
             }
         }
+    }
 
     /**
      * @param site is the site of the surrounding function declaration
@@ -290,15 +299,16 @@ open class CursorParser(
             .sequence()
     }
 
-    fun CXCursor.asFunctionDef(site: Site): Result<Declaration.Fun<CXCursor>> =
+    fun CXCursor.asFunctionDef(site: Site): Result<Declaration.Fun<CXCursor>> = memoize {
         asFunctionDecl(site).flatMap { decl ->
             Either
                 .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
                 .mapLeft { "Could not parse function body of ${decl.name}." }
                 .map { decl.copy(body = it.some()) }
         }
+    }
 
-    fun CXCursor.asFunctionDecl(site: Site): Result<Declaration.Fun<CXCursor>> =
+    fun CXCursor.asFunctionDecl(site: Site): Result<Declaration.Fun<CXCursor>> = memoize {
         ifKind(CXCursor_FunctionDecl, "function declaration") {
             getReturnType(site).flatMap { resultType ->
                 getParameters(site).map { params ->
@@ -313,6 +323,7 @@ open class CursorParser(
                 }
             }
         }
+    }
 
     fun CXCursor.asParam(surrounding: Site): Result<Param> =
         ifKind(CXCursor_ParmDecl, "parameter declaration") {

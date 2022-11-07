@@ -107,8 +107,8 @@ internal class AstWriterTest {
         assertEquals(
             output,
             literal(input) { ast -> ast.copy(
-                decls = ast
-                    .decls
+                toplevelDeclarations = ast
+                    .toplevelDeclarations
                     .filter { it.ident != "g".some() })
             }
         )
@@ -130,8 +130,8 @@ internal class AstWriterTest {
         assertEquals(
             output,
             literal(input) { ast ->
-                ast.copy(decls =
-                    ast.decls
+                ast.copy(toplevelDeclarations =
+                    ast.toplevelDeclarations
                         // remove g
                         .filter { it.ident != "g".some() }
                         // turn f into a prototype

@@ -203,6 +203,12 @@ sealed class Type {
         val int = Int(IKind.IInt)
         @JvmStatic
         val ulong = Int(IKind.IULong)
+        @JvmStatic
+        val double = Float(FKind.FDouble)
+        @JvmStatic
+        val longdouble = Float(FKind.FLongDouble)
+        @JvmStatic
+        val float = Float(FKind.FFloat)
 
         @JvmStatic
         fun array(el: Type, size: Option<Long>) = Array(el, size)
@@ -292,8 +298,8 @@ sealed interface Declaration<out Exp, out Stmt> {
     /**
      * How the declaration is scoped.
      */
-    val visibility: Visibility
-    fun withVisibility(visibility: Visibility): Declaration<Exp, Stmt>
+    val visibility: Visibility get() =
+        if (!site.isLocal()) Visibility.TUnit else Visibility.Local
 
     val tlid: Option<TLID> get() = ident.map { TLID(it, kind) }
     val kind: EntityKind
@@ -313,14 +319,12 @@ sealed interface Declaration<out Exp, out Stmt> {
         val name: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
-        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Exp, Nothing> {
         override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         override val isDefinition: Boolean get() = rhs.isDefined()
         override val kind: EntityKind get() = EntityKind.Var
@@ -334,14 +338,12 @@ sealed interface Declaration<out Exp, out Stmt> {
         val params: Params,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
-        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage = Storage.Default,
         override val meta: Meta       = Meta.default,
     ): Declaration<Nothing, Stmt> {
         override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         fun type(): Type = Type.Fun(returnType, params, vararg)
 
@@ -358,13 +360,11 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls>,
-        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         override val isDefinition: Boolean = fields.isDefined()
 
@@ -379,13 +379,11 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val site: Site,
         override val ident: Option<Ident>,
         val underlyingType: Type,
-        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         /** There is no such thing as a typedecl.
          *  A typedef without a type implicitly means typedef int <name>;
@@ -399,13 +397,11 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val site: Site,
         override val ident: Option<Ident>,
         val enumerators: Option<Enumerators>,
-        override val visibility: Visibility = Visibility.Local,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        override fun withVisibility(visibility: Visibility) = this.copy(visibility = visibility)
 
         override val isDefinition = enumerators.isDefined()
 
@@ -454,20 +450,36 @@ data class TLID(val name: Ident, val kind: EntityKind) {
  * Paths leading into declarations to possible declaration sites in declarations.
  */
 data class Site(val breadcrumbs: List<SiteMarker>) {
-    fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(Site(breadcrumbs + crumb))
+    fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(this + crumb)
+    operator fun plus(crumb: SiteMarker) = Site(breadcrumbs + crumb)
+
+    fun isLocal(): Boolean {
+        for (crumb in breadcrumbs) {
+            if (crumb.isLocal)
+                return true
+        }
+
+        return false
+    }
 
     companion object {
         val root  = Site(listOf())
         val local = Site(listOf(Local))
     }
 
-    sealed interface SiteMarker
-    object Local: SiteMarker
+    sealed interface SiteMarker {
+        val isLocal get() = false
+    }
+    object Local: SiteMarker {
+        override val isLocal = true
+    }
     data class Toplevel(val site: Int): SiteMarker
     object VarType: SiteMarker
     object FunctionReturn: SiteMarker
     object Pointee: SiteMarker
-    data class FunctionParam(val param: Ident): SiteMarker
+    data class FunctionParam(val param: Ident): SiteMarker {
+        override val isLocal = true
+    }
     data class Member(val member: Ident): SiteMarker
     object Typedef: SiteMarker
 }
@@ -476,7 +488,10 @@ data class TranslationUnit<out E, out T>(
     val tuid: TUID,
 
     /** The declarations at the top-level of the file. */
-    val decls: List<Declaration<E, T>>,
+    val toplevelDeclarations: List<Declaration<E, T>>,
+
+    /** All declarations with unit-level scope */
+    val declarations: List<Declaration<E, T>>,
 
     /** Resolution of declarations to definitions. */
     val definitions: Map<Declaration<*,*>, Declaration<E,T>>
@@ -491,9 +506,9 @@ data class TranslationUnit<out E, out T>(
         .toOption() // FIXME should also find inline declarations.
      */
 
-    val variables: List<Declaration.Var<E>> get()  = decls.variables()
-    val functions: List<Declaration.Fun<T>> get()  = decls.functions()
-    val structs: List<Declaration.Composite> get() = decls.structs()
+    val variables: List<Declaration.Var<E>> get()  = declarations.variables
+    val functions: List<Declaration.Fun<T>> get()  = declarations.functions
+    val structs: List<Declaration.Composite> get() = declarations.structs
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -522,19 +537,19 @@ data class TranslationUnit<out E, out T>(
 
     /* Map locations to top-level declarations */
     fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
-        decls
+        toplevelDeclarations
             .find { decl -> decl.meta.location.exists { it.begin == loc }}
             .toOption()
 
     /* Map locations to top-level declarations */
     fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
-        decls
+        toplevelDeclarations
             .find { decl -> decl.meta.location.exists { it.encloses(range) }}
             .toOption()
 
     /* Map locations to top-level declarations */
     fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
-        decls
+        toplevelDeclarations
             .find { decl -> decl.meta.location.exists { it.encloses(loc) }}
             .toOption()
 
@@ -598,25 +613,25 @@ fun <E,T> TranslationUnit<E,T>.erase(): ErasedTranslationUnit = this
 
 
 fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
-    copy(decls = decls.map { if (it.tlid.exists{ it == id }) f(it) else it })
+    copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid.exists{ it == id }) f(it) else it })
 
 /* filters for toplevel declarations */
 
-fun <E, T> List<Declaration<E, T>>.variables(): List<Declaration.Var<E>> =
+val <E, T> List<Declaration<E, T>>.variables: List<Declaration.Var<E>> get() =
     filterIsInstance<Declaration.Var<E>>()
 
-fun <E, T> List<Declaration<E, T>>.functions(): List<Declaration.Fun<T>> =
+val <E, T> List<Declaration<E, T>>.functions: List<Declaration.Fun<T>> get() =
     filterIsInstance<Declaration.Fun<T>>()
 
-fun <E,T> List<Declaration<E, T>>.structs(): List<Declaration.Composite> =
+val <E,T> List<Declaration<E, T>>.structs: List<Declaration.Composite> get() =
     filterIsInstance<Declaration.Composite>()
         .filter { it.structOrUnion == StructOrUnion.Struct }
 
-fun <T> List<Declaration.Fun<T>>.definitions(): List<Declaration.Fun<T>> =
+val <T> List<Declaration.Fun<T>>.definitions: List<Declaration.Fun<T>> get() =
     filter { it.isDefinition }
 
-fun <T> List<Declaration.Fun<T>>.declarations(): List<Declaration.Fun<T>> =
+val <T> List<Declaration.Fun<T>>.declarations: List<Declaration.Fun<T>> get() =
     filter { !it.isDefinition }
 
-fun <E, T> List<Declaration<E, T>>.typelike(): List<Declaration.Typelike> =
+val <E, T> List<Declaration<E, T>>.typelike: List<Declaration.Typelike> get() =
     filterIsInstance<Declaration.Typelike>()
