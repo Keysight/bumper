@@ -1,7 +1,6 @@
 package com.riscure.langs.c.parser
 
-import arrow.core.Either
-import arrow.core.getOrHandle
+import arrow.core.*
 import com.riscure.langs.c.ast.ErasedTranslationUnit
 import com.riscure.langs.c.parser.clang.ClangParser
 import org.opentest4j.AssertionFailedError
@@ -18,6 +17,9 @@ open class ParseTestBase {
             else
                 fail("Expected success, got error: $error")
         }
+
+    protected fun <T> Option<T>.assertOK(): T =
+        this.getOrElse { fail("Expected some, got none") }
 
     protected fun literal(program: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) {
         val file: File = kotlin.io.path

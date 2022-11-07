@@ -135,9 +135,23 @@ class StructParseTest: ParseTestBase() {
         assertEquals(listOf<Field>().some(), structB.fields)
     }
 
+    // Anonymous members
+    // =================
+
+    @Test
+    @DisplayName("Anonymous member in struct")
+    fun test30() = literal("""
+        struct A { int; };
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.toplevelDeclarations.size)
+        val structA = assertNotNull(ast.structs.find { it.ident == "A".some() })
+        val fields = structA.fields.assertOK()
+        assertEquals(1, fields.size)
+    }
+
     @Test
     @DisplayName("Nested struct in anonymous struct member")
-    fun test22() = literal("""
+    fun test31() = literal("""
         struct { struct B {}; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
