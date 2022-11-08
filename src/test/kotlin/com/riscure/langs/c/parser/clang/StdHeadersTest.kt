@@ -21,8 +21,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.fail
 
-private val uint32 = Type.Named("__uint32_t", Type.uint)
-private val uint64 = Type.Named("__uint64_t", Type.ulong)
+/*
+private val uint32 = Type.Typedeffed("__uint32_t")
+private val uint64 = Type.Typedeffed("__uint64_t")
 
 /**
  * In this test, we parse and pretty-print some standard headers.
@@ -197,3 +198,4 @@ class StdHeadersTest {
         assertEquals(fields, target.fields)
     }
 }
+*/

@@ -1,6 +1,7 @@
 package com.riscure.langs.c.ast
 
 
+/*
 data class FloatConstant
     ( val hex: Boolean
       , val intPart: String
@@ -13,10 +14,9 @@ sealed class Constant {
     data class CFloat(val value: FloatConstant, val kind: FKind): Constant()
     data class CStr  (val value: String): Constant()
     data class CWStr (val value: List<String>): Constant()
-    data class CEnum (val value: Pair<Ident, Int>): Constant()
+    data class CEnum (val value: Pair<Ref, Int>): Constant()
 }
 
-/*
 /* Type-annotated expression */
 data class TypedExp(val exp: Exp, val type: Type)
 

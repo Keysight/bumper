@@ -7,9 +7,9 @@ import com.riscure.dobby.clang.*
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.Parser
 import com.riscure.langs.c.parser.UnitState
+import com.riscure.langs.c.preprocessor.Preprocessor
 import com.riscure.langs.c.parser.clang.ClangParser
 import com.riscure.langs.c.preprocessor.clang.ClangPreprocessor
-import com.riscure.langs.c.preprocessor.Preprocessor
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Path
@@ -20,12 +20,12 @@ typealias Result<R> = Either<Throwable, R>
  * Assembles the various stages into a frontend pipeline for processing
  * translation units.
  */
-class Frontend<out S : UnitState>(
+class Frontend<Exp, Stmt, out S : UnitState<Exp,Stmt>>(
     private val preprocessor: Preprocessor,
-    private val parser: Parser<S>,
+    private val parser: Parser<Exp, Stmt, S>,
     private val cppStorage: Storage
 ) : Preprocessor by preprocessor,
-    Parser<S> by parser {
+    Parser<Exp, Stmt, S> by parser {
 
     val log = LoggerFactory.getLogger(javaClass)
 
@@ -42,7 +42,7 @@ class Frontend<out S : UnitState>(
     /**
      * Process a translation unit represented by the given main file.
      */
-    fun process(main: File, command: Options): Result<UnitState> =
+    fun process(main: File, command: Options): Result<S> =
         // compute the location of the preprocessed input.
         preprocessedAt(main, command).flatMap { cpped ->
             // If it doesn't exist yet, preprocess the input file

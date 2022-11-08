@@ -16,7 +16,7 @@ internal class AstWriterTest {
 
         val parser = ClangParser()
         val ast = parser.parse(file.toFile())
-            .flatMap { it.ast() }
+            .flatMap { it.ast }
             .getOrHandle { throw it }
 
         val extractor = Extractor(file.toFile(), Charset.defaultCharset())
@@ -107,9 +107,9 @@ internal class AstWriterTest {
         assertEquals(
             output,
             literal(input) { ast -> ast.copy(
-                decls = ast
-                    .decls
-                    .filter { it.name != "g" })
+                toplevelDeclarations = ast
+                    .toplevelDeclarations
+                    .filter { it.ident != "g".some() })
             }
         )
     }
@@ -130,10 +130,10 @@ internal class AstWriterTest {
         assertEquals(
             output,
             literal(input) { ast ->
-                ast.copy(decls =
-                    ast.decls
+                ast.copy(toplevelDeclarations =
+                    ast.toplevelDeclarations
                         // remove g
-                        .filter { it.name != "g" }
+                        .filter { it.ident != "g".some() }
                         // turn f into a prototype
                         .map { tl ->
                             if (tl is Declaration.Fun && tl.name == "f") {

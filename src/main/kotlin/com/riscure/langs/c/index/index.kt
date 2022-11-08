@@ -1,54 +1,66 @@
 package com.riscure.langs.c.index
 
 import arrow.core.*
-import com.riscure.langs.c.ast.TLID
-import java.nio.file.Path
+import com.riscure.langs.c.ast.*
 
 open class IndexException(msg: String, cause: Exception? = null) : Exception(msg, cause)
 class MissingDefinition(name: String): IndexException("No definition found for name '$name'")
-class MultipleDefinitions(name: String, matches: Collection<Symbol>): IndexException(
+class MultipleDefinitions(name: String, matches: Collection<SymbolInfo>): IndexException(
     """
     Multiple definitions found for name '$name':
-    ${matches.joinToString(separator="\n\t") { "- ${it.unit.main}:${it.entity.name}" }}
+    ${matches.joinToString(separator="\n\t") { "- ${it.unit.main}:${it.tlid.name}" }}
     """.trimIndent())
 
-data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
+data class SymbolInfo(
+    val symbol : Symbol,
+    val hasDefinition: Boolean,
+    val visibility: Visibility,
+    val storage: Storage
+) {
+    val name get() = tlid.name
+    val kind get() = tlid.kind
+    val unit get() = symbol.unit
+    val site get() = symbol.site
+    val tlid get() = symbol.tlid
+}
+
+data class Index(val symbolsByName: Map<Ident, Set<SymbolInfo>> = mapOf()) {
 
     /**
      * Number of symbols in the index.
      */
     val size: Int get() = symbolsByName.foldLeft(0) { acc, (_, syms) -> acc + syms.size }
 
-    val symbols: Set<Symbol> by lazy {
+    val symbols: Set<SymbolInfo> by lazy {
         symbolsByName.entries
             .flatMap { it.value }
             .toSet()
     }
 
-    operator fun get(name: String): Set<Symbol> =
+    operator fun get(name: Ident): Set<SymbolInfo> =
         symbolsByName[name]
             .toOption()
             .getOrElse { setOf() }
 
-    operator fun get(tlid: TLID): Set<Symbol> =
+    operator fun get(tlid: TLID): Set<SymbolInfo> =
         symbolsByName[tlid.name]
             .toOption()
-            .map { it.filter { s -> s.entity.kind == tlid.kind }.toSet() }
+            .map { it.filter { s -> s.tlid == tlid }.toSet() }
             .getOrElse { setOf() }
 
-    fun getDefinitions(name: String) = this[name].filter { it.entity.kind.hasDefinition }
+    fun getDefinitions(name: String) = this[name].filter { it.hasDefinition }
 
     /**
      * Filter the symbols in the index
      */
-    fun filter(f: Predicate<Symbol>) = copy(
+    fun filter(f: Predicate<SymbolInfo>) = copy(
         symbolsByName = symbolsByName.mapValues { entry -> entry.value.filter { f(it) }.toSet() }
     )
 
     /**
      * Map the symbols in the index
      */
-    fun map(transform: (Symbol) -> Symbol) = copy(
+    fun map(transform: (SymbolInfo) -> SymbolInfo) = copy(
         symbolsByName = symbolsByName
             .mapValues { entry -> entry.value
                 .map { transform(it) }
@@ -59,7 +71,7 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
     /**
      * Flatmap the symbols in the index
      */
-    fun flatMap(transform: (Symbol) -> Set<Symbol>) = copy(
+    fun flatMap(transform: (SymbolInfo) -> Set<SymbolInfo>) = copy(
         symbolsByName = symbolsByName
             .mapValues { entry -> entry.value
                 .flatMap { transform(it) }
@@ -71,7 +83,7 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
      * Try to resolve a entity identifier.
      * @throws IndexException whenever the resolution fails or when it is ambiguous.
      */
-    fun getUnambiguousDefinition(id: TLID): Either<IndexException, Symbol> {
+    fun getUnambiguousDefinition(id: TLID): Either<IndexException, SymbolInfo> {
         val defs = getDefinitions(id.name)
         return when (defs.size) {
             0 -> MissingDefinition(id.name).left()
@@ -96,12 +108,12 @@ data class Index(val symbolsByName: Map<String, Set<Symbol>> = mapOf()) {
         )
 
         @JvmStatic
-        fun create(symbols: Collection<Symbol>): Index {
-            val symtab = mutableMapOf<String, MutableSet<Symbol>>()
+        fun create(symbols: Collection<SymbolInfo>): Index {
+            val symtab = mutableMapOf<String, MutableSet<SymbolInfo>>()
             for (symbol in symbols) {
-                val syms = symtab.getOrElse(symbol.entity.name) { mutableSetOf() }
+                val syms = symtab.getOrElse(symbol.tlid.name) { mutableSetOf() }
                 syms.add(symbol)
-                symtab[symbol.entity.name] = syms
+                symtab[symbol.tlid.name] = syms
             }
 
             return Index(symtab)

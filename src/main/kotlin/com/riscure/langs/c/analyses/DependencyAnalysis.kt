@@ -2,66 +2,76 @@ package com.riscure.langs.c.analyses
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.index.Symbol
 
-typealias Result = Either<String, Set<TLID>>
+typealias Result = Either<String, Set<Symbol>>
+
+fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
 
 /**
- * Implements a dependency analysis for C programs.
+ * Implements a dependency analysis for C programs:
+ * that is, it computes a set of symbols that a given AST element depends on,
+ * directly or transitively.
+ *
+ * This eagerly computes transitive dependencies, making use of caching
+ * to avoid recomputing dependencies for the same symbol multiple times.
+ * It maintains a stack to detect cycles in the dependency graph.
  */
-abstract class DependencyAnalysis<Exp,Stmt> {
-    abstract fun Exp.expDependencies(): Result
-    abstract fun Stmt.stmtDependencies(): Result
+interface DependencyAnalysis<Exp,Stmt> {
+    val nil: Result get() = setOf<Symbol>().right()
 
-    fun Result.merge(that: Result) =
-        flatMap { left ->
-            that.map { right -> left + right }
-        }
+    fun ofExp(exp: Exp): Result
+    fun ofStmt(stmt: Stmt): Result
 
-    fun Declaration<Exp,Stmt>.getDependencies(): Result = when (this) {
+    fun ofDecl(decl: Declaration<Exp,Stmt>): Result = when (decl) {
         is Declaration.Var       ->
-            rhs
-                .map { it.expDependencies() }
-                .getOrElse { setOf<TLID>().right() }
-                .merge(type.getDependencies())
+            decl.rhs
+                .map { ofExp(it) }
+                // if no rhs is given, no dependencies
+                .getOrElse { nil }
+                .union(ofType(decl.type))
         is Declaration.Composite ->
-            fields
-                .map { it.type.getDependencies() }
-                .sequence()
-                .map { it.flatten().toSet() }
-        is Declaration.EnumDef   ->
-            setOf<TLID>().right()
+            decl.fields
+                .map { fields ->
+                    fields
+                        .map { ofType(it.type) }
+                        .sequence()
+                        .map { it.flatten().toSet() }
+                }
+                // if no fields are defined, no dependencies
+                .getOrElse { nil }
+        is Declaration.Enum      -> nil
         is Declaration.Fun       ->
-            body
-                .map { it.stmtDependencies() }
-                .getOrElse { setOf<TLID>().right() }
-                .merge(returnType.getDependencies())
-                .merge(params.getDependencies())
+            decl.body
+                .map { ofStmt(it) }
+                .getOrElse { nil } // if no body, no dependencies
+                .union(ofType(decl.returnType))
+                .union(ofParams(decl.params))
         is Declaration.Typedef   ->
-            underlyingType.getDependencies()
+            ofType(decl.underlyingType)
     }
 
-    fun Type.getDependencies(): Result = when (this) {
+    fun ofType(type: Type): Result = when (type) {
         is Type.Fun               ->
-            returnType
-                .getDependencies()
-                .merge(params.getDependencies())
-        is Type.Array             -> elementType.getDependencies()
-        is Type.Ptr               -> pointeeType.getDependencies()
-        is Type.Named             -> setOf(tlid).right()
-        is Type.Struct            -> setOf(tlid).right()
-        is Type.Union             -> setOf(tlid).right()
-        is Type.Int               -> setOf<TLID>().right()
-        is Type.Enum              -> setOf<TLID>().right()
-        is Type.Float             -> setOf<TLID>().right()
-        is Type.Void              -> setOf<TLID>().right()
-        is Type.Atomic            -> el.getDependencies()
-        is Type.Complex           -> setOf<TLID>().right()
-        is Type.InlineDeclaration -> declaration.getDependencies()
+            ofType(type.returnType)
+                .union(ofParams(type.params))
+        is Type.Array             -> ofType(type.elementType)
+        is Type.Ptr               -> ofType(type.pointeeType)
+        is Type.Typedeffed        -> setOf(type.ref.resolution).right()
+        is Type.Struct            -> setOf(type.ref.resolution).right()
+        is Type.Union             -> setOf(type.ref.resolution).right()
+        is Type.Int               -> nil
+        is Type.Enum              -> nil
+        is Type.Float             -> nil
+        is Type.Void              -> nil
+        is Type.Atomic            -> ofType(type.elementType)
+        is Type.Complex           -> nil
+        is Type.InlineDeclaration -> ofDecl(type.declaration)
     }
 
-    private fun List<Param>.getDependencies(): Result =
-        this
-            .map { it.type.getDependencies() }
+    private fun ofParams(params: List<Param>): Result =
+        params
+            .map { ofType(it.type) }
             .sequence()
             .map { it.flatten().toSet() }
 }

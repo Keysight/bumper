@@ -55,9 +55,9 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
             else sourceOf(tl).flatMap { varBodyOf(it) }
 
         // no rhs
-        is Declaration.Composite -> "".right()
-        is Declaration.EnumDef -> "".right()
-        is Declaration.Typedef -> "".right()
+        is Declaration.Composite                                       -> "".right()
+        is Declaration.Enum -> "".right()
+        is Declaration.Typedef                                         -> "".right()
     }
 
     private fun sourceOf(tl: Declaration<*,*>) =

@@ -19,7 +19,7 @@ import java.io.File
  *
  * This is *not* thread-safe, as far as we know because Bytedeco is not thread-safe.
  */
-class ClangParser : Parser<ClangUnitState> {
+class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
     override fun parse(file: File, opts: Options, tuid: TUID): Either<Throwable, ClangUnitState> {
         val cmd: Command = with(Spec.clang11) {

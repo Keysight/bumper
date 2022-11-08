@@ -28,7 +28,7 @@ object Pretty {
         FKind.FLongDouble -> "long double"
     }
 
-    fun declaration(ident: String, type: Type): String {
+    fun declaration(ident: Ident, type: Type): String {
         val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
@@ -59,21 +59,21 @@ object Pretty {
 
     private fun typePrefix(type: Type): String = when (type) {
         // This part should have been printed by the name-part printer
-        is Type.Array  -> throw RuntimeException("Failed to pretty-print ill-formed type.")
-        is Type.Fun    -> throw RuntimeException("Failed to pretty-print ill-formed type.")
+        is Type.Array             -> throw RuntimeException("Failed to pretty-print ill-formed type.")
+        is Type.Fun               -> throw RuntimeException("Failed to pretty-print ill-formed type.")
 
         // Possible remainders:
-        is Type.Ptr    -> "${typePrefix(type.pointeeType)}*"
-        is Type.Enum   -> type.id
-        is Type.Float  -> floatKind(type.kind)
-        is Type.Int    -> integerKind(type.kind)
-        is Type.Named  -> type.id
-        is Type.Struct -> "struct ${type.id}" // with parens it doesn't parse
-        is Type.Union  -> "union ${type.id}"  // same.
-        is Type.Void   -> "void"
+        is Type.Ptr               -> "${typePrefix(type.pointeeType)}*"
+        is Type.Enum              -> type.ref.byName
+        is Type.Float             -> floatKind(type.kind)
+        is Type.Int               -> integerKind(type.kind)
+        is Type.Typedeffed        -> type.ref.byName
+        is Type.Struct            -> "struct ${type.ref}" // with parens it doesn't parse
+        is Type.Union             -> "union ${type.ref}"  // same.
+        is Type.Void              -> "void"
 
-        is Type.Complex -> "${floatKind(type.kind)} _Complex"
-        is Type.Atomic  -> "_Atomic ${typePrefix(type.el)}"
+        is Type.Complex           -> "${floatKind(type.kind)} _Complex"
+        is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
 
         // inline compound declarations are entirely printed prefix.
         is Type.InlineDeclaration -> lhs(type.declaration)
@@ -84,7 +84,8 @@ object Pretty {
         return declaration("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
     }
 
-    fun typedef(typedef: Declaration.Typedef): String = "typedef ${declaration(typedef.name, typedef.underlyingType)}"
+    fun typedef(typedef: Declaration.Typedef): String =
+        "typedef ${declaration(typedef.ident.getOrElse { "" }, typedef.underlyingType)}"
 
     fun storage(storage: Storage): String = when (storage) {
         Storage.Default -> ""
@@ -95,20 +96,28 @@ object Pretty {
     }
 
     fun lhs(toplevel: Declaration<*,*>): String = when (toplevel) {
-        is Declaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(name, type)}" }
-        is Declaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}"     }
-        is Declaration.Typedef   -> typedef(toplevel)
-        is Declaration.Composite -> with(toplevel) {
+        is Declaration.Var                                             -> with(toplevel) { "${storage(storage)} ${declaration(name, type)}" }
+        is Declaration.Fun                                             -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}"     }
+        is Declaration.Typedef                                         -> typedef(toplevel)
+        is Declaration.Composite                                       -> with(toplevel) {
             when (structOrUnion) {
-                StructOrUnion.Struct -> "struct ${maybeName(name)}${maybeFields(fields)}"
-                StructOrUnion.Union -> "union ${maybeName(name)}${maybeFields(fields)}"
+                StructOrUnion.Struct -> "struct ${maybeName(ident)}${maybeFields(fields)}"
+                StructOrUnion.Union -> "union ${maybeName(ident)}${maybeFields(fields)}"
             }
         }
-        is Declaration.EnumDef   -> "enum ${toplevel.name} { TODO } "
+        is Declaration.Enum -> "enum ${maybeName(toplevel.ident)} { TODO } " // TODO
     }
 
-    private fun maybeFields(fields: List<Field>) = if (fields.isEmpty()) "" else " { ${fields(fields)}; }"
-    private fun maybeName(name: String) = if (name.isEmpty()) "" else "$name "
+    private fun maybeFields(fields: Option<List<Field>>) = when (fields) {
+        is None -> ""
+        is Some -> " { ${fields(fields.value)}; }"
+    }
+
+    private fun maybeName(ident: Option<Ident>) = when (ident) {
+        is None -> ""
+        is Some -> "${ident.value} "
+    }
+
     private fun bitFieldSpec(bitfield: Option<Int>): String =
         bitfield
             .map { " : ${it}" }
@@ -138,7 +147,7 @@ class AstWriters(
     private val semicolon = text(";")
 
     fun print(unit: ErasedTranslationUnit): Either<Throwable,Writer> =
-        unit.decls
+        unit.toplevelDeclarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
@@ -161,7 +170,7 @@ class AstWriters(
                     semicolon.right()
                 }
         is Declaration.Typedef   -> semicolon.right()
-        is Declaration.Composite -> semicolon.right()
-        is Declaration.EnumDef   -> semicolon.right()
+        is Declaration.Composite                                       -> semicolon.right()
+        is Declaration.Enum -> semicolon.right()
     }
 }
