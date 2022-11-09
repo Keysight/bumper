@@ -30,7 +30,10 @@ class TypedefParseTest: ParseTestBase() {
             typedef struct { int x; } MyStruct;
         }
     """.trimIndent()) { ast ->
+        // clang lifts some declaration nodes to the toplevel of the ast,
+        // we check that that does not happen for locally declared typedefs
         assertEquals(1, ast.toplevelDeclarations.size)
+        assertIs<Declaration.Fun<*>>(ast.toplevelDeclarations[0])
     }
 
 
@@ -42,5 +45,26 @@ class TypedefParseTest: ParseTestBase() {
         assertEquals(1, ast.toplevelDeclarations.size)
     }
 
+    @Test
+    @DisplayName("Anonymous typedef doesn't parse")
+    fun test03() = invalid("""
+        typedef int;
+    """.trimIndent())
+
+    @Test
+    @DisplayName("Redeclaration of identical typedef OK")
+    fun test04() = parsed("""
+        typedef int myint;
+        typedef int myint;
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.declarations.size)
+    }
+
+    @Test
+    @DisplayName("Redeclaration of typedef with different type fails")
+    fun test05() = invalid("""
+        typedef int myint;
+        typedef short myint;
+    """.trimIndent())
 
 }
