@@ -16,7 +16,7 @@ typealias CursorHash = Int
 
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.
- * The state is bound to a single translation unit.
+ * The state is bound to a single translation unit which should only be parsed once.
  */
 open class CursorParser(
     val tuid: TUID,
@@ -90,20 +90,25 @@ open class CursorParser(
         ifKind(CXCursor_TranslationUnit, "translation unit") {
             // we make a quick pass over the children to collect some cursors that we should not parse
             // as top-level entities, because they were not written as top-level declarations by the user,
-            // but rather lifted by clang to the top-level of the AST
+            // but rather lifted by clang to the top-level of the AST.
             val ignored: Set<CursorHash> = children()
                 .flatMap {tl ->
                     when (tl.kind()) {
-                        CXCursor_TypedefDecl -> {
-                            val decl = clang_getTypedefDeclUnderlyingType(tl)
-                            when (decl.kind()) {
-                                // These are the kind of cursors that are lifted to top-level ast nodes by clang:
-                                // top-level typedeffed elaborated types.
-                                CXType_Elaborated -> listOf(clang_getTypeDeclaration(decl).hash())
-                                else              -> listOf()
+                        CXCursor_TypedefDecl ->
+                            tl.fold(mutableListOf<CursorHash>(), true) { acc ->
+                                when (this.kind()) {
+                                    // These are the cursors that libclang happens to lift to the top-level of
+                                    // its internal (but exposed) AST: struct/union/enum declarations that
+                                    // syntactically occur in a typedef.
+                                    CXCursor_StructDecl -> acc.add(this.hash())
+                                    CXCursor_UnionDecl  -> acc.add(this.hash())
+                                    CXCursor_EnumDecl   -> acc.add(this.hash())
+                                    else                -> Unit
+                                }
+
+                                acc
                             }
-                        }
-                        else                 -> listOf()
+                        else -> listOf()
                     }
                 }
                 .toSet()
@@ -370,18 +375,22 @@ open class CursorParser(
      * Libclang calls this an 'elaborated type'. Probably because Clang actually hoists inline
      * definitions to top-level nodes in its internal AST.
      */
-    fun CXCursor.asElaboratedType(site: Site): Result<Type> =
+    fun CXCursor.asElaboratedTypeDefinition(site: Site): Result<Type> =
         when (kind()) {
             CXCursor_EnumDecl   -> asEnumDecl(site).map   { Type.InlineDeclaration(it) }
             CXCursor_StructDecl -> asStructDecl(site).map { Type.InlineDeclaration(it) }
             CXCursor_UnionDecl  -> asUnionDecl(site).map  { Type.InlineDeclaration(it) }
-            else                -> "Expected a compound type declaration, got ${kindName()}".left()
+            else                -> "Expected a compound type definition, got ${kindName()}".left()
         }
 
-    fun CXCursor.asAnonymousMemberType(site: Site): Result<Type> =
+    fun CXCursor.asElaboratedTypeDeclaration(site: Site): Result<Type> =
         when (kind()) {
-            CXCursor_UnionDecl  -> asUnionDecl(site).map  { Type.InlineDeclaration(it) }
-            CXCursor_StructDecl -> asStructDecl(site).map { Type.InlineDeclaration(it) }
+            CXCursor_EnumDecl   ->
+                Type.InlineDeclaration(Declaration.Enum(site, getIdentifier())).right()
+            CXCursor_StructDecl ->
+                Type.InlineDeclaration(Declaration.Composite(site, getIdentifier(), StructOrUnion.Struct)).right()
+            CXCursor_UnionDecl  ->
+                Type.InlineDeclaration(Declaration.Composite(site, getIdentifier(), StructOrUnion.Union)).right()
             else                -> "Expected a compound type declaration, got ${kindName()}".left()
         }
 
@@ -481,14 +490,32 @@ open class CursorParser(
             // Special type kind for inline declarations.
             // Any named struct or union type is actually an inline declaration or definition.
             CXType_Elaborated      ->
-                clang_getTypeDeclaration(this)
-                    .asElaboratedType(site)
+                clang_Type_getNamedType(this)
+                    .asType(site)
 
             // This is the kind of *anonymous* struct/union types.
             // Apparently added in C11
-            CXType_Record ->
-                clang_getTypeDeclaration(this)
-                    .asAnonymousMemberType(site)
+            CXType_Record -> {
+                val cursor = clang_getTypeDeclaration(this)
+
+                // if it refers to some external declaration, we should have already parsed it
+                // Please, let there be a better way...
+                // https://stackoverflow.com/questions/74377420/libclang-distinguish-typedeffed-struct-declaration-from-typedeffed-struct-defin
+                when (val previousDef = declarationTable[cursor.hash()].toOption()) {
+                    is Some -> cursor.asElaboratedTypeDeclaration(site)
+                    is None -> cursor.asElaboratedTypeDefinition(site)
+                }
+            }
+
+            CXType_Enum -> {
+                val cursor = clang_getTypeDeclaration(this)
+
+                // ugh, same as above
+                when (val previousDef = declarationTable[cursor.hash()].toOption()) {
+                    is Some -> cursor.asElaboratedTypeDeclaration(site)
+                    is None -> cursor.asElaboratedTypeDefinition(site)
+                }
+            }
 
             // There are others, but as far as I know, these are non-C types.
             else                   -> "Could not parse type of kind '${kindName()}'".left()

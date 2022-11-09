@@ -85,12 +85,12 @@ open class ParseTestBase {
         opts: Options = listOf(),
         whenOk: (ast: ClangTranslationUnit, unit: ClangUnitState) -> Unit
     ) {
+        println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
+
         val result = frontend
             .process(file, opts)
             .flatMap { it.ast.map { ast -> Pair(ast, it) } }
             .assertOK()
-
-        println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
 
         whenOk(result.first, result.second)
     }

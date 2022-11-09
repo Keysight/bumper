@@ -363,7 +363,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val site: Site,
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
-        val fields: Option<FieldDecls>,
+        val fields: Option<FieldDecls>      = None,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
@@ -400,7 +400,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     data class Enum(
         override val site: Site,
         override val ident: Option<Ident>,
-        val enumerators: Option<Enumerators>,
+        val enumerators: Option<Enumerators> = None,
         override val storage: Storage       = Storage.Default,
         override val meta: Meta             = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {

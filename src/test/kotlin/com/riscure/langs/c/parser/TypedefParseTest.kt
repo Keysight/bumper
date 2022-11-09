@@ -36,7 +36,6 @@ class TypedefParseTest: ParseTestBase() {
         assertIs<Declaration.Fun<*>>(ast.toplevelDeclarations[0])
     }
 
-
     @Test
     @DisplayName("Typedef anonymous enum")
     fun test02() = parsed("""
@@ -67,4 +66,34 @@ class TypedefParseTest: ParseTestBase() {
         typedef short myint;
     """.trimIndent())
 
+    @Test
+    @DisplayName("Typedef pointer to anonymous struct")
+    fun test06() = parsed("""
+        typedef struct { int member; } *mytyp;
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.toplevelDeclarations.size)
+    }
+
+    @Test
+    @DisplayName("Typedef pointer to named struct")
+    fun test07() = parsed("""
+        typedef struct mystruct { int member; } *mytyp;
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.toplevelDeclarations.size)
+    }
+
+    @Test
+    @DisplayName("Typedef struct declaration without definition")
+    fun test08() = parsed("""
+        struct A { int member; };
+        typedef struct A MyStruct;
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.toplevelDeclarations.size)
+        val typedef = assertIs<Declaration.Typedef>(ast.toplevelDeclarations[1])
+        val decl = assertIs<Type.InlineDeclaration>(typedef.underlyingType)
+        val structDecl = assertIs<Declaration.Composite>(decl.declaration)
+        assertEquals("A".some(), structDecl.ident)
+        assertEquals(EntityKind.Struct, structDecl.kind)
+        assertFalse(structDecl.isDefinition)
+    }
 }
