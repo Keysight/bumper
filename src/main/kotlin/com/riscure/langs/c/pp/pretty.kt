@@ -28,8 +28,8 @@ object Pretty {
         FKind.FLongDouble -> "long double"
     }
 
-    fun declaration(ident: Ident, type: Type): String {
-        val (remainingType, decl) = namePart(type, ident)
+    fun declaration(ident: Option<Ident>, type: Type): String {
+        val (remainingType, decl) = namePart(type, ident.getOrElse { "" })
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
 
@@ -81,11 +81,11 @@ object Pretty {
 
     fun prototype(thefun: Declaration.Fun<*>): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
-        return declaration("${thefun.name}(${formals(thefun.params)})", thefun.returnType)
+        return declaration("${thefun.name}(${formals(thefun.params)})".some(), thefun.returnType)
     }
 
     fun typedef(typedef: Declaration.Typedef): String =
-        "typedef ${declaration(typedef.ident.getOrElse { "" }, typedef.underlyingType)}"
+        "typedef ${declaration(typedef.ident, typedef.underlyingType)}"
 
     fun storage(storage: Storage): String = when (storage) {
         Storage.Default -> ""
@@ -96,7 +96,7 @@ object Pretty {
     }
 
     fun lhs(toplevel: Declaration<*,*>): String = when (toplevel) {
-        is Declaration.Var                                             -> with(toplevel) { "${storage(storage)} ${declaration(name, type)}" }
+        is Declaration.Var                                             -> with(toplevel) { "${storage(storage)} ${declaration(name.some(), type)}" }
         is Declaration.Fun                                             -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}"     }
         is Declaration.Typedef                                         -> typedef(toplevel)
         is Declaration.Composite                                       -> with(toplevel) {
@@ -120,16 +120,12 @@ object Pretty {
 
     private fun bitFieldSpec(bitfield: Option<Int>): String =
         bitfield
-            .map { " : ${it}" }
+            .map { " : $it" }
             .getOrElse {"" }
 
-    fun field(field: Field) = when {
-        field.anonymous -> TODO("Can't print anonymous field $field")
-        else -> {
-            "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
-        }
+    fun field(field: Field) =
+        "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
 
-    }
     fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
 }
 

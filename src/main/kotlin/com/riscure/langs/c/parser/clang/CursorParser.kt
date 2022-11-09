@@ -94,7 +94,6 @@ open class CursorParser(
                         // somehow e.g. an empty ';' results in top-level UnexposedDecls
                         // not sure what else causes them.
                         cursor.kind() == CXCursor_UnexposedDecl -> false
-                        // Clang expands typedef struct {..} to two top-level declarations, one of which is anonymous.
                         else                                    -> true
                     }
                 }
@@ -199,7 +198,7 @@ open class CursorParser(
         val fields = if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
-                .map { it.asField(site) }
+                .mapIndexed { i, it -> it.asField(site + Site.Member(i)) }
                 .sequence()
                 .map { it.some() }
         } else {
@@ -244,22 +243,18 @@ open class CursorParser(
     /**
      * @param site depicts the declaration site at which the surrounding composite is parsed.
      */
-    fun CXCursor.asField(surrounding: Site): Result<Field> {
-        val id = getIdentifier().getOrElse { "" }
-
-        return surrounding.scope(Site.Member(id)) { memberSite ->
-            type()
-                .asType(memberSite)
-                .map { type ->
-                    val attrs = this.cursorAttributes(type())
-                    Field(
-                        id,
-                        type.withAttrs(type.attrs + attrs),
-                        clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) },
-                        id.isEmpty()
-                    )
-                }
-        }
+    fun CXCursor.asField(site: Site): Result<Field> {
+        return type()
+            .asType(site)
+            .map { type ->
+                val attrs = this.cursorAttributes(type())
+                Field(
+                    site,
+                    getIdentifier(),
+                    type.withAttrs(type.attrs + attrs),
+                    clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
+                )
+            }
     }
 
     fun CXCursor.asVarDecl(site: Site): Result<Declaration.Var<CXCursor>> = memoize {
@@ -295,7 +290,7 @@ open class CursorParser(
         val nargs = clang_Cursor_getNumArguments(this)
         return (0 until nargs)
             .map { clang_Cursor_getArgument(this, it) }
-            .map { it.asParam(site) }
+            .mapIndexed { i, c -> c.asParam(site + Site.FunctionParam(i)) }
             .sequence()
     }
 
@@ -325,18 +320,12 @@ open class CursorParser(
         }
     }
 
-    fun CXCursor.asParam(surrounding: Site): Result<Param> =
+    fun CXCursor.asParam(site: Site): Result<Param> =
         ifKind(CXCursor_ParmDecl, "parameter declaration") {
-            getIdentifier()
-                .toEither { "Invalid parameter identifier: ${spelling()}" }
-                .flatMap { id ->
-                    surrounding.scope(Site.FunctionParam(id)) { paramSite ->
-                        type()
-                            .asType(paramSite)
-                            .map { type ->
-                                Param(id, type)
-                            }
-                    }
+            type()
+                .asType(site)
+                .map { type ->
+                    Param(site, getIdentifier(), type)
                 }
         }
 
@@ -353,6 +342,13 @@ open class CursorParser(
             else                -> "Expected a compound type declaration, got ${kindName()}".left()
         }
 
+    fun CXCursor.asAnonymousMemberType(site: Site): Result<Type> =
+        when (kind()) {
+            CXCursor_UnionDecl  -> asUnionDecl(site).map  { Type.InlineDeclaration(it) }
+            CXCursor_StructDecl -> asStructDecl(site).map { Type.InlineDeclaration(it) }
+            else                -> "Expected a compound type declaration, got ${kindName()}".left()
+        }
+
     /**
      * Return a reference to the definition under the cursor.
      */
@@ -363,7 +359,7 @@ open class CursorParser(
         // Get the declaration's symbol.
         // In C a reference should always resolve by a previous declaration, so this should resolve already.
         return when (val sym = declarationTable[this.hash()].toOption().flatMap { it.mkSymbol(tuid) }) {
-            is None -> "Failed to resolve name ${byName} to declaration".left()
+            is None -> "Failed to resolve name $byName to declaration".left()
             is Some -> Ref(byName, sym.value).right()
         }
 
@@ -431,7 +427,12 @@ open class CursorParser(
                     .asType(site)
                     .flatMap { retType ->
                         (0 until clang_getNumArgTypes(this))
-                            .map { clang_getArgType(this, it).asType(site).map { type -> Param("", type) } }
+                            .map { i ->
+                                val argSite = site + Site.FunctionParam(i)
+                                clang_getArgType(this, i)
+                                    .asType(argSite)
+                                    .map { type -> Param(argSite, None, type) }
+                            }
                             .sequence()
                             .map { args -> Type.Fun(retType, args, false) }
                     }
@@ -442,14 +443,16 @@ open class CursorParser(
                     .map { Type.Atomic(it) }
 
             // Special type kind for inline declarations.
-            // Clang elaborated the inline declaration to a top-level entity.
-            // We represent it inline, so that pretty-printing recovers the original,
-            // and we do not expose new names after pretty-printing.
-            // The elaborated declaration can have a name! If the anonymous declaration is in a function parameter,
-            // the name is not visible outside of the function body.
+            // Any named struct or union type is actually an inline declaration or definition.
             CXType_Elaborated      ->
                 clang_getTypeDeclaration(this)
                     .asElaboratedType(site)
+
+            // This is the kind of *anonymous* struct/union types.
+            // Apparently added in C11
+            CXType_Record ->
+                clang_getTypeDeclaration(this)
+                    .asAnonymousMemberType(site)
 
             // There are others, but as far as I know, these are non-C types.
             else                   -> "Could not parse type of kind '${kindName()}'".left()

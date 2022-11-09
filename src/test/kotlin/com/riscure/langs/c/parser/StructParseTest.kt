@@ -75,8 +75,9 @@ class StructParseTest: ParseTestBase() {
         assertEquals(1, ast.toplevelDeclarations.size)
         val struct = assertIs<Declaration.Composite>(ast.toplevelDeclarations[0])
 
+        val site = Site.root + Site.Toplevel(0)
         assertEquals(listOf(
-            Field("i", Type.int)
+            Field(site + Site.Member(0), "i".some(), Type.int)
         ).some(), struct.fields)
     }
 
@@ -88,9 +89,10 @@ class StructParseTest: ParseTestBase() {
         assertEquals(1, ast.toplevelDeclarations.size)
         val struct = assertIs<Declaration.Composite>(ast.toplevelDeclarations[0])
 
+        val site = Site.root + Site.Toplevel(0)
         assertEquals(listOf(
-            Field("i", Type.int),
-            Field("j", Type.double),
+            Field(site + Site.Member(0), "i".some(), Type.int),
+            Field(site + Site.Member(1), "j".some(), Type.double),
         ).some(), struct.fields)
     }
 
@@ -112,7 +114,7 @@ class StructParseTest: ParseTestBase() {
         assertEquals(2, ast.declarations.size)
 
         val structB = assertNotNull(ast.structs.find { it.ident == "B".some() })
-        assertEquals(Site.root + Site.Toplevel(0) + Site.Member("b"), structB.site)
+        assertEquals(Site.root + Site.Toplevel(0) + Site.Member(0), structB.site)
         assertTrue(structB.isDefinition)
         assertFalse(structB.isAnonymous)
         assertEquals(Visibility.TUnit, structB.visibility)
@@ -128,7 +130,7 @@ class StructParseTest: ParseTestBase() {
         assertEquals(2, ast.declarations.size)
 
         val structB = assertNotNull(ast.structs.find { it.ident == "B".some() })
-        assertEquals(Site.root + Site.Toplevel(0) + Site.Member("b"), structB.site)
+        assertEquals(Site.root + Site.Toplevel(0) + Site.Member(0), structB.site)
         assertTrue(structB.isDefinition)
         assertFalse(structB.isAnonymous)
         assertEquals(Visibility.TUnit, structB.visibility)
@@ -141,27 +143,56 @@ class StructParseTest: ParseTestBase() {
     @Test
     @DisplayName("Anonymous member in struct")
     fun test30() = literal("""
-        struct A { int; };
+        struct A { union { char alpha; int num; }; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
         val structA = assertNotNull(ast.structs.find { it.ident == "A".some() })
+
         val fields = structA.fields.assertOK()
         assertEquals(1, fields.size)
+
+        val field = assertNotNull(fields[0])
+        assertTrue(field.isAnonymous)
+        assertEquals(None, field.name)
+
+        val typeDecl = assertIs<Type.InlineDeclaration>(field.type)
+        val type = assertIs<Declaration.Composite>(typeDecl.declaration)
+        assertTrue(type.isAnonymous)
+        assertEquals(StructOrUnion.Union, type.structOrUnion)
+
+        val fs = type.fields.getOrElse { fail("Expected fields") }
+        assertEquals(2, fs.size)
+        val alpha = assertNotNull(fs[0])
+        val num   = assertNotNull(fs[1])
+        assertEquals(Type.char, alpha.type)
+        assertEquals(Type.int, num.type)
     }
 
     @Test
     @DisplayName("Nested struct in anonymous struct member")
     fun test31() = literal("""
-        struct { struct B {}; };
+        struct Scope { struct { int i; }; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
         assertEquals(2, ast.declarations.size)
+        val scope = assertNotNull(ast.structs.find { it.ident == "Scope".some() })
 
-        val structB = assertNotNull(ast.structs.find { it.ident == "B".some() })
-        assertEquals(Site.root + Site.Toplevel(0) + Site.Member("b"), structB.site)
-        assertTrue(structB.isDefinition)
-        assertFalse(structB.isAnonymous)
-        assertEquals(Visibility.TUnit, structB.visibility)
-        assertEquals(listOf<Field>().some(), structB.fields)
+        val fields = scope.fields.assertOK()
+        assertEquals(1, fields.size)
+
+        val field = assertNotNull(fields[0])
+        assertTrue(field.isAnonymous)
+        assertEquals(None, field.name)
+
+        val typeDecl = assertIs<Type.InlineDeclaration>(field.type)
+        val type = assertIs<Declaration.Composite>(typeDecl.declaration)
+        assertTrue(type.isAnonymous)
+        assertEquals(StructOrUnion.Struct, type.structOrUnion)
+
+        val fs = type.fields.getOrElse { fail("Expected fields") }
+        assertEquals(1, fs.size)
+        val i = assertNotNull(fs[0])
+        assertEquals(Type.int, i.type)
+        assertEquals("i".some(), i.name)
     }
 }

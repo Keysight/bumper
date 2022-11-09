@@ -222,17 +222,21 @@ sealed class Type {
 
 /* Struct or union field */
 data class Field(
-    val name: Ident
-  , val type: Type
-  , val bitfield: Option<Int> = none()
-  , val anonymous: Boolean    = false
-)
+    val site: Site,
+    val name: Option<Ident>,
+    val type: Type,
+    val bitfield: Option<Int> = none()
+) {
+    val isAnonymous: Boolean get() = name.isEmpty()
+}
 
 enum class StructOrUnion { Struct, Union }
 
 typealias FieldDecls  = List<Field>
 
-data class Param(val name: Ident = "", val type: Type)
+data class Param(val site: Site, val name: Option<Ident> = None, val type: Type) {
+    val isAnonymous: Boolean get() = name.isEmpty()
+}
 typealias Params = List<Param>
 
 data class Enumerator(val name: Ident, val key: Long) // TODO missing optional exp?
@@ -473,14 +477,32 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
     object Local: SiteMarker {
         override val isLocal = true
     }
-    data class Toplevel(val site: Int): SiteMarker
+    data class Toplevel(
+        /**
+         * The top-level declaration is indicated with a sparse int key,
+         * because they can be anonymous.
+         */
+        val site: Int
+    ): SiteMarker
     object VarType: SiteMarker
     object FunctionReturn: SiteMarker
     object Pointee: SiteMarker
-    data class FunctionParam(val param: Ident): SiteMarker {
+    data class FunctionParam(
+        /**
+         * The parameter declaration is indicated with a sparse int key,
+         * because they can be anonymous.
+         */
+        val site: Int
+    ): SiteMarker {
         override val isLocal = true
     }
-    data class Member(val member: Ident): SiteMarker
+    data class Member(
+        /**
+         * The member declaration is indicated with a sparse int key,
+         * because they can be anonymous.
+         */
+        val site: Int
+    ): SiteMarker
     object Typedef: SiteMarker
 }
 

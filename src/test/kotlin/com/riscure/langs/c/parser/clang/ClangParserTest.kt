@@ -52,9 +52,9 @@ class ClangParserTest {
             assertEquals("main", fn.name)
 
             assertEquals(2, fn.params.size)
-            assertEquals("argc", fn.params[0].name)
+            assertEquals("argc".some(), fn.params[0].name)
             assertEquals(Type.Int(IKind.IInt), fn.params[0].type)
-            assertEquals("argv", fn.params[1].name)
+            assertEquals("argv".some(), fn.params[1].name)
             assertEquals(Type.Array(Type.Ptr(Type.Int(IKind.IChar))), fn.params[1].type)
         }
     }
@@ -305,7 +305,7 @@ class ClangParserTest {
                 {
                   name: $ident
                   type: $type,
-                  pretty: ${Pretty.declaration(ident.getOrElse { "" }, type)},
+                  pretty: ${Pretty.declaration(ident, type)},
                 }
             """.trimIndent()
 
