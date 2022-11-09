@@ -239,7 +239,7 @@ data class Param(val site: Site, val name: Option<Ident> = None, val type: Type)
 }
 typealias Params = List<Param>
 
-data class Enumerator(val name: Ident, val key: Long) // TODO missing optional exp?
+data class Enumerator(val name: Ident, val key: Long)
 typealias Enumerators = List<Enumerator>
 
 /**

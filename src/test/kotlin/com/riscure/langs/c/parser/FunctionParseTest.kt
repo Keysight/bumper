@@ -9,7 +9,7 @@ class FunctionParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Empty main")
-    fun test00() = literal("""
+    fun test00() = parsed("""
         void main() {}
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)

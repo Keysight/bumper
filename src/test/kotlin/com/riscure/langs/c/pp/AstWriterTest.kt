@@ -9,6 +9,7 @@ import kotlin.io.path.*
 import kotlin.test.*
 
 internal class AstWriterTest {
+    /*
     fun literal(input: String, transform: (unit: TranslationUnit<CXCursor, CXCursor>) -> TranslationUnit<Any?, Any?> = {it}): String {
         val file = createTempFile(suffix = ".c").apply {
             writeText(input)
@@ -151,5 +152,5 @@ internal class AstWriterTest {
         """.trimIndent()
 
         println(literal(input))
-    }
+    }*/
 }

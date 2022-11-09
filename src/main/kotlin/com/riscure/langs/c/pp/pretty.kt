@@ -8,23 +8,23 @@ import com.riscure.langs.c.pp.writer.*
  * Total pretty printing functions, mainly for C types.
  */
 object Pretty {
-    fun integerKind(kind: IKind): String = when(kind) {
-        IKind.IBoolean -> "bool"
-        IKind.IChar    -> "char"
-        IKind.ISChar   -> "signed char"
-        IKind.IUChar   -> "unsigned char"
-        IKind.IShort   -> "short"
-        IKind.IUShort  -> "unsigned short"
-        IKind.IInt     -> "int"
-        IKind.IUInt    -> "unsigned int"
-        IKind.ILong    -> "long"
-        IKind.IULong   -> "unsigned long"
-        IKind.ILongLong -> "long long"
+    fun integerKind(kind: IKind): String = when (kind) {
+        IKind.IBoolean   -> "bool"
+        IKind.IChar      -> "char"
+        IKind.ISChar     -> "signed char"
+        IKind.IUChar     -> "unsigned char"
+        IKind.IShort     -> "short"
+        IKind.IUShort    -> "unsigned short"
+        IKind.IInt       -> "int"
+        IKind.IUInt      -> "unsigned int"
+        IKind.ILong      -> "long"
+        IKind.IULong     -> "unsigned long"
+        IKind.ILongLong  -> "long long"
         IKind.IULongLong -> "unsigned long long"
     }
     fun floatKind(kind: FKind): String = when (kind) {
-        FKind.FFloat -> "float"
-        FKind.FDouble -> "double"
+        FKind.FFloat      -> "float"
+        FKind.FDouble     -> "double"
         FKind.FLongDouble -> "long double"
     }
 
@@ -88,25 +88,34 @@ object Pretty {
         "typedef ${declaration(typedef.ident, typedef.underlyingType)}"
 
     fun storage(storage: Storage): String = when (storage) {
-        Storage.Default -> ""
-        Storage.Extern  -> "extern"
-        Storage.Static  -> "static"
-        Storage.Auto    -> "auto"
+        Storage.Default  -> ""
+        Storage.Extern   -> "extern"
+        Storage.Static   -> "static"
+        Storage.Auto     -> "auto"
         Storage.Register -> "register"
     }
 
-    fun lhs(toplevel: Declaration<*,*>): String = when (toplevel) {
-        is Declaration.Var                                             -> with(toplevel) { "${storage(storage)} ${declaration(name.some(), type)}" }
-        is Declaration.Fun                                             -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}"     }
-        is Declaration.Typedef                                         -> typedef(toplevel)
-        is Declaration.Composite                                       -> with(toplevel) {
+    fun lhs(toplevel: Declaration<*, *>): String = when (toplevel) {
+        is Declaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(name.some(), type)}" }
+        is Declaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
+        is Declaration.Typedef   -> typedef(toplevel)
+        is Declaration.Composite -> with(toplevel) {
             when (structOrUnion) {
                 StructOrUnion.Struct -> "struct ${maybeName(ident)}${maybeFields(fields)}"
-                StructOrUnion.Union -> "union ${maybeName(ident)}${maybeFields(fields)}"
+                StructOrUnion.Union  -> "union ${maybeName(ident)}${maybeFields(fields)}"
             }
         }
-        is Declaration.Enum -> "enum ${maybeName(toplevel.ident)} { TODO } " // TODO
+        is Declaration.Enum      -> with(toplevel) {
+            "enum ${maybeName(ident)}${maybeEnumerators(enumerators)};"
+        }
     }
+
+    private fun maybeEnumerators(enums: Option<Enumerators>) = when (enums) {
+        is None -> ""
+        is Some -> " { ${enums.value.joinToString(separator=", ") { enumerator(it) }} }"
+    }
+
+    private fun enumerator(enum: Enumerator) = "${enum.name} = ${enum.key}"
 
     private fun maybeFields(fields: Option<List<Field>>) = when (fields) {
         is None -> ""
@@ -133,40 +142,34 @@ object Pretty {
  * A class that knows how to text ASTs as long as you provide
  * the method for writing the bodies of top-level definitions.
  */
-class AstWriters(
-    /**
-     * A factory for writers for top-level entity bodies.
-     * It is expected that the bodyWriter includes the non-mandatory whitespace around the rhs's.
-     */
-    val getBodySource: (toplevel: Declaration<*,*>) -> Either<Throwable, String>
+class AstWriters<Exp, Stmt>(
+    val expWriter : (exp: Exp)  -> Either<Throwable, String>,
+    val stmtWriter: (stm: Stmt) -> Either<Throwable, String>
 ) {
     private val semicolon = text(";")
 
-    fun print(unit: ErasedTranslationUnit): Either<Throwable,Writer> =
+    fun print(unit: TranslationUnit<Exp, Stmt>): Either<Throwable,Writer> =
         unit.toplevelDeclarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: Declaration<*,*>): Either<Throwable, Writer> =
+    fun print(toplevel: Declaration<Exp, Stmt>): Either<Throwable, Writer> =
         rhs(toplevel).map { rhs -> text(Pretty.lhs(toplevel)) andThen rhs }
 
-    fun rhs(toplevel: Declaration<*,*>): Either<Throwable,Writer> = when (toplevel) {
-        is Declaration.Var ->
-                if (toplevel.isDefinition) {
-                    getBodySource(toplevel).map { body -> text(" =$body;") }
-                } else {
-                    semicolon.right()
-                }
+    fun rhs(toplevel: Declaration<Exp, Stmt>): Either<Throwable, Writer> = when (toplevel) {
+        is Declaration.Var       -> when (val exp = toplevel.rhs) {
+            is Some -> expWriter(exp.value).map { text(it) }
+            is None -> semicolon.right()
+        }
 
-        is Declaration.Fun ->
-                if (toplevel.isDefinition) {
-                    getBodySource(toplevel).map { body -> text(" {$body}") }
-                } else {
-                    semicolon.right()
-                }
+        is Declaration.Fun       -> when (val stmt = toplevel.body) {
+            is Some -> stmtWriter(stmt.value).map { text(it) }
+            is None -> semicolon.right()
+        }
+
         is Declaration.Typedef   -> semicolon.right()
-        is Declaration.Composite                                       -> semicolon.right()
-        is Declaration.Enum -> semicolon.right()
+        is Declaration.Composite -> semicolon.right()
+        is Declaration.Enum      -> semicolon.right()
     }
 }

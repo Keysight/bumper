@@ -9,7 +9,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Empty anonymous struct definition")
-    fun test00() = literal("""
+    fun test00() = parsed("""
         struct {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -33,7 +33,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Named struct declaration")
-    fun test02() = literal("""
+    fun test02() = parsed("""
         struct A;
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -51,7 +51,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Empty named struct definition")
-    fun test03() = literal("""
+    fun test03() = parsed("""
         struct A {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -69,7 +69,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Named struct with single member")
-    fun test06() = literal("""
+    fun test06() = parsed("""
         struct A { int i; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -83,7 +83,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Named struct with two members")
-    fun test07() = literal("""
+    fun test07() = parsed("""
         struct A { int i; double j; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -107,7 +107,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Nested named struct in named struct")
-    fun test20() = literal("""
+    fun test20() = parsed("""
         struct A { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -123,7 +123,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Nested struct in anonymous struct")
-    fun test21() = literal("""
+    fun test21() = parsed("""
         struct { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -142,7 +142,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Anonymous member in struct")
-    fun test30() = literal("""
+    fun test30() = parsed("""
         struct A { union { char alpha; int num; }; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
@@ -170,7 +170,7 @@ class StructParseTest: ParseTestBase() {
 
     @Test
     @DisplayName("Nested struct in anonymous struct member")
-    fun test31() = literal("""
+    fun test31() = parsed("""
         struct Scope { struct { int i; }; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)

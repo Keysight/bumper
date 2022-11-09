@@ -6,6 +6,7 @@ import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import com.riscure.langs.c.parser.*
+import com.riscure.langs.c.pp.AstWriters
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import java.nio.file.Path
@@ -46,6 +47,11 @@ class ClangUnitState(
             parser.resolutions.toMutableMap()
         )
     }
+
+    val printer: AstWriters<CXCursor, CXCursor> = AstWriters(
+        { c -> clang.clang_getCursorPrettyPrinted(c, null).string.right() },
+        { c -> clang.clang_getCursorPrettyPrinted(c, null).string.right() }
+    )
 }
 
 /**

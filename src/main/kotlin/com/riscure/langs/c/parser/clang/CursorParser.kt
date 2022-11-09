@@ -88,12 +88,34 @@ open class CursorParser(
 
     fun CXCursor.asTranslationUnit(): Result<TranslationUnit<CXCursor, CXCursor>> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
+            // we make a quick pass over the children to collect some cursors that we should not parse
+            // as top-level entities, because they were not written as top-level declarations by the user,
+            // but rather lifted by clang to the top-level of the AST
+            val ignored: Set<CursorHash> = children()
+                .flatMap {tl ->
+                    when (tl.kind()) {
+                        CXCursor_TypedefDecl -> {
+                            val decl = clang_getTypedefDeclUnderlyingType(tl)
+                            when (decl.kind()) {
+                                // These are the kind of cursors that are lifted to top-level ast nodes by clang:
+                                // top-level typedeffed elaborated types.
+                                CXType_Elaborated -> listOf(clang_getTypeDeclaration(decl).hash())
+                                else              -> listOf()
+                            }
+                        }
+                        else                 -> listOf()
+                    }
+                }
+                .toSet()
+
+            // we parse the top-level declarations
             children()
                 .filter { cursor ->
                     when {
                         // somehow e.g. an empty ';' results in top-level UnexposedDecls
                         // not sure what else causes them.
                         cursor.kind() == CXCursor_UnexposedDecl -> false
+                        cursor.hash() in ignored                -> false
                         else                                    -> true
                     }
                 }
@@ -189,9 +211,23 @@ open class CursorParser(
 
     fun CXCursor.asEnumDecl(site: Site): Result<Declaration.Enum> = memoize {
         ifKind(CXCursor_EnumDecl, "enum declaration") {
-            Declaration.Enum(site, getIdentifier(), None).right() // TODO enumerators
+            if (clang_isCursorDefinition(this).toBool()) {
+                children()
+                    .map { it.asEnumerator() }
+                    .sequence()
+                    .map { enumerators -> Declaration.Enum(site, getIdentifier(), enumerators.some()) }
+            } else {
+                Declaration.Enum(site, getIdentifier(), None).right()
+            }
         }
     }
+
+    fun CXCursor.asEnumerator(): Result<Enumerator> =
+        ifKind(CXCursor_EnumConstantDecl, "enumerator") {
+            val name  = spelling()
+            val const = clang_getEnumConstantDeclValue(this)
+            Enumerator(name, const).right()
+        }
 
     private fun CXCursor.asComposite(site: Site): Result<Declaration.Composite> {
         // We check if this is the definition.

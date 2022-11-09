@@ -1,70 +1,22 @@
 package com.riscure.langs.c.parser.clang
 
-import arrow.core.Either
-import arrow.core.flatMap
-import arrow.core.getOrHandle
-import arrow.core.some
-import com.riscure.dobby.clang.Options
-import com.riscure.langs.c.Frontend
-import com.riscure.langs.c.Storage
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.pp.*
+import com.riscure.langs.c.parser.ParseTestBase
+import com.riscure.langs.c.pp.Pretty
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.io.File
-import java.nio.charset.Charset
-import java.nio.file.Path
 import java.util.stream.Stream
-import kotlin.io.path.writeText
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.fail
 
 /*
 private val uint32 = Type.Typedeffed("__uint32_t")
 private val uint64 = Type.Typedeffed("__uint64_t")
+*/
 
 /**
  * In this test, we parse and pretty-print some standard headers.
  */
-class StdHeadersTest {
-    private val storage = Storage.temporary("FrontendTest").getOrHandle { throw it }
-    private val frontend = Frontend.clang(Path.of("clang"), storage)
-
-    private fun astOnly(input: String, opts: Options = listOf(), debug: Boolean = false): ErasedTranslationUnit {
-        val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
-        file.deleteOnExit()
-        return process(file, opts, debug)
-    }
-
-    private fun astOf(input: String, opts: Options = listOf(), debug: Boolean = false): Pair<ErasedTranslationUnit, String> {
-        val file: File = kotlin.io.path.createTempFile(suffix=".c").apply { writeText(input) } .toFile()
-        file.deleteOnExit()
-        val ast = process(file, opts, debug)
-
-        val cpped = frontend.preprocessedAt(file, opts).getOrHandle { fail(it.message) }
-        val extractor = Extractor(cpped, Charset.defaultCharset())
-        fun bodyPrinter(tl : Declaration<*,*>) =
-            extractor.rhsOf(tl)
-
-        return Pair(ast, AstWriters { bodyPrinter(it) }
-            .print(ast)
-            .getOrHandle { throw it }
-            .write())
-    }
-    private fun process(test: File, opts: Options = listOf(), debug: Boolean = false): ErasedTranslationUnit {
-        if (debug) println(frontend.preprocessedAt(test, opts))
-
-        val result = frontend
-            .process(test, opts)
-            .flatMap { it.ast().map{ ast -> Pair(ast, it) }}
-
-        return when (result) {
-            is Either.Left -> fail("Expected successful processing, got error: ${result.value}")
-            is Either.Right -> result.value.first
-        }
-    }
+class StdHeadersTest: ParseTestBase() {
 
     companion object {
         // https://en.cppreference.com/w/c/header
@@ -98,8 +50,10 @@ class StdHeadersTest {
             "wchar",
             "wctype"
         ).map { Arguments.of(it) }
+    }
 
         /* Function signatures of some functions that we verify from the headers */
+        /*
         @JvmStatic
         fun functions(): Stream<Arguments> = Stream.of(
             /* assert.h --------------------------------------------------------- */
@@ -140,7 +94,7 @@ class StdHeadersTest {
                 ),
             )
         )
-    }
+    }*/
 
     /**
      * We parse and print the top-level entities of the headers, and parse them again.
@@ -157,25 +111,24 @@ class StdHeadersTest {
 
         println("Roundtrip test for: $input")
 
-        val (ast1, pp1) = astOf(input)
-        val (ast2, pp2) = try {
-            astOf(pp1)
-        } catch (e: Throwable) {
-            println("Failed to parse pretty-printed parsed input, which was:\n$pp1")
-            throw e
-        }
-
-        ast1.decls.zip(ast2.decls) { l, r ->
-            try {
-                assertEquals(l, r.withMeta(l.meta))
-            } catch (e : Throwable) {
-                println("Pretty 1:\n" + Pretty.lhs(l))
-                println("Pretty 2:\n" + Pretty.lhs(r))
-                throw e
+        bumped(input, listOf()) { ast1, unit1 ->
+            val pp1 = unit1.printer.print(ast1).assertOK().write()
+            bumped(pp1, listOf()) { ast2, unit2 ->
+                ast1.declarations.zip(ast2.declarations) { l, r ->
+                    try {
+                        assertEquals(l, r.withMeta(l.meta))
+                    } catch (e : Throwable) {
+                        println("Pretty 1:\n" + Pretty.lhs(l))
+                        println("Pretty 2:\n" + Pretty.lhs(r))
+                        throw e
+                    }
+                }
             }
         }
+
     }
 
+    /*
     @ParameterizedTest(name = "{0}.h:{1} function type")
     @MethodSource("functions")
     fun testStdFunction(header: String, ident: String, type: Type) {
@@ -197,5 +150,5 @@ class StdHeadersTest {
         val target = assertNotNull(ast.structs.find { it.name == ident })
         assertEquals(fields, target.fields)
     }
+    */
 }
-*/
