@@ -179,6 +179,15 @@ open class CursorParser(
             }
     }
 
+    fun CXCursor.asBuiltin(): Result<ClangDeclaration> =
+        getIdentifier()
+            .filter {id ->
+                // TODO is this the case for all builtins?
+                id.startsWith("__builtin")
+            }
+            .toEither { "Not a builtin declaration." }
+            .flatMap { asDeclaration(Site.builtin) }
+
     private fun String.validateIdentifier(): Option<String> =
         this.some().filter { Regex("[_a-zA-Z]\\w*").matches(it) }
 
@@ -243,7 +252,9 @@ open class CursorParser(
         }
 
     private fun CXCursor.asComposite(site: Site): Result<Declaration.Composite> {
-        // We check if this is the definition.
+        // We check if this is the definition, because the field visitor
+        // will just poke through the declaration into the related definition
+        // and visit the fields there.
         val fields = if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
@@ -430,15 +441,6 @@ open class CursorParser(
             is Some -> Ref(byName, sym.value).right()
         }
     }
-
-    fun CXCursor.asBuiltin(): Result<ClangDeclaration> =
-        getIdentifier()
-            .filter {id ->
-                // TODO is this the case for all builtins?
-                id.startsWith("__builtin")
-            }
-            .toEither { "Not a builtin declaration." }
-            .flatMap { asDeclaration(Site.builtin) }
 
     fun CXType.asRef(): Result<Ref> = clang_getTypeDeclaration(this).getRef(spelling())
 
