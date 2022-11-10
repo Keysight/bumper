@@ -96,4 +96,28 @@ class TypedefParseTest: ParseTestBase() {
         assertEquals(EntityKind.Struct, structDecl.kind)
         assertFalse(structDecl.isDefinition)
     }
+
+    @Test
+    @DisplayName("Typedef struct declaration without definition")
+    fun test10() = parsed("""
+        typedef struct A MyStruct;
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.toplevelDeclarations.size)
+    }
+
+    @Test
+    @DisplayName("Typedef struct definition of forward declaration")
+    fun test11() = parsed("""
+        struct A;
+        typedef struct A { int member; } MyStruct;
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.toplevelDeclarations.size)
+        assertEquals(3, ast.declarations.size)
+        val structDecl = assertIs<Declaration.Composite>(ast.toplevelDeclarations[0])
+        val typedef    = assertIs<Declaration.Typedef>(ast.toplevelDeclarations[1])
+        val inline     = assertIs<Type.InlineDeclaration>(typedef.underlyingType)
+        val structDef  = assertIs<Declaration.Composite>(inline.declaration)
+        assertFalse(structDecl.isDefinition)
+        assertTrue(structDef.isDefinition)
+    }
 }
