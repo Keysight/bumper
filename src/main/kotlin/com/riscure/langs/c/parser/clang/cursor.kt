@@ -15,6 +15,18 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
 
+/**
+ * Safer version of string() that checks if the C string is not null.
+ */
+fun CXString.stringOption(): Option<String> =
+    clang_getCString(this)
+        .toOption()
+        .map { ptr ->
+            val result = ptr.getString()
+            clang_disposeString(this)
+            result
+        }
+
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
 fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
 fun CXType.kindName(): String = clang_getTypeKindSpelling(kind()).string
@@ -123,9 +135,14 @@ fun CXSourceLocation.asLocation(): Option<Location> {
 
     return try {
         clang_getExpansionLocation(this, file, line, col, offset)
-        line.getOption().flatMap { l ->
-            col.getOption().map { c -> Location(Path.of(clang_getFileName(file).string), l, c) }
-        }
+        line.getOption()
+            .flatMap { l ->
+                col.getOption()
+                    .flatMap { c ->
+                        clang_getFileName(file).stringOption()
+                            .map { file -> Location(Path.of(file), l, c) }
+                    }
+            }
     } finally {
         line.close(); col.close(); offset.close(); file.close()
     }

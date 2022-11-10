@@ -4,6 +4,7 @@ import arrow.core.*
 import arrow.typeclasses.Monoid
 import com.riscure.getOption
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.index.Symbol
 import com.riscure.langs.c.index.TUID
 import com.riscure.toBool
 import org.bytedeco.javacpp.annotation.ByVal
@@ -399,16 +400,38 @@ open class CursorParser(
      */
     fun CXCursor.getRef(byName: String): Result<Ref> {
         // first sanity check if this is indeed a definition
-        if (!clang_isCursorDefinition(this).toBool()) { return "Expected definition, to ${kindName()}.".left() }
+        if (!clang_isCursorDefinition(this).toBool()) {
+            return "Expected definition, to ${kindName()}.".left()
+        }
 
         // Get the declaration's symbol.
-        // In C a reference should always resolve by a previous declaration, so this should resolve already.
-        return when (val sym = declarationTable[this.hash()].toOption().flatMap { it.mkSymbol(tuid) }) {
+        // We should already have seen and parsed the declaration, so we look in the declaration table:
+        val sym: Option<Symbol> =
+            declarationTable[this.hash()]
+                .toOption()
+                .flatMap { it.mkSymbol(tuid) }
+                .orElse {
+                    // it could be that we have not seen the declaration in the AST if it is a *builtin*,
+                    // (like __builtin_va_list). We try to parse a builtin declaration:
+                    asBuiltin()
+                        .orNone()
+                        .flatMap { it.mkSymbol(tuid) }
+                }
+
+        return when (sym) {
             is None -> "Failed to resolve name $byName to declaration".left()
             is Some -> Ref(byName, sym.value).right()
         }
-
     }
+
+    fun CXCursor.asBuiltin(): Result<ClangDeclaration> =
+        getIdentifier()
+            .filter {id ->
+                // TODO is this the case for all builtins?
+                id.startsWith("__builtin")
+            }
+            .toEither { "Not a builtin declaration." }
+            .flatMap { asDeclaration(Site.builtin) }
 
     fun CXType.asRef(): Result<Ref> = clang_getTypeDeclaration(this).getRef(spelling())
 

@@ -128,5 +128,8 @@ class TypedefParseTest: ParseTestBase() {
     """.trimIndent()
     ) { ast ->
         assertEquals(1, ast.toplevelDeclarations.size)
+        val typedef  = assertIs<Declaration.Typedef>(ast.toplevelDeclarations[0])
+        val builtin   = assertIs<Type.Typedeffed>(typedef.underlyingType)
+        assertTrue(builtin.ref.resolution.site.isBuiltin())
     }
 }

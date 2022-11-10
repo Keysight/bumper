@@ -302,8 +302,10 @@ sealed interface Declaration<out Exp, out Stmt> {
     /**
      * How the declaration is scoped.
      */
-    val visibility: Visibility get() =
-        if (!site.isLocal()) Visibility.TUnit else Visibility.Local
+    val visibility: Visibility get() = when {
+        site.isLocal()   -> Visibility.Local
+        else             -> Visibility.TUnit
+    }
 
     val tlid: Option<TLID> get() = ident.map { TLID(it, kind) }
     val kind: EntityKind
@@ -466,9 +468,15 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
         return false
     }
 
+    fun isBuiltin(): Boolean =
+        breadcrumbs[0].toOption()
+            .map { it is Builtin }
+            .getOrElse { false }
+
     companion object {
-        val root  = Site(listOf())
-        val local = Site(listOf(Local))
+        val root    = Site(listOf())
+        val local   = Site(listOf(Local))
+        val builtin = Site(listOf(Builtin))
     }
 
     sealed interface SiteMarker {
@@ -477,6 +485,11 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
     object Local: SiteMarker {
         override val isLocal = true
     }
+
+    /**
+     * Root site for builtin declarations, like __builtin_va_list
+     */
+    object Builtin: SiteMarker
     data class Toplevel(
         /**
          * The top-level declaration is indicated with a sparse int key,
