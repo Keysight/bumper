@@ -120,4 +120,13 @@ class TypedefParseTest: ParseTestBase() {
         assertFalse(structDecl.isDefinition)
         assertTrue(structDef.isDefinition)
     }
+
+    @Test
+    @DisplayName("Typedef __builtin_va_list")
+    fun test09() = parsed("""
+        typedef __builtin_va_list va_list;
+    """.trimIndent()
+    ) { ast ->
+        assertEquals(1, ast.toplevelDeclarations.size)
+    }
 }
