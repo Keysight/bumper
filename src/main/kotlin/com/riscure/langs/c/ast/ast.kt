@@ -529,7 +529,7 @@ data class TranslationUnit<out E, out T>(
     val declarations: List<Declaration<E, T>>,
 
     /** Resolution of declarations to definitions. */
-    val definitions: Map<Declaration<*,*>, Declaration<E,T>>
+    val definitions: Map<Symbol, Symbol>
 ) {
     /**
      * Find a top-level element in this translation unit, based

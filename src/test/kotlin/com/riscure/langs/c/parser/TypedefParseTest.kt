@@ -122,6 +122,22 @@ class TypedefParseTest: ParseTestBase() {
     }
 
     @Test
+    @DisplayName("Typedef forward declaration")
+    fun test12() = parsed("""
+        typedef struct A MyStruct;
+        struct A { int member; };
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.toplevelDeclarations.size)
+        assertEquals(3, ast.declarations.size)
+        val typedef    = assertIs<Declaration.Typedef>(ast.toplevelDeclarations[0])
+        val def    = assertIs<Declaration.Composite>(ast.toplevelDeclarations[1])
+        val inline = assertIs<Type.InlineDeclaration>(typedef.underlyingType)
+        val decl   = assertIs<Declaration.Composite>(inline.declaration)
+        assertFalse(decl.isDefinition)
+        assertTrue(def.isDefinition)
+    }
+
+    @Test
     @DisplayName("Typedef __builtin_va_list")
     fun test09() = parsed("""
         typedef __builtin_va_list va_list;

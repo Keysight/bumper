@@ -1,6 +1,5 @@
-package com.riscure.langs.c.parser.clang
+package com.riscure.langs.c.parser
 
-import com.riscure.langs.c.parser.ParseTestBase
 import com.riscure.langs.c.pp.Pretty
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -116,7 +115,7 @@ class StdHeadersTest: ParseTestBase() {
             bumped(pp1, listOf()) { ast2, unit2 ->
                 ast1.declarations.zip(ast2.declarations) { l, r ->
                     try {
-                        assertEquals(l, r.withMeta(l.meta))
+                        roundtrip.eq(l, r.withMeta(l.meta))
                     } catch (e : Throwable) {
                         println("Pretty 1:\n" + Pretty.lhs(l))
                         println("Pretty 2:\n" + Pretty.lhs(r))

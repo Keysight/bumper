@@ -63,14 +63,21 @@ open class CursorParser(
     /**
      * Get the table mapping declarations to definitions from the parser state.
      */
-    private fun getDefinitions(): Result<Map<ErasedDeclaration, ClangDeclaration>> =
+    private fun getDefinitions(): Result<Map<Symbol, Symbol>> =
         Either.catch({"Failed to resolve declaration to corresponding definition."}) {
-            resolutionTable.mapValues { entry ->
-                when (val def = declarationTable[entry.value].toOption()) {
-                    is None -> throw RuntimeException()
-                    is Some -> def.value
+            resolutionTable
+                .map { entry ->
+                    when (val def = declarationTable[entry.value].toOption()) {
+                        is None -> throw Exception() // caught
+                        is Some -> {
+                            entry.key
+                                .mkSymbol(tuid)
+                                .zip(def.value.mkSymbol(tuid))
+                                .getOrElse { throw Exception() }
+                        }
+                    }
                 }
-            }
+                .toMap()
         }
 
     // Parsing functions
@@ -139,8 +146,8 @@ open class CursorParser(
                         .filter { it.visibility == Visibility.TUnit }
 
                     getDefinitions()
-                        .map {
-                            TranslationUnit(tuid, toplevelDecls, unitDeclarations, it)
+                        .map { defs ->
+                            TranslationUnit(tuid, toplevelDecls, unitDeclarations, defs)
                         }
                 }
         }
@@ -516,15 +523,17 @@ open class CursorParser(
                 clang_Type_getNamedType(this)
                     .asType(site)
 
-            // This is the kind of *anonymous* struct/union types.
-            // Apparently added in C11
+            // This is the struct type itself. We usually (always?) find it inside a CXType_Elaborated cursor.
             CXType_Record -> {
                 val cursor = clang_getTypeDeclaration(this)
 
-                // if it refers to some external declaration, we should have already parsed it
+                // Now, this is either a declaration 'struct <name>',
+                // or a definition 'struct <name> {..}`.
+                // But we don't have a way to get a cursor that represents this CXType to parse and figure out which.
+                // The best we have is [cursor], but this could be an external definition of the type...
                 // Please, let there be a better way...
                 // https://stackoverflow.com/questions/74377420/libclang-distinguish-typedeffed-struct-declaration-from-typedeffed-struct-defin
-                when (val previousDef = declarationTable[cursor.hash()].toOption()) {
+                when (declarationTable[cursor.hash()].toOption()) {
                     is Some -> cursor.asElaboratedTypeDeclaration(site)
                     is None -> cursor.asElaboratedTypeDefinition(site)
                 }

@@ -28,18 +28,18 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
         val args = cmd.toArguments()
 
         // We allocate the arguments.
-        val c_index: CXIndex = clang.clang_createIndex(0, 0)
+        val c_index: CXIndex = clang_createIndex(0, 0)
         val c_tu = CXTranslationUnit()
         val c_sourceFile = BytePointer(file.absolutePath.toString())
         val c_arg_pointers = args.map { BytePointer(it) }
         val c_args = PointerPointer<BytePointer>(args.size.toLong())
-        val c_parseOptions = clang.CXTranslationUnit_SingleFileParse
+        val c_parseOptions = CXTranslationUnit_SingleFileParse
 
         c_arg_pointers.forEach { c_args.put(it) }
 
         // Define the deallocator
         fun free() {
-            clang.clang_disposeIndex(c_index)
+            clang_disposeIndex(c_index)
             c_sourceFile.close()
             c_arg_pointers.forEach { it.deallocate() }
             c_args.deallocate()
