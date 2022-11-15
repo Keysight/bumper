@@ -4,9 +4,10 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 description = "Riscure True Code C Frontend"
 
 plugins {
-    `maven-publish`
     kotlin("jvm") version "1.7.20"
     kotlin("plugin.serialization") version "1.7.20"
+
+    `maven-publish`
 }
 
 group   = "com.riscure"

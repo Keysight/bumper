@@ -1,6 +1,7 @@
-package com.riscure.langs.c.parser
+package com.riscure.bumper
 
 import com.riscure.langs.c.Frontend
+import com.riscure.langs.c.parser.UnitState
 import com.riscure.langs.c.pp.Pretty
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -16,7 +17,7 @@ private val uint64 = Type.Typedeffed("__uint64_t")
 /**
  * In this test, we parse and pretty-print some standard headers.
  */
-interface StdHeadersTest<E,S,U:UnitState<E,S>> : ParseTestBase<E, S, U> {
+interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     companion object {
         // https://en.cppreference.com/w/c/header
@@ -110,24 +111,7 @@ interface StdHeadersTest<E,S,U:UnitState<E,S>> : ParseTestBase<E, S, U> {
         """.trimIndent()
 
         println("Roundtrip test for: $input")
-
-        bumped(input, listOf()) { ast1, unit1 ->
-            /*
-            val pp1 = unit1.printer.print(ast1).assertOK().write()
-            bumped(pp1, listOf()) { ast2, unit2 ->
-                ast1.declarations.zip(ast2.declarations) { l, r ->
-                    try {
-                        roundtrip.eq(l, r.withMeta(l.meta))
-                    } catch (e : Throwable) {
-                        println("Pretty 1:\n" + Pretty.lhs(l))
-                        println("Pretty 2:\n" + Pretty.lhs(r))
-                        throw e
-                    }
-                }
-            }
-             */
-        }
-
+        roundtrip(input)
     }
 
     /*

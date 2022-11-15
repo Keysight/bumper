@@ -1,4 +1,4 @@
-package com.riscure.langs.c.parser
+package com.riscure.bumper
 
 import arrow.core.*
 import com.riscure.dobby.clang.Options
@@ -6,12 +6,13 @@ import com.riscure.langs.c.Frontend
 import com.riscure.langs.c.Storage
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.Symbol
+import com.riscure.langs.c.parser.*
 import org.opentest4j.AssertionFailedError
 import java.io.File
 import kotlin.io.path.writeText
 import kotlin.test.*
 
-interface ParseTestBase<E,S,U:UnitState<E,S>> {
+interface ParseTestBase<E,S,U: UnitState<E, S>> {
     val frontend : Frontend<E,S,U>
     val parser   : Parser<E, S, U> get() = frontend
 
@@ -88,7 +89,25 @@ interface ParseTestBase<E,S,U:UnitState<E,S>> {
     }
 
 
-    fun roundtrip(program: String, whenOk: (TranslationUnit<E,S>) -> Unit): Unit = TODO()
+    fun roundtrip(program: String, whenOk: (TranslationUnit<E,S>) -> Unit): Unit {
+        TODO()
+
+//        bumped(program, listOf()) { ast1, unit1 ->
+//            val pp1 = unit1.printer.print(ast1).assertOK().write()
+//            bumped(pp1, listOf()) { ast2, unit2 ->
+//                ast1.declarations.zip(ast2.declarations) { l, r ->
+//                    try {
+//                        roundtrip.eq(l, r.withMeta(l.meta))
+//                    } catch (e: Throwable) {
+//                        println("Pretty 1:\n" + Pretty.lhs(l))
+//                        println("Pretty 2:\n" + Pretty.lhs(r))
+//                        throw e
+//                    }
+//                }
+//            }
+//        }
+    }
+
     fun roundtrip(program: String): Unit = roundtrip(program) {}
 
     object roundtrip {

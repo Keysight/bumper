@@ -1,9 +1,11 @@
-package com.riscure.langs.c.parser
+package com.riscure.bumper
 
 import arrow.core.*
 import com.riscure.langs.c.Frontend
 import com.riscure.langs.c.ast.*
+import com.riscure.langs.c.parser.*
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
 import kotlin.test.*
 
 interface StructParseTest<E,S,U:UnitState<E,S>>: ParseTestBase<E, S, U> {
