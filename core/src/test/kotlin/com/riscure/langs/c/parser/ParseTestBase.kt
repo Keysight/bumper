@@ -6,21 +6,14 @@ import com.riscure.langs.c.Frontend
 import com.riscure.langs.c.Storage
 import com.riscure.langs.c.ast.*
 import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.parser.clang.*
-import com.riscure.langs.c.pp.AstWriters
-import com.riscure.langs.c.pp.Extractor
-import org.bytedeco.llvm.clang.CXCursor
 import org.opentest4j.AssertionFailedError
 import java.io.File
-import java.nio.charset.Charset
-import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.*
 
-open class ParseTestBase<E,S,U:UnitState<E,S>>(
-    val parser: Parser<E,S,U>,
-    val frontend: Frontend<E,S,U>
-) {
+interface ParseTestBase<E,S,U:UnitState<E,S>> {
+    val frontend : Frontend<E,S,U>
+    val parser   : Parser<E, S, U> get() = frontend
 
     fun <E, T> Either<E, T>.assertOK(): T =
         this.getOrHandle { error ->
@@ -69,7 +62,7 @@ open class ParseTestBase<E,S,U:UnitState<E,S>>(
     }
 
     // Some temporary storage
-    val storage = Storage
+    val storage get() = Storage
         .temporary("test-storage")
         .getOrHandle { throw it }
 

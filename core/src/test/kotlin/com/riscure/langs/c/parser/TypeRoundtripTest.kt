@@ -8,10 +8,7 @@ import kotlin.test.*
  * This tests for internal consistency of parsing and pretty-printing.
  * If the parser always yields the empty translation unit, this test succeeds.
  */
-class TypeRoundtripTest<E,S,U: UnitState<E, S>>(
-    parser: Parser<E, S, U>,
-    frontend: Frontend<E, S, U>
-) : ParseTestBase<E, S, U>(parser, frontend)  {
+interface TypeRoundtripTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U>  {
 
     /* function type */
     @Test

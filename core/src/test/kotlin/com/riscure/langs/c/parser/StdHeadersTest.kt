@@ -16,10 +16,7 @@ private val uint64 = Type.Typedeffed("__uint64_t")
 /**
  * In this test, we parse and pretty-print some standard headers.
  */
-class StdHeadersTest<E,S,U:UnitState<E,S>>(
-    parser: Parser<E, S, U>,
-    frontend: Frontend<E, S, U>
-) : ParseTestBase<E, S, U>(parser, frontend) {
+interface StdHeadersTest<E,S,U:UnitState<E,S>> : ParseTestBase<E, S, U> {
 
     companion object {
         // https://en.cppreference.com/w/c/header

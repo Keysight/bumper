@@ -2,8 +2,6 @@ package com.riscure.langs.c.pp
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.parser.clang.ClangParser
-import org.bytedeco.llvm.clang.CXCursor
 import java.nio.charset.Charset
 import kotlin.io.path.*
 import kotlin.test.*

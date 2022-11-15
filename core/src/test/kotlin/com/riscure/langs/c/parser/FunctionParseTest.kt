@@ -7,10 +7,7 @@ import com.riscure.langs.c.index.Symbol
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*
 
-class FunctionParseTest<E,S,U:UnitState<E,S>>(
-    parser: Parser<E,S,U>,
-    frontend: Frontend<E, S, U>
-): ParseTestBase<E,S,U>(parser, frontend) {
+interface FunctionParseTest<E,S,U:UnitState<E,S>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Empty main")

@@ -6,6 +6,7 @@ description = "Riscure True Code C Frontend"
 plugins {
     `maven-publish`
     kotlin("jvm") version "1.7.20"
+    kotlin("plugin.serialization") version "1.7.20"
 }
 
 group   = "com.riscure"
@@ -23,12 +24,12 @@ repositories {
 }
 
 dependencies {
-    implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.4.1")
 
     implementation("org.slf4j:slf4j-api:1.7.25")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")

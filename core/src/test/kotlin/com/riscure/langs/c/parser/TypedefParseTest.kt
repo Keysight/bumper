@@ -6,10 +6,7 @@ import com.riscure.langs.c.ast.*
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*
 
-class TypedefParseTest<E,S,U:UnitState<E,S>>(
-    parser: Parser<E, S, U>,
-    frontend: Frontend<E, S, U>
-) : ParseTestBase<E, S, U>(parser, frontend) {
+interface TypedefParseTest<E,S,U:UnitState<E,S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef anonymous struct")
