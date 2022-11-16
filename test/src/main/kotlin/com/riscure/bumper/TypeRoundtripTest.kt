@@ -1,6 +1,6 @@
 package com.riscure.bumper
 
-import com.riscure.langs.c.parser.UnitState
+import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.api.Test
 
 /**

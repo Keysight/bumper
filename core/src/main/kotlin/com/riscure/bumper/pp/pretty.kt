@@ -1,8 +1,7 @@
-package com.riscure.langs.c.pp
+package com.riscure.bumper.pp
 
 import arrow.core.*
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.pp.writer.*
+import com.riscure.bumper.ast.*
 
 /**
  * Total pretty printing functions, mainly for C types.
@@ -148,7 +147,7 @@ class AstWriters<Exp, Stmt>(
 ) {
     private val semicolon = text(";")
 
-    fun print(unit: TranslationUnit<Exp, Stmt>): Either<Throwable,Writer> =
+    fun print(unit: TranslationUnit<Exp, Stmt>): Either<Throwable, Writer> =
         unit.toplevelDeclarations
             .map { print(it) }
             .sequence()

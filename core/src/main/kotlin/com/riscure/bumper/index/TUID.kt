@@ -1,4 +1,4 @@
-package com.riscure.langs.c.index
+package com.riscure.bumper.index
 
 import java.nio.file.Path
 

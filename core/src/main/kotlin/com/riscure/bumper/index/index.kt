@@ -1,7 +1,7 @@
-package com.riscure.langs.c.index
+package com.riscure.bumper.index
 
 import arrow.core.*
-import com.riscure.langs.c.ast.*
+import com.riscure.bumper.ast.*
 
 open class IndexException(msg: String, cause: Exception? = null) : Exception(msg, cause)
 class MissingDefinition(name: String): IndexException("No definition found for name '$name'")
@@ -101,7 +101,7 @@ data class Index(val symbolsByName: Map<Ident, Set<SymbolInfo>> = mapOf()) {
 
     companion object {
         @JvmStatic
-        fun merge(indices: Collection<Index>): Index = Index.create(
+        fun merge(indices: Collection<Index>): Index = create(
             indices
                 .flatMap { it.symbols }
                 .toSet()

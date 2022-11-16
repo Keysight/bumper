@@ -1,9 +1,9 @@
 package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
-import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.functions
-import com.riscure.langs.c.index.Symbol
+import com.riscure.bumper.ast.TLID
+import com.riscure.bumper.ast.functions
+import com.riscure.bumper.index.Symbol
 import java.io.File
 import kotlin.io.path.writeText
 import kotlin.test.*

@@ -1,8 +1,8 @@
-package com.riscure.langs.c.analyses
+package com.riscure.bumper.analyses
 
 import arrow.core.*
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.index.Symbol
+import com.riscure.bumper.ast.*
+import com.riscure.bumper.index.Symbol
 
 typealias Result = Either<String, Set<Symbol>>
 
@@ -23,7 +23,7 @@ interface DependencyAnalysis<Exp,Stmt> {
     fun ofExp(exp: Exp): Result
     fun ofStmt(stmt: Stmt): Result
 
-    fun ofDecl(decl: Declaration<Exp,Stmt>): Result = when (decl) {
+    fun ofDecl(decl: Declaration<Exp, Stmt>): Result = when (decl) {
         is Declaration.Var       ->
             decl.rhs
                 .map { ofExp(it) }

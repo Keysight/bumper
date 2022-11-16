@@ -4,12 +4,11 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.riscure.dobby.clang.*
-import com.riscure.langs.c.index.TUID
-import com.riscure.langs.c.parser.Parser
+import com.riscure.bumper.index.TUID
+import com.riscure.bumper.parser.Parser
 import org.bytedeco.javacpp.BytePointer
 import org.bytedeco.javacpp.PointerPointer
 import org.bytedeco.llvm.clang.*
-import org.bytedeco.llvm.global.clang
 import org.bytedeco.llvm.global.clang.*
 import java.io.File
 

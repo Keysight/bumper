@@ -1,14 +1,11 @@
 package com.riscure.bumper.libclang
 
 import arrow.core.*
-import com.riscure.langs.c.analyses.DependencyAnalysis
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.index.TUID
-import com.riscure.langs.c.parser.*
-import com.riscure.langs.c.parser.clang.ClangDependencyAnalysis
-import com.riscure.langs.c.parser.clang.CursorParser
-import com.riscure.langs.c.pp.AstWriters
+import com.riscure.bumper.analyses.DependencyAnalysis
+import com.riscure.bumper.ast.*
+import com.riscure.bumper.index.TUID
+import com.riscure.bumper.parser.UnitState
+import com.riscure.bumper.pp.AstWriters
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import java.nio.file.Path

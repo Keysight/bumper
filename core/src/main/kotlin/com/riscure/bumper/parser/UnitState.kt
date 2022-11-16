@@ -1,8 +1,8 @@
-package com.riscure.langs.c.parser
+package com.riscure.bumper.parser
 
 import arrow.core.*
-import com.riscure.langs.c.analyses.DependencyAnalysis
-import com.riscure.langs.c.ast.*
+import com.riscure.bumper.analyses.DependencyAnalysis
+import com.riscure.bumper.ast.*
 import java.io.Closeable
 
 /**
@@ -31,5 +31,5 @@ interface UnitState<Exp,Stmt>: Closeable {
     /**
      * The dependency analyzer.
      */
-    val dependencies: DependencyAnalysis<Exp,Stmt>
+    val dependencies: DependencyAnalysis<Exp, Stmt>
 }

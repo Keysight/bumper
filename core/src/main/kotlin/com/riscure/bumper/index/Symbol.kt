@@ -1,7 +1,7 @@
-package com.riscure.langs.c.index
+package com.riscure.bumper.index
 
-import com.riscure.langs.c.ast.Site
-import com.riscure.langs.c.ast.TLID
+import com.riscure.bumper.ast.Site
+import com.riscure.bumper.ast.TLID
 
 /* Uniquely identify a symbol across translation units */
 data class Symbol(

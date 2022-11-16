@@ -1,4 +1,4 @@
-package com.riscure.langs.c
+package com.riscure.bumper
 
 import arrow.core.*
 import com.riscure.Digest
@@ -6,6 +6,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempDirectory
 
 interface Storage {
     /**
@@ -19,7 +20,7 @@ interface Storage {
          */
         @JvmStatic
         fun temporary(prefix: String = ""): Either<Throwable, FileStorage> = Either.catch {
-            FileStorage(kotlin.io.path.createTempDirectory(prefix = prefix))
+            FileStorage(createTempDirectory(prefix = prefix))
         }
 
         /**

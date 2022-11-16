@@ -1,7 +1,7 @@
 package com.riscure
 
-import org.bytedeco.javacpp.*
 import arrow.core.*
+import org.bytedeco.javacpp.*
 import org.bytedeco.llvm.clang.CXString
 import org.bytedeco.llvm.global.clang
 

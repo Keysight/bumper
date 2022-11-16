@@ -1,13 +1,13 @@
-package com.riscure.langs.c
+package com.riscure.bumper
 
 import arrow.core.*
 import com.riscure.Digest
 import com.riscure.digest
 import com.riscure.dobby.clang.*
-import com.riscure.langs.c.index.TUID
-import com.riscure.langs.c.parser.Parser
-import com.riscure.langs.c.parser.UnitState
-import com.riscure.langs.c.preprocessor.Preprocessor
+import com.riscure.bumper.index.TUID
+import com.riscure.bumper.parser.Parser
+import com.riscure.bumper.parser.UnitState
+import com.riscure.bumper.preprocessor.Preprocessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -18,7 +18,7 @@ typealias Result<R> = Either<Throwable, R>
  * Assembles the various stages into a frontend pipeline for processing
  * translation units.
  */
-class Frontend<Exp, Stmt, out S : UnitState<Exp,Stmt>>(
+class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
     private val preprocessor: Preprocessor,
     private val parser: Parser<Exp, Stmt, S>,
     private val cppStorage: Storage

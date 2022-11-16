@@ -1,8 +1,8 @@
 package com.riscure.bumper
 
 import arrow.core.*
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.parser.*
+import com.riscure.bumper.ast.*
+import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import kotlin.test.*

@@ -1,10 +1,10 @@
 // This is a fully type-annotated C source AST.
 // The representation is ported from the CompCert CParser elaborated AST.
-package com.riscure.langs.c.ast
+package com.riscure.bumper.ast
 
 import arrow.core.*
-import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.index.TUID
+import com.riscure.bumper.index.Symbol
+import com.riscure.bumper.index.TUID
 import java.nio.file.Path
 
 /**
@@ -302,7 +302,8 @@ sealed interface Declaration<out Exp, out Stmt> {
     /**
      * How the declaration is scoped.
      */
-    val visibility: Visibility get() = when {
+    val visibility: Visibility
+        get() = when {
         site.isLocal()   -> Visibility.Local
         else             -> Visibility.TUnit
     }
@@ -325,8 +326,8 @@ sealed interface Declaration<out Exp, out Stmt> {
         val name: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
-        override val storage: Storage       = Storage.Default,
-        override val meta: Meta             = Meta.default
+        override val storage: Storage = Storage.Default,
+        override val meta: Meta = Meta.default
     ): Declaration<Exp, Nothing> {
         override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -345,7 +346,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
         override val storage: Storage = Storage.Default,
-        override val meta: Meta       = Meta.default,
+        override val meta: Meta = Meta.default,
     ): Declaration<Nothing, Stmt> {
         override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -366,15 +367,16 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls>      = None,
-        override val storage: Storage       = Storage.Default,
-        override val meta: Meta             = Meta.default
+        override val storage: Storage = Storage.Default,
+        override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
         override val isDefinition: Boolean = fields.isDefined()
 
-        override val kind: EntityKind get() =
+        override val kind: EntityKind
+            get() =
             when (structOrUnion) {
                 StructOrUnion.Union  -> EntityKind.Union
                 StructOrUnion.Struct -> EntityKind.Struct
@@ -385,8 +387,8 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val site: Site,
         override val ident: Option<Ident>,
         val underlyingType: Type,
-        override val storage: Storage       = Storage.Default,
-        override val meta: Meta             = Meta.default
+        override val storage: Storage = Storage.Default,
+        override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -403,8 +405,8 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val site: Site,
         override val ident: Option<Ident>,
         val enumerators: Option<Enumerators> = None,
-        override val storage: Storage       = Storage.Default,
-        override val meta: Meta             = Meta.default
+        override val storage: Storage = Storage.Default,
+        override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -415,12 +417,12 @@ sealed interface Declaration<out Exp, out Stmt> {
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
-        EntityKind.Fun        -> this is Fun
-        EntityKind.Enum       -> this is Enum
-        EntityKind.Struct     -> this is Composite && structOrUnion == StructOrUnion.Struct
-        EntityKind.Union      -> this is Composite && structOrUnion == StructOrUnion.Union
-        EntityKind.Typedef    -> this is Typedef
-        EntityKind.Var        -> this is Var
+        EntityKind.Fun     -> this is Fun
+        EntityKind.Enum    -> this is Enum
+        EntityKind.Struct  -> this is Composite && structOrUnion == StructOrUnion.Struct
+        EntityKind.Union   -> this is Composite && structOrUnion == StructOrUnion.Union
+        EntityKind.Typedef -> this is Typedef
+        EntityKind.Var     -> this is Var
     }
 }
 
@@ -644,10 +646,10 @@ typealias ErasedTranslationUnit = TranslationUnit<Any?, Any?>
 /**
  * Forget the expressions/statements at the leaves.
  */
-fun <E,T> TranslationUnit<E,T>.erase(): ErasedTranslationUnit = this
+fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit = this
 
 
-fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
+fun <E,T> TranslationUnit<E, T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
     copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid.exists{ it == id }) f(it) else it })
 
 /* filters for toplevel declarations */

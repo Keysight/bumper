@@ -2,7 +2,7 @@ package com.riscure.langs.c.parser.clang
 
 import arrow.core.*
 import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.pp.Pretty
+import com.riscure.bumper.pp.Pretty
 import org.junit.jupiter.api.Disabled
 import kotlin.test.*
 import java.io.File

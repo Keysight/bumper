@@ -1,13 +1,12 @@
-package com.riscure.langs.c.parser.clang
+package com.riscure.bumper.libclang
 
 import arrow.core.*
-import com.riscure.bumper.libclang.*
-import com.riscure.langs.c.analyses.DependencyAnalysis
-import com.riscure.langs.c.analyses.Result
-import com.riscure.langs.c.analyses.union
-import com.riscure.langs.c.ast.ErasedDeclaration
-import com.riscure.langs.c.ast.Site
-import com.riscure.langs.c.index.TUID
+import com.riscure.bumper.analyses.DependencyAnalysis
+import com.riscure.bumper.analyses.Result
+import com.riscure.bumper.analyses.union
+import com.riscure.bumper.ast.ErasedDeclaration
+import com.riscure.bumper.ast.Site
+import com.riscure.bumper.index.TUID
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
 
@@ -47,7 +46,7 @@ class ClangDependencyAnalysis(
     }
 
     private fun cursorDependencies(cursor: CXCursor): Result =
-        cursor.fold(nil, true) { acc:Result ->
+        cursor.fold(nil, true) { acc: Result ->
             when (kind()) {
                 CXCursor_VarDecl     ->
                     this.type()

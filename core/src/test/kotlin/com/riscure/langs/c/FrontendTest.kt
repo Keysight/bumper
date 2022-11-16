@@ -3,8 +3,8 @@ package com.riscure.langs.c
 import arrow.core.*
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
-import com.riscure.langs.c.ast.TLID
-import com.riscure.langs.c.ast.functions
+import com.riscure.bumper.ast.TLID
+import com.riscure.bumper.ast.functions
 import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.writeText

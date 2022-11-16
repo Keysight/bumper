@@ -1,12 +1,11 @@
-package com.riscure.langs.c.parser.clang
+package com.riscure.bumper.libclang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import com.riscure.bumper.libclang.*
+import com.riscure.bumper.ast.*
 import com.riscure.getOption
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.index.TUID
+import com.riscure.bumper.index.Symbol
+import com.riscure.bumper.index.TUID
 import com.riscure.toBool
 import org.bytedeco.javacpp.annotation.ByVal
 import org.bytedeco.llvm.clang.*

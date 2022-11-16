@@ -7,8 +7,8 @@ package com.riscure.bumper.libclang
 import arrow.core.*
 import arrow.typeclasses.Monoid
 import com.riscure.getOption
-import com.riscure.langs.c.ast.Location
-import com.riscure.langs.c.ast.SourceRange
+import com.riscure.bumper.ast.Location
+import com.riscure.bumper.ast.SourceRange
 import com.riscure.toBool
 import org.bytedeco.javacpp.IntPointer
 import org.bytedeco.llvm.clang.*

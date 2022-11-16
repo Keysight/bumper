@@ -1,7 +1,6 @@
 package com.riscure.bumper.libclang
 
 import com.riscure.bumper.*
-import com.riscure.langs.c.Frontend
 import org.bytedeco.llvm.clang.CXCursor
 import java.nio.file.Path
 

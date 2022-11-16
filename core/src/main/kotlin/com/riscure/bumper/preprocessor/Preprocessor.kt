@@ -1,4 +1,4 @@
-package com.riscure.langs.c.preprocessor
+package com.riscure.bumper.preprocessor
 
 import arrow.core.*
 import com.riscure.dobby.clang.Options

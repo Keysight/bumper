@@ -1,19 +1,18 @@
 package com.riscure.bumper
 
 import arrow.core.*
+import com.riscure.bumper.ast.*
 import com.riscure.dobby.clang.Options
-import com.riscure.langs.c.Frontend
-import com.riscure.langs.c.Storage
-import com.riscure.langs.c.ast.*
-import com.riscure.langs.c.index.Symbol
-import com.riscure.langs.c.parser.*
+import com.riscure.bumper.index.Symbol
+import com.riscure.bumper.parser.Parser
+import com.riscure.bumper.parser.UnitState
 import org.opentest4j.AssertionFailedError
 import java.io.File
 import kotlin.io.path.writeText
 import kotlin.test.*
 
 interface ParseTestBase<E,S,U: UnitState<E, S>> {
-    val frontend : Frontend<E,S,U>
+    val frontend : Frontend<E, S, U>
     val parser   : Parser<E, S, U> get() = frontend
 
     fun <E, T> Either<E, T>.assertOK(): T =
@@ -70,13 +69,13 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     fun bumped(
         program: String,
         opts: Options = listOf(),
-        whenOk: (ast: TranslationUnit<E,S>, unit: U) -> Unit
+        whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ): Unit = withTemp(program) { file -> bumped(file, opts, whenOk) }
 
     fun bumped(
         file: File,
         opts: Options = listOf(),
-        whenOk: (ast: TranslationUnit<E,S>, unit: U) -> Unit
+        whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ) {
         println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
 
@@ -89,7 +88,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
 
-    fun roundtrip(program: String, whenOk: (TranslationUnit<E,S>) -> Unit): Unit {
+    fun roundtrip(program: String, whenOk: (TranslationUnit<E, S>) -> Unit): Unit {
         TODO()
 
 //        bumped(program, listOf()) { ast1, unit1 ->

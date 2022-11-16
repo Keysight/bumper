@@ -1,4 +1,4 @@
-package com.riscure.langs.c.preprocessor.clang
+package com.riscure.bumper.preprocessor.impl
 
 import arrow.core.*
 import com.github.pgreze.process.Redirect
@@ -7,7 +7,7 @@ import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Command
 import com.riscure.dobby.clang.Options
 import com.riscure.dobby.clang.Spec
-import com.riscure.langs.c.preprocessor.Preprocessor
+import com.riscure.bumper.preprocessor.Preprocessor
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.io.File
