@@ -2,8 +2,10 @@ package com.riscure.bumper.index
 
 import com.riscure.bumper.ast.Site
 import com.riscure.bumper.ast.TLID
+import kotlinx.serialization.Serializable
 
 /* Uniquely identify a symbol across translation units */
+@Serializable
 data class Symbol(
     val unit: TUID,
     val tlid: TLID,

@@ -1,10 +1,16 @@
+@file:UseSerializers(OptionSerializer::class)
+
 // This is a fully type-annotated C source AST.
 // The representation is ported from the CompCert CParser elaborated AST.
 package com.riscure.bumper.ast
 
 import arrow.core.*
+import com.riscure.AnyAsUnitSerializer
+import com.riscure.OptionSerializer
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 import java.nio.file.Path
 
 /**
@@ -22,9 +28,11 @@ typealias Ident    = String
  * @property byName indicates the name by which the thing was referenced.
  * @property symbol indicates to what declaration the name resolved.
  */
+@Serializable
 data class Ref(val byName: Ident, val resolution: Symbol)
 
 /** A source location */
+@Serializable
 data class Location(
     val sourceFile: Path,
     /** The line number, with first line being 1 */
@@ -40,7 +48,9 @@ data class Location(
 }
 
 /** A source range with a begin and end location. */
+@Serializable
 data class SourceRange(
+
     /** begin location of the source range (inclusive) */
     val begin: Location,
     /** end location of the source range (inclusive) */
@@ -75,17 +85,24 @@ enum class FKind {
 }
 
 /* Attributes */
+@Serializable
 sealed class AttrArg {
+    @Serializable
     data class AnIdent(val value: Ident) : AttrArg()
+    @Serializable
     data class AnInt(val value: Int) : AttrArg()
+    @Serializable
     data class AString(val value: String) : AttrArg()
 }
 
+@Serializable
 sealed class Attr {
     object Constant : Attr()
     object Volatile : Attr()
     object Restrict : Attr()
+    @Serializable
     data class AlignAs(val alignment: Long) : Attr()
+    @Serializable
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
@@ -101,6 +118,7 @@ enum class Storage {
 typealias Attrs = List<Attr>
 
 /* Types */
+@Serializable
 sealed class Type {
     abstract val attrs: Attrs
     abstract fun withAttrs(attrs: Attrs): Type
@@ -108,29 +126,34 @@ sealed class Type {
     fun const() = withAttrs(attrs + Attr.Constant)
     fun restrict() = withAttrs(attrs + Attr.Restrict)
 
+    @Serializable
     data class Void (
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Int (
         val kind: IKind,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Float (
         val kind: FKind,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Ptr (
         val pointeeType: Type,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Array(
         val elementType: Type,
         val size: Option<Long> = None,
@@ -138,6 +161,7 @@ sealed class Type {
     ) : Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Fun(
         val returnType: Type,
         val params: List<Param>,
@@ -146,24 +170,28 @@ sealed class Type {
     ) : Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Typedeffed (
         val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Struct (
         val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Union (
         val ref: Ref,
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    @Serializable
     data class Enum (
         val ref: Ref,
         override val attrs: Attrs = listOf()
@@ -172,6 +200,7 @@ sealed class Type {
     }
 
     /* _Complex */
+    @Serializable
     data class Complex(
         val kind: FKind,
         override val attrs: Attrs = listOf()
@@ -179,6 +208,7 @@ sealed class Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     /* _Atomic */
+    @Serializable
     data class Atomic(
         val elementType: Type,
         override val attrs: Attrs = listOf()
@@ -187,6 +217,7 @@ sealed class Type {
     }
 
     /* A distinguished type for inline compound type declarations */
+    @Serializable
     data class InlineDeclaration (
         val declaration: Declaration.TypeDeclaration,
         override val attrs: Attrs = listOf()
@@ -221,6 +252,7 @@ sealed class Type {
 }
 
 /* Struct or union field */
+@Serializable
 data class Field(
     val site: Site,
     val name: Option<Ident>,
@@ -234,17 +266,20 @@ enum class StructOrUnion { Struct, Union }
 
 typealias FieldDecls  = List<Field>
 
+@Serializable
 data class Param(val site: Site, val name: Option<Ident> = None, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
 }
 typealias Params = List<Param>
 
+@Serializable
 data class Enumerator(val name: Ident, val key: Long)
 typealias Enumerators = List<Enumerator>
 
 /**
  * Metadata for the top-level elements.
  */
+@Serializable
 data class Meta(
     /**
      * The location where this element was parsed.
@@ -267,6 +302,7 @@ data class Meta(
 /**
  * The type of declarations, parameterized by the type that represents statements.
  */
+@Serializable
 sealed interface Declaration<out Exp, out Stmt> {
     /**
      * The [site] is a path from the root of the translation unit to this declaration.
@@ -321,6 +357,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: Declaration<Nothing, Nothing>, Typelike
 
+    @Serializable
     data class Var<out Exp>(
         override val site: Site,
         val name: Ident,
@@ -337,6 +374,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val kind: EntityKind get() = EntityKind.Var
     }
 
+    @Serializable
     data class Fun<out Stmt>(
         override val site: Site,
         val name: Ident,
@@ -362,6 +400,7 @@ sealed interface Declaration<out Exp, out Stmt> {
     /**
      * Struct or Union declaration or definition.
      */
+    @Serializable
     data class Composite(
         override val site: Site,
         override val ident: Option<Ident>,
@@ -383,6 +422,7 @@ sealed interface Declaration<out Exp, out Stmt> {
             }
     }
 
+    @Serializable
     data class Typedef(
         override val site: Site,
         override val ident: Option<Ident>,
@@ -401,6 +441,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val kind: EntityKind get() = EntityKind.Typedef
     }
 
+    @Serializable
     data class Enum(
         override val site: Site,
         override val ident: Option<Ident>,
@@ -442,6 +483,7 @@ enum class EntityKind {
 /**
  * Name and kind pair
  */
+@Serializable
 data class TLID(val name: Ident, val kind: EntityKind) {
     companion object {
         @JvmStatic fun variable(name: Ident) = TLID(name, EntityKind.Var)
@@ -457,6 +499,7 @@ data class TLID(val name: Ident, val kind: EntityKind) {
 /**
  * Paths leading into declarations to possible declaration sites in declarations.
  */
+@Serializable
 data class Site(val breadcrumbs: List<SiteMarker>) {
     fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(this + crumb)
     operator fun plus(crumb: SiteMarker) = Site(breadcrumbs + crumb)
@@ -481,9 +524,11 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
         val builtin = Site(listOf(Builtin))
     }
 
+    @Serializable
     sealed interface SiteMarker {
         val isLocal get() = false
     }
+    @Serializable
     object Local: SiteMarker {
         override val isLocal = true
     }
@@ -491,7 +536,9 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
     /**
      * Root site for builtin declarations, like __builtin_va_list
      */
+    @Serializable
     object Builtin: SiteMarker
+    @Serializable
     data class Toplevel(
         /**
          * The top-level declaration is indicated with a sparse int key,
@@ -499,9 +546,13 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
          */
         val site: Int
     ): SiteMarker
+    @Serializable
     object VarType: SiteMarker
+    @Serializable
     object FunctionReturn: SiteMarker
+    @Serializable
     object Pointee: SiteMarker
+    @Serializable
     data class FunctionParam(
         /**
          * The parameter declaration is indicated with a sparse int key,
@@ -511,6 +562,7 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
     ): SiteMarker {
         override val isLocal = true
     }
+    @Serializable
     data class Member(
         /**
          * The member declaration is indicated with a sparse int key,
@@ -518,9 +570,11 @@ data class Site(val breadcrumbs: List<SiteMarker>) {
          */
         val site: Int
     ): SiteMarker
+    @Serializable
     object Typedef: SiteMarker
 }
 
+@Serializable
 data class TranslationUnit<out E, out T>(
     val tuid: TUID,
 
@@ -640,14 +694,28 @@ data class TranslationUnit<out E, out T>(
     */
 }
 
-typealias ErasedDeclaration     = Declaration<Any?, Any?>
-typealias ErasedTranslationUnit = TranslationUnit<Any?, Any?>
+typealias ErasedDeclaration     = Declaration<Unit, Unit>
+typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>
 
 /**
  * Forget the expressions/statements at the leaves.
  */
-fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit = this
-
+fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit =
+    TranslationUnit(
+        tuid,
+        toplevelDeclarations.map { it.erase() },
+        declarations.map { it.erase() },
+        definitions
+    )
+fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
+    is Declaration.Composite -> this
+    is Declaration.Enum      -> this
+    is Declaration.Typedef   -> this
+    is Declaration.Fun       -> Declaration.Fun(
+        site, name, inline, returnType, params, vararg, body.map { Unit }, storage, meta
+    )
+    is Declaration.Var       -> Declaration.Var(site, name, type, rhs.map { Unit }, storage, meta)
+}
 
 fun <E,T> TranslationUnit<E, T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
     copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid.exists{ it == id }) f(it) else it })

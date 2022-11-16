@@ -27,6 +27,7 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.4.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.4.1")
 
     implementation("org.slf4j:slf4j-api:1.7.25")
     implementation("io.arrow-kt:arrow-core:1.1.2")
