@@ -49,4 +49,27 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
         val def = assertNotNull(ast.definitions[s2])
         assertEquals(t1.declaration.site, def.site)
     }
+
+    @Test
+    @DisplayName("Forward declaration in param to function body")
+    fun test02() = invalid("""
+        void f(struct A a) { // incomplete type for param
+          a = { .member = 42; };
+          
+          struct A {
+            int member;
+          };
+        }
+    """.trimIndent())
+
+    @Test
+    @DisplayName("Forward declaration in function body")
+    fun test03() = invalid("""
+        void f() {
+          struct A a = { .member = 42; };
+          struct A {
+            int member;
+          };
+        }
+    """.trimIndent())
 }

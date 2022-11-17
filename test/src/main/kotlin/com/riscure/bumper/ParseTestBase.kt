@@ -41,11 +41,11 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         }
     }
 
-    fun parsed(program: String, whenOk: (ast: ErasedTranslationUnit) -> Unit) = withTemp(program) { file ->
+    fun parsed(program: String, whenOk: (ast: TranslationUnit<*,*>) -> Unit) = withTemp(program) { file ->
         parsed(file, whenOk)
     }
 
-    fun parsed(test: File, whenOk: (ast: ErasedTranslationUnit) -> Unit) {
+    fun parsed(test: File, whenOk: (ast: TranslationUnit<*,*>) -> Unit) {
         val unit = parser
             .parse(test)
             .assertOK()
@@ -117,7 +117,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             // units can differ in roundtrip tests
         }
 
-        fun eq(d1: ErasedDeclaration, d2: ErasedDeclaration) {
+        fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
             assertEquals(d1.tlid, d2.tlid)
             assertEquals(d1.site, d2.site)
             assertEquals(d1.isDefinition, d2.isDefinition)

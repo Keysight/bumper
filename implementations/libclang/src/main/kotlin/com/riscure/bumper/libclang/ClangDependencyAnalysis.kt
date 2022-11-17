@@ -4,8 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.analyses.DependencyAnalysis
 import com.riscure.bumper.analyses.Result
 import com.riscure.bumper.analyses.union
-import com.riscure.bumper.ast.ErasedDeclaration
-import com.riscure.bumper.ast.Site
+import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
@@ -21,7 +20,7 @@ class ClangDependencyAnalysis(
     // may analyze.
     // These tables are computed by the [CursorParser] as it produces the AST.
     declarationTable: MutableMap<CursorHash, ClangDeclaration>,
-    resolutionTable: MutableMap<ErasedDeclaration, CursorHash>
+    resolutionTable: MutableMap<Declaration<*, *>, CursorHash>
 ) : CursorParser(tuid, declarationTable, resolutionTable),
     DependencyAnalysis<CXCursor, CXCursor> {
 

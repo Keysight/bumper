@@ -30,14 +30,14 @@ open class CursorParser(
     /**
      * A mapping of declarations to the cursor identifier of their corresponding definitions.
      */
-    protected val resolutionTable: MutableMap<ErasedDeclaration, CursorHash> = mutableMapOf(),
+    protected val resolutionTable: MutableMap<Declaration<*,*>, CursorHash> = mutableMapOf(),
 ) {
 
     // Parser state management
     //-----------------------------------------------------------------------------------------------
 
     val declarations: Map<CursorHash, ClangDeclaration> get() = declarationTable
-    val resolutions : Map<ErasedDeclaration, CursorHash> get() = resolutionTable
+    val resolutions : Map<Declaration<*,*>, CursorHash> get() = resolutionTable
 
     /**
      * Record a parsed declaration in the parse state tables.
