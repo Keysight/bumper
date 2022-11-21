@@ -5,7 +5,6 @@
 package com.riscure.bumper.ast
 
 import arrow.core.*
-import com.riscure.AnyAsUnitSerializer
 import com.riscure.OptionSerializer
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
