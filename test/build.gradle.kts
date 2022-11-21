@@ -1,6 +1,3 @@
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
-import org.gradle.api.tasks.testing.logging.TestLogEvent.*
-
 description = "Riscure True Code C Frontend Test Fixtures"
 
 plugins {
