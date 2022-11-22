@@ -132,14 +132,7 @@ open class CursorParser(
                         else                                    -> true
                     }
                 }
-                .mapIndexed { index, it ->
-                    // Each declaration is passed the declaration site,
-                    // represented by the index of the child.
-                    // This index is stable in case we reparse the same translation unit.
-                    Site.root.scope(Site.Toplevel(index)) { site ->
-                        it.asDeclaration(site)
-                    }
-                }
+                .map { it -> it.asDeclaration() }
                 .sequence()
                 .flatMap { toplevelDecls ->
                     val unitDeclarations = declarations.values
@@ -152,7 +145,7 @@ open class CursorParser(
                 }
         }
 
-    fun CXCursor.asDeclaration(site: Site): Result<Declaration<CXCursor, CXCursor>> {
+    fun CXCursor.asDeclaration(): Result<Declaration<CXCursor, CXCursor>> {
         // We might as well check if we already parsed this one:
         declarationTable[this.hash()].toOption().tap { return it.right() }
 
@@ -160,13 +153,13 @@ open class CursorParser(
         val decl = when (kind()) {
             CXCursor_FunctionDecl ->
                 if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
-                    asFunctionDef(site)
-                else asFunctionDecl(site)
-            CXCursor_StructDecl   -> this.asStructDecl(site)
-            CXCursor_UnionDecl    -> this.asUnionDecl(site)
-            CXCursor_VarDecl      -> this.asVarDecl(site)
-            CXCursor_TypedefDecl  -> this.asTypedef(site)
-            CXCursor_EnumDecl     -> this.asEnumDecl(site)
+                    asFunctionDef()
+                else asFunctionDecl()
+            CXCursor_StructDecl   -> this.asStructDecl()
+            CXCursor_UnionDecl    -> this.asUnionDecl()
+            CXCursor_VarDecl      -> this.asVarDecl()
+            CXCursor_TypedefDecl  -> this.asTypedef()
+            CXCursor_EnumDecl     -> this.asEnumDecl()
             else                  -> "Expected toplevel declaration, got kind ${kindName()}".left()
         }
 
@@ -186,7 +179,7 @@ open class CursorParser(
                 id.startsWith("__builtin")
             }
             .toEither { "Not a builtin declaration." }
-            .flatMap { asDeclaration(Site.builtin) }
+            .flatMap { asDeclaration() }
 
     private fun String.validateIdentifier(): Option<String> =
         this.some().filter { Regex("[_a-zA-Z]\\w*").matches(it) }
@@ -219,27 +212,26 @@ open class CursorParser(
         )
     }
 
-    fun CXCursor.asTypedef(site: Site): Result<Declaration.Typedef> = memoize {
+    fun CXCursor.asTypedef(): Result<Declaration.Typedef> = memoize {
         ifKind(CXCursor_TypedefDecl, "typedef") {
-            site.scope(Site.Typedef) { typedefSite ->
-                clang_getTypedefDeclUnderlyingType(this)
-                    .asType(typedefSite)
-                    .map { type ->
-                        Declaration.Typedef(site, clang_getTypedefName(type()).string.validateIdentifier(), type)
-                    }
+            clang_getTypedefDeclUnderlyingType(this)
+                .asType()
+                .map { type ->
+                    Declaration.Typedef(clang_getTypedefName(type()).string.validateIdentifier(), type)
+                }
             }
         }
     }
 
-    fun CXCursor.asEnumDecl(site: Site): Result<Declaration.Enum> = memoize {
+    fun CXCursor.asEnumDecl(): Result<Declaration.Enum> = memoize {
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             if (clang_isCursorDefinition(this).toBool()) {
                 children()
                     .map { it.asEnumerator() }
                     .sequence()
-                    .map { enumerators -> Declaration.Enum(site, getIdentifier(), enumerators.some()) }
+                    .map { enumerators -> Declaration.Enum(getIdentifier(), enumerators.some()) }
             } else {
-                Declaration.Enum(site, getIdentifier(), None).right()
+                Declaration.Enum(getIdentifier(), None).right()
             }
         }
     }
@@ -251,14 +243,14 @@ open class CursorParser(
             Enumerator(name, const).right()
         }
 
-    private fun CXCursor.asComposite(site: Site): Result<Declaration.Composite> {
+    private fun CXCursor.asComposite(): Result<Declaration.Composite> {
         // We check if this is the definition, because the field visitor
         // will just poke through the declaration into the related definition
         // and visit the fields there.
         val fields = if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
-                .mapIndexed { i, it -> it.asField(site + Site.Member(i)) }
+                .mapIndexed { i, it -> it.asField() }
                 .sequence()
                 .map { it.some() }
         } else {
@@ -267,18 +259,18 @@ open class CursorParser(
         }
 
         return fields
-            .map { fs -> Declaration.Composite(site, getIdentifier(), StructOrUnion.Struct, fs) }
+            .map { fs -> Declaration.Composite(getIdentifier(), StructOrUnion.Struct, fs) }
     }
 
-    fun CXCursor.asStructDecl(site: Site): Result<Declaration.Composite> = memoize {
+    fun CXCursor.asStructDecl(): Result<Declaration.Composite> = memoize {
         ifKind(CXCursor_StructDecl, "struct declaration") {
-            asComposite(site).map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
+            asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
         }
     }
 
-    fun CXCursor.asUnionDecl(site: Site): Result<Declaration.Composite> = memoize {
+    fun CXCursor.asUnionDecl(): Result<Declaration.Composite> = memoize {
         ifKind(CXCursor_UnionDecl, "union declaration") {
-            asComposite(site).map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
+            asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
         }
     }
 
@@ -300,16 +292,12 @@ open class CursorParser(
         return ts
     }
 
-    /**
-     * @param site depicts the declaration site at which the surrounding composite is parsed.
-     */
-    fun CXCursor.asField(site: Site): Result<Field> {
+    fun CXCursor.asField(): Result<Field> {
         return type()
-            .asType(site)
+            .asType()
             .map { type ->
                 val attrs = this.cursorAttributes(type())
                 Field(
-                    site,
                     getIdentifier(),
                     type.withAttrs(type.attrs + attrs),
                     clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
@@ -317,45 +305,39 @@ open class CursorParser(
             }
     }
 
-    fun CXCursor.asVarDecl(site: Site): Result<Declaration.Var<CXCursor>> = memoize {
+    fun CXCursor.asVarDecl(): Result<Declaration.Var<CXCursor>> = memoize {
         ifKind(CXCursor_VarDecl, "variable declaration") {
-            site.scope(Site.VarType) { typeSite ->
-                type()
-                    .asType(typeSite)
-                    .flatMap { type ->
-                        val rhs: Option<Result<CXCursor>> = if (clang_isCursorDefinition(this).toBool()) {
-                            val subexps = this.children().filter { clang_isExpression(it.kind()).toBool() }
-                            if (subexps.size != 1) {
-                                "Failed to extract right-hand side of variable declaration.".left().some()
-                            } else subexps[0].right().some()
-                        } else None
+            type()
+                .asType()
+                .flatMap { type ->
+                    val rhs: Option<Result<CXCursor>> = if (clang_isCursorDefinition(this).toBool()) {
+                        val subexps = this.children().filter { clang_isExpression(it.kind()).toBool() }
+                        if (subexps.size != 1) {
+                            "Failed to extract right-hand side of variable declaration.".left().some()
+                        } else subexps[0].right().some()
+                    } else None
 
-                        rhs.sequenceEither()
-                            .map { def -> Declaration.Var(site, this.spelling(), type, def) }
-                    }
+                    rhs.sequenceEither()
+                        .map { def -> Declaration.Var(this.spelling(), type, def) }
             }
         }
     }
 
-    /**
-     * @param site is the site of the surrounding function declaration
-     */
-    fun CXCursor.getReturnType(surrounding: Site): Result<Type> =
-        surrounding.scope(Site.FunctionReturn) { retSite ->
-            val typ = clang_getCursorResultType(this)
-            typ.asType(retSite)
-        }
+    fun CXCursor.getReturnType(): Result<Type> {
+        val typ = clang_getCursorResultType(this)
+        return typ.asType()
+    }
 
-    fun CXCursor.getParameters(site: Site): Result<List<Param>> {
+    fun CXCursor.getParameters(): Result<List<Param>> {
         val nargs = clang_Cursor_getNumArguments(this)
         return (0 until nargs)
             .map { clang_Cursor_getArgument(this, it) }
-            .mapIndexed { i, c -> c.asParam(site + Site.FunctionParam(i)) }
+            .mapIndexed { i, c -> c.asParam() }
             .sequence()
     }
 
-    fun CXCursor.asFunctionDef(site: Site): Result<Declaration.Fun<CXCursor>> = memoize {
-        asFunctionDecl(site).flatMap { decl ->
+    fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> = memoize {
+        asFunctionDecl().flatMap { decl ->
             Either
                 .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
                 .mapLeft { "Could not parse function body of ${decl.name}." }
@@ -363,12 +345,11 @@ open class CursorParser(
         }
     }
 
-    fun CXCursor.asFunctionDecl(site: Site): Result<Declaration.Fun<CXCursor>> = memoize {
+    fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> = memoize {
         ifKind(CXCursor_FunctionDecl, "function declaration") {
-            getReturnType(site).flatMap { resultType ->
-                getParameters(site).map { params ->
+            getReturnType().flatMap { resultType ->
+                getParameters().map { params ->
                     Declaration.Fun(
-                        site,
                         spelling(),
                         clang_Cursor_isFunctionInlined(this).toBool(),
                         resultType,
@@ -380,12 +361,12 @@ open class CursorParser(
         }
     }
 
-    fun CXCursor.asParam(site: Site): Result<Param> =
+    fun CXCursor.asParam(): Result<Param> =
         ifKind(CXCursor_ParmDecl, "parameter declaration") {
             type()
-                .asType(site)
+                .asType()
                 .map { type ->
-                    Param(site, getIdentifier(), type)
+                    Param(getIdentifier(), type)
                 }
         }
 
@@ -394,22 +375,22 @@ open class CursorParser(
      * Libclang calls this an 'elaborated type'. Probably because Clang actually hoists inline
      * definitions to top-level nodes in its internal AST.
      */
-    fun CXCursor.asElaboratedTypeDefinition(site: Site): Result<Type> =
+    fun CXCursor.asElaboratedTypeDefinition(): Result<Type> =
         when (kind()) {
-            CXCursor_EnumDecl   -> asEnumDecl(site).map   { Type.InlineDeclaration(it) }
-            CXCursor_StructDecl -> asStructDecl(site).map { Type.InlineDeclaration(it) }
-            CXCursor_UnionDecl  -> asUnionDecl(site).map  { Type.InlineDeclaration(it) }
+            CXCursor_EnumDecl   -> asEnumDecl().map   { Type.InlineDeclaration(it) }
+            CXCursor_StructDecl -> asStructDecl().map { Type.InlineDeclaration(it) }
+            CXCursor_UnionDecl  -> asUnionDecl().map  { Type.InlineDeclaration(it) }
             else                -> "Expected a compound type definition, got ${kindName()}".left()
         }
 
-    fun CXCursor.asElaboratedTypeDeclaration(site: Site): Result<Type> =
+    fun CXCursor.asElaboratedTypeDeclaration(): Result<Type> =
         when (kind()) {
             CXCursor_EnumDecl   ->
-                Type.InlineDeclaration(Declaration.Enum(site, getIdentifier())).right()
+                Type.InlineDeclaration(Declaration.Enum(getIdentifier())).right()
             CXCursor_StructDecl ->
-                Type.InlineDeclaration(Declaration.Composite(site, getIdentifier(), StructOrUnion.Struct)).right()
+                Type.InlineDeclaration(Declaration.Composite(getIdentifier(), StructOrUnion.Struct)).right()
             CXCursor_UnionDecl  ->
-                Type.InlineDeclaration(Declaration.Composite(site, getIdentifier(), StructOrUnion.Union)).right()
+                Type.InlineDeclaration(Declaration.Composite(getIdentifier(), StructOrUnion.Union)).right()
             else                -> "Expected a compound type declaration, got ${kindName()}".left()
         }
 
@@ -444,7 +425,7 @@ open class CursorParser(
 
     fun CXType.asRef(): Result<Ref> = clang_getTypeDeclaration(this).getRef(spelling())
 
-    fun CXType.asType(site: Site): Result<Type> =
+    fun CXType.asType(): Result<Type> =
         when (kind()) {
             CXType_Void            -> Type.Void().right()
             CXType_Bool            -> Type.Int(IKind.IBoolean).right()
@@ -465,7 +446,7 @@ open class CursorParser(
             CXType_LongDouble      -> Type.Float(FKind.FLongDouble).right()
             CXType_Complex         ->
                 clang_getElementType(this)
-                    .asType(site)
+                    .asType()
                     .flatMap {
                         when (it) {
                             is Type.Float -> Type.Complex(it.kind).right()
@@ -474,41 +455,38 @@ open class CursorParser(
                     }
 
             CXType_Pointer         ->
-                site.scope(Site.Pointee) { pointeeSite ->
-                    clang_getPointeeType(this)
-                        .asType(pointeeSite)
-                        .map { Type.Ptr(it) }
-                }
+                clang_getPointeeType(this)
+                    .asType()
+                    .map { Type.Ptr(it) }
 
             CXType_Typedef         ->
                 asRef().map { Type.Typedeffed(it) }
 
             CXType_ConstantArray   ->
                 clang_getArrayElementType(this)
-                    .asType(site)
+                    .asType()
                     .map { Type.Array(it, clang_getArraySize(this).some()) }
 
             CXType_IncompleteArray ->
                 clang_getArrayElementType(this)
-                    .asType(site)
+                    .asType()
                     .map { Type.Array(it) }
 
             // http://clang.llvm.org/doxygen/classclang_1_1FunctionNoProtoType.html
             CXType_FunctionNoProto ->
                 clang_getResultType(this)
-                    .asType(site)
+                    .asType()
                     .map { retType -> Type.Fun(retType, listOf(), false) }
 
             CXType_FunctionProto   ->
                 clang_getResultType(this)
-                    .asType(site)
+                    .asType()
                     .flatMap { retType ->
                         (0 until clang_getNumArgTypes(this))
                             .map { i ->
-                                val argSite = site + Site.FunctionParam(i)
                                 clang_getArgType(this, i)
-                                    .asType(argSite)
-                                    .map { type -> Param(argSite, None, type) }
+                                    .asType()
+                                    .map { type -> Param(None, type) }
                             }
                             .sequence()
                             .map { args -> Type.Fun(retType, args, false) }
@@ -516,14 +494,14 @@ open class CursorParser(
 
             CXType_Atomic          ->
                 clang_Type_getValueType(this)
-                    .asType(site)
+                    .asType()
                     .map { Type.Atomic(it) }
 
             // Special type kind for inline declarations.
             // Any named struct or union type is actually an inline declaration or definition.
             CXType_Elaborated      ->
                 clang_Type_getNamedType(this)
-                    .asType(site)
+                    .asType()
 
             // This is the struct type itself. We usually (always?) find it inside a CXType_Elaborated cursor.
             CXType_Record -> {
@@ -536,8 +514,8 @@ open class CursorParser(
                 // Please, let there be a better way...
                 // https://stackoverflow.com/questions/74377420/libclang-distinguish-typedeffed-struct-declaration-from-typedeffed-struct-defin
                 when (declarationTable[cursor.hash()].toOption()) {
-                    is Some -> cursor.asElaboratedTypeDeclaration(site)
-                    is None -> cursor.asElaboratedTypeDefinition(site)
+                    is Some -> cursor.asElaboratedTypeDeclaration()
+                    is None -> cursor.asElaboratedTypeDefinition()
                 }
             }
 
@@ -546,8 +524,8 @@ open class CursorParser(
 
                 // ugh, same as above
                 when (val previousDef = declarationTable[cursor.hash()].toOption()) {
-                    is Some -> cursor.asElaboratedTypeDeclaration(site)
-                    is None -> cursor.asElaboratedTypeDefinition(site)
+                    is Some -> cursor.asElaboratedTypeDeclaration()
+                    is None -> cursor.asElaboratedTypeDefinition()
                 }
             }
 

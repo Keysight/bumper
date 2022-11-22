@@ -253,7 +253,6 @@ sealed class Type {
 /* Struct or union field */
 @Serializable
 data class Field(
-    val site: Site,
     val name: Option<Ident>,
     val type: Type,
     val bitfield: Option<Int> = none()
@@ -266,7 +265,7 @@ enum class StructOrUnion { Struct, Union }
 typealias FieldDecls  = List<Field>
 
 @Serializable
-data class Param(val site: Site, val name: Option<Ident> = None, val type: Type) {
+data class Param(val name: Option<Ident> = None, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
 }
 typealias Params = List<Param>
@@ -303,13 +302,6 @@ data class Meta(
  */
 @Serializable
 sealed interface Declaration<out Exp, out Stmt> {
-    /**
-     * The [site] is a path from the root of the translation unit to this declaration.
-     * It uniquely identifies a declaration within the translation unit.
-     * Unlike the TLID, it can be used to distinguish between different declarations.
-     */
-    val site: Site
-
     /**
      * Optional identifier, because some declarations can be anonymous.
      */
@@ -358,7 +350,6 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Var<out Exp>(
-        override val site: Site,
         val name: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
@@ -375,7 +366,6 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Fun<out Stmt>(
-        override val site: Site,
         val name: Ident,
         val inline: Boolean,
         val returnType: Type,
@@ -401,7 +391,6 @@ sealed interface Declaration<out Exp, out Stmt> {
      */
     @Serializable
     data class Composite(
-        override val site: Site,
         override val ident: Option<Ident>,
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls>      = None,
@@ -423,7 +412,6 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Typedef(
-        override val site: Site,
         override val ident: Option<Ident>,
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
@@ -442,7 +430,6 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Enum(
-        override val site: Site,
         override val ident: Option<Ident>,
         val enumerators: Option<Enumerators> = None,
         override val storage: Storage = Storage.Default,
@@ -492,85 +479,6 @@ data class TLID(val name: Ident, val kind: EntityKind) {
         @JvmStatic fun enum(name: Ident) = TLID(name, EntityKind.Enum)
         @JvmStatic fun typedef(name: Ident) = TLID(name, EntityKind.Typedef)
     }
-}
-
-
-/**
- * Paths leading into declarations to possible declaration sites in declarations.
- */
-@Serializable
-data class Site(val breadcrumbs: List<SiteMarker>) {
-    fun <R> scope(crumb: SiteMarker, cont: (Site) -> R): R = cont(this + crumb)
-    operator fun plus(crumb: SiteMarker) = Site(breadcrumbs + crumb)
-
-    fun isLocal(): Boolean {
-        for (crumb in breadcrumbs) {
-            if (crumb.isLocal)
-                return true
-        }
-
-        return false
-    }
-
-    fun isBuiltin(): Boolean =
-        breadcrumbs[0].toOption()
-            .map { it is Builtin }
-            .getOrElse { false }
-
-    companion object {
-        val root    = Site(listOf())
-        val local   = Site(listOf(Local))
-        val builtin = Site(listOf(Builtin))
-    }
-
-    @Serializable
-    sealed interface SiteMarker {
-        val isLocal get() = false
-    }
-    @Serializable
-    object Local: SiteMarker {
-        override val isLocal = true
-    }
-
-    /**
-     * Root site for builtin declarations, like __builtin_va_list
-     */
-    @Serializable
-    object Builtin: SiteMarker
-    @Serializable
-    data class Toplevel(
-        /**
-         * The top-level declaration is indicated with a sparse int key,
-         * because they can be anonymous.
-         */
-        val site: Int
-    ): SiteMarker
-    @Serializable
-    object VarType: SiteMarker
-    @Serializable
-    object FunctionReturn: SiteMarker
-    @Serializable
-    object Pointee: SiteMarker
-    @Serializable
-    data class FunctionParam(
-        /**
-         * The parameter declaration is indicated with a sparse int key,
-         * because they can be anonymous.
-         */
-        val site: Int
-    ): SiteMarker {
-        override val isLocal = true
-    }
-    @Serializable
-    data class Member(
-        /**
-         * The member declaration is indicated with a sparse int key,
-         * because they can be anonymous.
-         */
-        val site: Int
-    ): SiteMarker
-    @Serializable
-    object Typedef: SiteMarker
 }
 
 @Serializable
