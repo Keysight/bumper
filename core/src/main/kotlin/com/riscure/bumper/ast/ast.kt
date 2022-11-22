@@ -246,20 +246,13 @@ sealed class Type {
     companion object {
         // smart constructors
 
-        @JvmStatic
-        val char = Int(IKind.IChar)
-        @JvmStatic
-        val uint = Int(IKind.IUInt)
-        @JvmStatic
-        val int = Int(IKind.IInt)
-        @JvmStatic
-        val ulong = Int(IKind.IULong)
-        @JvmStatic
-        val double = Float(FKind.FDouble)
-        @JvmStatic
-        val longdouble = Float(FKind.FLongDouble)
-        @JvmStatic
-        val float = Float(FKind.FFloat)
+        @JvmStatic val char = Int(IKind.IChar)
+        @JvmStatic val uint = Int(IKind.IUInt)
+        @JvmStatic val int = Int(IKind.IInt)
+        @JvmStatic val ulong = Int(IKind.IULong)
+        @JvmStatic val double = Float(FKind.FDouble)
+        @JvmStatic val longdouble = Float(FKind.FLongDouble)
+        @JvmStatic val float = Float(FKind.FFloat)
         @JvmStatic fun array(el: Type, size: Option<Long>) = Array(el, size)
         @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
             Fun(returns, params.toList(), variadic)
