@@ -1,7 +1,13 @@
 @file:UseSerializers(OptionSerializer::class)
 
-// This is a fully type-annotated C source AST.
-// The representation is ported from the CompCert CParser elaborated AST.
+/**
+ * This packages contains a fully type-annotated C source AST *after elaboration*.
+ *
+ * The representation is similar to CompCert's elaborated AST:
+ * - https://github.com/AbsInt/CompCert/blob/master/cparser/C.mli
+ * And to Frama-C's elaborated AST:
+ * - https://git.frama-c.com/pub/frama-c/-/blob/master/src/kernel_services/ast_data/cil_types.ml
+ */
 package com.riscure.bumper.ast
 
 import arrow.core.*
@@ -12,23 +18,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import java.nio.file.Path
 
-/**
- * Indicates whether a declaration is scoped at the level of the translation unit,
- * or in some local scope.
- */
-enum class Visibility { TUnit, Local }
-
 /** The type of raw identifiers */
-typealias Ident    = String
+typealias Ident = String
 
 /**
  * The type of references to something (in practice T:Declaration)
  *
- * @property byName indicates the name by which the thing was referenced.
- * @property symbol indicates to what declaration the name resolved.
+ * @property resolution indicates to what declaration the name resolved.
  */
 @Serializable
-data class Ref(val byName: Ident, val resolution: Symbol)
+data class Ref(val resolution: Symbol)
 
 /** A source location */
 @Serializable
@@ -131,6 +130,7 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     @Serializable
     data class Int (
         val kind: IKind,
@@ -138,6 +138,7 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     @Serializable
     data class Float (
         val kind: FKind,
@@ -145,6 +146,7 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     @Serializable
     data class Ptr (
         val pointeeType: Type,
@@ -152,6 +154,7 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     @Serializable
     data class Array(
         val elementType: Type,
@@ -160,6 +163,7 @@ sealed class Type {
     ) : Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     @Serializable
     data class Fun(
         val returnType: Type,
@@ -169,6 +173,10 @@ sealed class Type {
     ) : Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
+    /**
+     * Reference to a top-level typedef.
+     */
     @Serializable
     data class Typedeffed (
         val ref: Ref,
@@ -176,6 +184,10 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
+    /**
+     * Reference to a top-level struct
+     */
     @Serializable
     data class Struct (
         val ref: Ref,
@@ -183,6 +195,10 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
+    /**
+     * Reference to a top-level union
+     */
     @Serializable
     data class Union (
         val ref: Ref,
@@ -190,6 +206,9 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+    /**
+     * Reference to a top-level enum
+     */
     @Serializable
     data class Enum (
         val ref: Ref,
@@ -206,6 +225,7 @@ sealed class Type {
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
+
     /* _Atomic */
     @Serializable
     data class Atomic(
@@ -215,16 +235,17 @@ sealed class Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
-    /* A distinguished type for inline compound type declarations */
+    /* The builtin type __builtin_va_list */
     @Serializable
-    data class InlineDeclaration (
-        val declaration: Declaration.TypeDeclaration,
+    data class VaList(
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
     companion object {
+        // smart constructors
+
         @JvmStatic
         val char = Int(IKind.IChar)
         @JvmStatic
@@ -239,12 +260,8 @@ sealed class Type {
         val longdouble = Float(FKind.FLongDouble)
         @JvmStatic
         val float = Float(FKind.FFloat)
-
-        @JvmStatic
-        fun array(el: Type, size: Option<Long>) = Array(el, size)
-
-        @JvmStatic
-        fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
+        @JvmStatic fun array(el: Type, size: Option<Long>) = Array(el, size)
+        @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
             Fun(returns, params.toList(), variadic)
 
     }
@@ -303,10 +320,9 @@ data class Meta(
 @Serializable
 sealed interface Declaration<out Exp, out Stmt> {
     /**
-     * Optional identifier, because some declarations can be anonymous.
+     * Identifier (after elaboration)
      */
-    val ident: Option<Ident>
-    val isAnonymous get() = ident.isEmpty()
+    val ident: Ident
 
     /**
      * Whether this declaration is also a definition
@@ -326,19 +342,9 @@ sealed interface Declaration<out Exp, out Stmt> {
     val storage: Storage
     fun withStorage(storage: Storage): Declaration<Exp, Stmt>
 
-    /**
-     * How the declaration is scoped.
-     */
-    val visibility: Visibility
-        get() = when {
-        site.isLocal()   -> Visibility.Local
-        else             -> Visibility.TUnit
-    }
-
-    val tlid: Option<TLID> get() = ident.map { TLID(it, kind) }
+    val tlid: TLID get() = TLID(ident, kind)
     val kind: EntityKind
-
-    fun mkSymbol(tuid: TUID): Option<Symbol> = tlid.map { Symbol(tuid, it, site) }
+    fun mkSymbol(tuid: TUID): Symbol = Symbol(tuid, tlid)
 
     /* Mixin */
 
@@ -350,13 +356,12 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Var<out Exp>(
-        val name: Ident,
+        override val ident: Ident,
         val type: Type,
         val rhs: Option<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Exp, Nothing> {
-        override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -366,7 +371,7 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Fun<out Stmt>(
-        val name: Ident,
+        override val ident: Ident,
         val inline: Boolean,
         val returnType: Type,
         val params: Params,
@@ -375,7 +380,6 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): Declaration<Nothing, Stmt> {
-        override val ident get() = name.some()
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -391,7 +395,7 @@ sealed interface Declaration<out Exp, out Stmt> {
      */
     @Serializable
     data class Composite(
-        override val ident: Option<Ident>,
+        override val ident: Ident,
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls>      = None,
         override val storage: Storage = Storage.Default,
@@ -412,7 +416,7 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Typedef(
-        override val ident: Option<Ident>,
+        override val ident: Ident,
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
@@ -430,7 +434,7 @@ sealed interface Declaration<out Exp, out Stmt> {
 
     @Serializable
     data class Enum(
-        override val ident: Option<Ident>,
+        override val ident: Ident,
         val enumerators: Option<Enumerators> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
@@ -619,13 +623,13 @@ fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
     is Declaration.Enum      -> this
     is Declaration.Typedef   -> this
     is Declaration.Fun       -> Declaration.Fun(
-        site, name, inline, returnType, params, vararg, body.map { Unit }, storage, meta
+        ident, inline, returnType, params, vararg, body.map { Unit }, storage, meta
     )
-    is Declaration.Var       -> Declaration.Var(site, name, type, rhs.map { Unit }, storage, meta)
+    is Declaration.Var       -> Declaration.Var(ident, type, rhs.map { Unit }, storage, meta)
 }
 
 fun <E,T> TranslationUnit<E, T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
-    copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid.exists{ it == id }) f(it) else it })
+    copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid == id) f(it) else it })
 
 /* filters for toplevel declarations */
 

@@ -20,7 +20,6 @@ data class SymbolInfo(
     val name get() = tlid.name
     val kind get() = tlid.kind
     val unit get() = symbol.unit
-    val site get() = symbol.site
     val tlid get() = symbol.tlid
 }
 
