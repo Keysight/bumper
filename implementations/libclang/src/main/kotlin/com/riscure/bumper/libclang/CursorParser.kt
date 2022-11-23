@@ -43,7 +43,7 @@ open class CursorParser(
      */
     private fun freshAnonymousIdentifier(hint: Option<Ident> = None): Ident {
         freshNameSuffix += 1
-        return "__anonstruct${hint.map { "_$it" }.getOrElse { "" }}_${freshNameSuffix}"
+        return "__anontype${hint.map { "_$it" }.getOrElse { "" }}_${freshNameSuffix}"
     }
 
     /**
