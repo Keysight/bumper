@@ -1,13 +1,20 @@
 package com.riscure.bumper.libclang
 
+import arrow.core.*
 import com.riscure.bumper.*
 import com.riscure.bumper.ast.TranslationUnit
 import org.bytedeco.llvm.clang.CXCursor
 import java.nio.file.Path
 
 open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
+
     override val frontend: Frontend<CXCursor, CXCursor, ClangUnitState>
         get() = frontend(Path.of("clang"), storage)
+
+    override val storage =
+        Storage
+            .temporary("test-storage")
+            .getOrHandle { throw it }
 
     override fun roundtrip(program: String, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
         bumped(program, listOf()) { ast1, unit1 ->
