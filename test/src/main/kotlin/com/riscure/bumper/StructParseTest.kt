@@ -182,4 +182,12 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(Type.int, i.type)
         assertEquals("i", i.name)
     }
+
+    @Test
+    @DisplayName("Field with incomplete type does not parse")
+    fun test32() = invalid("""
+        struct B;
+        struct A { struct B b; };
+        struct B { int i; };
+    """.trimIndent())
 }
