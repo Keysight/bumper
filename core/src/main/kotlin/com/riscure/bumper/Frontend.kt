@@ -57,7 +57,7 @@ class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
                 // Call the parser with the preprocessed source.
                 // This does not need compile arguments, because preprocessing happened already.
                 // We make sure that the result will be identified by the given TUID.
-                parser.parse(cpped, listOf(), TUID(main.toPath()))
+                parser.parse(cpped, listOf(), TUID(cpped.toPath()))
             }
 
         }
