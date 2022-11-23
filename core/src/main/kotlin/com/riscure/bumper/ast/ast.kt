@@ -203,7 +203,7 @@ sealed class Type {
      */
     @Serializable
     data class Enum (
-        val resolution: Symbol, // elaborated
+        val ref: Symbol, // elaborated
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)

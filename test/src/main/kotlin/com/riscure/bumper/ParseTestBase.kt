@@ -87,137 +87,114 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         whenOk(result.first, result.second)
     }
 
-
-    fun roundtrip(program: String, whenOk: (TranslationUnit<E, S>) -> Unit): Unit {
-        TODO()
-
-//        bumped(program, listOf()) { ast1, unit1 ->
-//            val pp1 = unit1.printer.print(ast1).assertOK().write()
-//            bumped(pp1, listOf()) { ast2, unit2 ->
-//                ast1.declarations.zip(ast2.declarations) { l, r ->
-//                    try {
-//                        roundtrip.eq(l, r.withMeta(l.meta))
-//                    } catch (e: Throwable) {
-//                        println("Pretty 1:\n" + Pretty.lhs(l))
-//                        println("Pretty 2:\n" + Pretty.lhs(r))
-//                        throw e
-//                    }
-//                }
-//            }
-//        }
-    }
-
+    fun roundtrip(program: String, whenOk: (TranslationUnit<E, S>) -> Unit)
     fun roundtrip(program: String): Unit = roundtrip(program) {}
 
-    object roundtrip {
+    fun eq(s1: Symbol, s2: Symbol) {
+        assertEquals(s1.tlid, s2.tlid)
+        // units can differ in roundtrip tests
+    }
 
-        fun eq(s1: Symbol, s2: Symbol) {
-            assertEquals(s1.tlid, s2.tlid)
-            // units can differ in roundtrip tests
-        }
+    fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
+        assertEquals(d1.tlid, d2.tlid)
+        assertEquals(d1.isDefinition, d2.isDefinition)
+        assertEquals(d1.storage, d2.storage)
 
-        fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
-            assertEquals(d1.tlid, d2.tlid)
-            assertEquals(d1.isDefinition, d2.isDefinition)
-            assertEquals(d1.storage, d2.storage)
-
-            when (d1) {
-                is Declaration.Composite -> {
-                    val c1 = d1
-                    val c2 = assertIs<Declaration.Composite>(d2)
-                    assertEquals(c1.structOrUnion, c2.structOrUnion)
-                    assertEquals(c1.fields.isDefined(), c2.fields.isDefined())
-                    c1.fields.tap { f1 -> c2.fields.tap { f2 ->
-                        f1.zip(f2) { l, r ->
-                            eq(l, r)
-                        }
-                    }}
-                }
-                is Declaration.Enum      -> {
-                    val e1 = d1
-                    val e2 = assertIs<Declaration.Enum>(d2)
-                    assertEquals(e1.enumerators, e2.enumerators)
-                }
-                is Declaration.Fun       -> {
-                    val f1 = d1
-                    val f2 = assertIs<Declaration.Fun<*>>(d2)
-                    eq(f1.returnType, f2.returnType)
-                    assertEquals(f1.params.size, f2.params.size)
-                    f1.params.zip(f2.params) { l, r -> eq(l, r) }
-                }
-                is Declaration.Typedef   -> {
-                    val t1 = d1
-                    val t2 = assertIs<Declaration.Typedef>(d2)
-                    eq(t1.underlyingType, t2.underlyingType)
-                }
-                is Declaration.Var       -> {
-                    val v1 = d1
-                    val v2 = assertIs<Declaration.Var<*>>(d2)
-                    assertEquals(v1.ident, v2.ident)
-                    eq(v1.type, v2.type)
-                }
+        when (d1) {
+            is Declaration.Composite -> {
+                val c1 = d1
+                val c2 = assertIs<Declaration.Composite>(d2)
+                assertEquals(c1.structOrUnion, c2.structOrUnion)
+                assertEquals(c1.fields.isDefined(), c2.fields.isDefined())
+                c1.fields.tap { f1 -> c2.fields.tap { f2 ->
+                    f1.zip(f2) { l, r ->
+                        eq(l, r)
+                    }
+                }}
+            }
+            is Declaration.Enum      -> {
+                val e1 = d1
+                val e2 = assertIs<Declaration.Enum>(d2)
+                assertEquals(e1.enumerators, e2.enumerators)
+            }
+            is Declaration.Fun       -> {
+                val f1 = d1
+                val f2 = assertIs<Declaration.Fun<*>>(d2)
+                eq(f1.returnType, f2.returnType)
+                assertEquals(f1.params.size, f2.params.size)
+                f1.params.zip(f2.params) { l, r -> eq(l, r) }
+            }
+            is Declaration.Typedef   -> {
+                val t1 = d1
+                val t2 = assertIs<Declaration.Typedef>(d2)
+                eq(t1.underlyingType, t2.underlyingType)
+            }
+            is Declaration.Var       -> {
+                val v1 = d1
+                val v2 = assertIs<Declaration.Var<*>>(d2)
+                assertEquals(v1.ident, v2.ident)
+                eq(v1.type, v2.type)
             }
         }
+    }
 
-        fun eq(f1: Field, f2: Field) {
-            assertEquals(f1.name, f2.name)
-            assertEquals(f1.bitfield, f2.bitfield)
-            eq(f1.type, f2.type)
-        }
+    fun eq(f1: Field, f2: Field) {
+        assertEquals(f1.name, f2.name)
+        assertEquals(f1.bitfield, f2.bitfield)
+        eq(f1.type, f2.type)
+    }
 
-        fun eq(t1: Type, t2: Type) {
-            assertEquals(t1.attrs, t2.attrs)
+    fun eq(t1: Type, t2: Type) {
+        assertEquals(t1.attrs, t2.attrs)
 
-            when (t1) {
-                is Type.Int               -> assertEquals(t1, t2)
-                is Type.Float             -> assertEquals(t1, t2)
-                is Type.Void              -> assertEquals(t1, t2)
-                is Type.Complex           -> assertEquals(t1, t2)
-                is Type.VaList            -> assertIs<Type.VaList>(t2)
+        when (t1) {
+            is Type.Int               -> assertEquals(t1, t2)
+            is Type.Float             -> assertEquals(t1, t2)
+            is Type.Void              -> assertEquals(t1, t2)
+            is Type.Complex           -> assertEquals(t1, t2)
+            is Type.VaList            -> assertIs<Type.VaList>(t2)
 
-                is Type.Array             -> {
-                    val a2 = assertIs<Type.Array>(t2)
-                    assertEquals(t1.size, a2.size)
-                    eq(t1.elementType, a2.elementType)
-                }
-                is Type.Atomic            -> {
-                    val a2 = assertIs<Type.Atomic>(t2)
-                    eq(t1.elementType, a2.elementType)
-                }
-                is Type.Fun               -> {
-                    val f2 = assertIs<Type.Fun>(t2)
-                    eq(t1.returnType, f2.returnType)
-                    assertEquals(t1.params.size, f2.params.size)
-                    t1.params.zip(f2.params) { l, r -> eq(l, r) }
-                    assertEquals(t1.vararg, t2.vararg)
-                }
-                is Type.Ptr               -> {
-                    val p2 = assertIs<Type.Ptr>(t2)
-                    eq(t1.pointeeType, p2.pointeeType)
-                }
-                is Type.Typedeffed        -> {
-                    val d2 = assertIs<Type.Typedeffed>(t2)
-                    eq(t1.ref, d2.ref)
-                }
-                is Type.Enum              -> {
-                    val d2 = assertIs<Type.Enum>(t2)
-                    eq(t1.resolution, d2.resolution)
-                }
-                is Type.Struct -> {
-                    val d2 = assertIs<Type.Struct>(t2)
-                    eq(t1.ref, d2.ref)
-                }
-                is Type.Union             -> {
-                    val u2 = assertIs<Type.Union>(t2)
-                    eq(t1.ref, u2.ref)
-                }
+            is Type.Array             -> {
+                val a2 = assertIs<Type.Array>(t2)
+                assertEquals(t1.size, a2.size)
+                eq(t1.elementType, a2.elementType)
+            }
+            is Type.Atomic            -> {
+                val a2 = assertIs<Type.Atomic>(t2)
+                eq(t1.elementType, a2.elementType)
+            }
+            is Type.Fun               -> {
+                val f2 = assertIs<Type.Fun>(t2)
+                eq(t1.returnType, f2.returnType)
+                assertEquals(t1.params.size, f2.params.size)
+                t1.params.zip(f2.params) { l, r -> eq(l, r) }
+                assertEquals(t1.vararg, t2.vararg)
+            }
+            is Type.Ptr               -> {
+                val p2 = assertIs<Type.Ptr>(t2)
+                eq(t1.pointeeType, p2.pointeeType)
+            }
+            is Type.Typedeffed        -> {
+                val d2 = assertIs<Type.Typedeffed>(t2)
+                eq(t1.ref, d2.ref)
+            }
+            is Type.Enum              -> {
+                val d2 = assertIs<Type.Enum>(t2)
+                eq(t1.ref, d2.ref)
+            }
+            is Type.Struct -> {
+                val d2 = assertIs<Type.Struct>(t2)
+                eq(t1.ref, d2.ref)
+            }
+            is Type.Union             -> {
+                val u2 = assertIs<Type.Union>(t2)
+                eq(t1.ref, u2.ref)
             }
         }
+    }
 
-        fun eq(p1: Param, p2: Param) {
-            assertEquals(p1.name, p2.name)
-            eq(p1.type, p2.type)
-        }
-
+    fun eq(p1: Param, p2: Param) {
+        assertEquals(p1.name, p2.name)
+        eq(p1.type, p2.type)
     }
 }

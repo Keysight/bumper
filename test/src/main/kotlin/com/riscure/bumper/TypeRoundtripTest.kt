@@ -224,4 +224,11 @@ interface TypeRoundtripTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U>  {
         typedef long double _Complex MyComplex;
     """.trimIndent())
 
+    /*-------------------------------------------------------------------------------- builtins ------*/
+
+    @Test
+    fun builtinvalist() = roundtrip("""
+        typedef __builtin_va_list MyVaList;
+    """.trimIndent())
+
 }

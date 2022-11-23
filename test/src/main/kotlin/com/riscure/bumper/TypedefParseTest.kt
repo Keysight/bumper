@@ -44,7 +44,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typedef = assertIs<Declaration.Typedef>(ast.typedefs[0])
         val enum    = assertIs<Declaration.Enum>(ast.enums[0])
         val enumRef = assertIs<Type.Enum>(typedef.underlyingType)
-        assertEquals(enum.mkSymbol(ast.tuid), enumRef.resolution)
+        assertEquals(enum.mkSymbol(ast.tuid), enumRef.ref)
     }
 
     @Test

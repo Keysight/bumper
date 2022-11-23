@@ -41,8 +41,8 @@ object Pretty {
             is Attr.NamedAttr -> TODO()
         }}
 
-    private fun formals(params: List<Param>): String = TODO()
-        // params.joinToString(separator=", ") { declaration(it.name, it.type) }
+    private fun formals(params: List<Param>): String =
+        params.joinToString(separator=", ") { declaration(it.name, it.type) }
 
     private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
 
@@ -56,27 +56,25 @@ object Pretty {
         else          -> Pair(type, name)
     }
 
-    private fun typePrefix(type: Type): String = TODO() /*when (type) {
+    private fun typePrefix(type: Type): String = when (type) {
         // This part should have been printed by the name-part printer
         is Type.Array             -> throw RuntimeException("Failed to pretty-print ill-formed type.")
         is Type.Fun               -> throw RuntimeException("Failed to pretty-print ill-formed type.")
 
         // Possible remainders:
         is Type.Ptr               -> "${typePrefix(type.pointeeType)}*"
-        is Type.Enum              -> type.ref.byName
         is Type.Float             -> floatKind(type.kind)
         is Type.Int               -> integerKind(type.kind)
-        is Type.Typedeffed        -> type.ref.byName
-        is Type.Struct            -> "struct ${type.ref}" // with parens it doesn't parse
-        is Type.Union             -> "union ${type.ref}"  // same.
+        is Type.Typedeffed        -> type.ref.name
+        is Type.Struct            -> "struct ${type.ref.name}"
+        is Type.Enum              -> "enum ${type.ref.name}"
+        is Type.Union             -> "union ${type.ref.name}"
         is Type.Void              -> "void"
 
         is Type.Complex           -> "${floatKind(type.kind)} _Complex"
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
-
-        // inline compound declarations are entirely printed prefix.
-        is Type.InlineDeclaration -> lhs(type.declaration)
-    }*/
+        is Type.VaList            -> "__builtin_va_list"
+    }
 
     fun prototype(thefun: Declaration.Fun<*>): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
