@@ -133,12 +133,12 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     // =================
 
     @Test
-    @DisplayName("Anonymous member in struct")
+    @DisplayName("Anonymous member of anonymous union type in struct")
     fun test30() = parsed("""
         struct A { union { char alpha; int num; }; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
-        val structA = assertNotNull(ast.structs.find { it.ident == "A" })
+        val structA = assertNotNull(ast.structs[0])
 
         val fields = structA.fields.assertOK()
         assertEquals(1, fields.size)
@@ -146,16 +146,16 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val field = assertNotNull(fields[0])
         val unionType = assertIs<Type.Union>(field.type)
 
-        TODO()
-//        val type = assertIs<Declaration.Composite>(typeDecl.declaration)
-//        assertEquals(StructOrUnion.Union, type.structOrUnion)
-//
-//        val fs = type.fields.getOrElse { fail("Expected fields") }
-//        assertEquals(2, fs.size)
-//        val alpha = assertNotNull(fs[0])
-//        val num   = assertNotNull(fs[1])
-//        assertEquals(Type.char, alpha.type)
-//        assertEquals(Type.int, num.type)
+        val union = assertIs<Declaration.Composite>(ast.unions[0])
+        assertEquals(StructOrUnion.Union, union.structOrUnion)
+        assertEquals(union.mkSymbol(ast.tuid), unionType.ref)
+
+        val fs = union.fields.getOrElse { fail("Expected fields") }
+        assertEquals(2, fs.size)
+        val alpha = assertNotNull(fs[0])
+        val num   = assertNotNull(fs[1])
+        assertEquals(Type.char, alpha.type)
+        assertEquals(Type.int, num.type)
     }
 
     @Test
@@ -170,16 +170,16 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field = assertNotNull(fields[0])
+        val typeref = assertIs<Type.Struct>(field.type)
+        val struct  = assertIs<Declaration.Composite>(ast.structs.find { it.ident.startsWith("__") })
+        assertEquals(StructOrUnion.Struct, struct.structOrUnion)
 
-        TODO()
-        // val typeDecl = assertIs<Type.InlineDeclaration>(field.type)
-        // val type = assertIs<Declaration.Composite>(typeDecl.declaration)
-        // assertEquals(StructOrUnion.Struct, type.structOrUnion)
+        assertEquals(struct.mkSymbol(ast.tuid), typeref.ref)
 
-//        val fs = type.fields.getOrElse { fail("Expected fields") }
-//        assertEquals(1, fs.size)
-//        val i = assertNotNull(fs[0])
-//        assertEquals(Type.int, i.type)
-//        assertEquals("i", i.name)
+        val fs = struct.fields.getOrElse { fail("Expected fields") }
+        assertEquals(1, fs.size)
+        val i = assertNotNull(fs[0])
+        assertEquals(Type.int, i.type)
+        assertEquals("i", i.name)
     }
 }

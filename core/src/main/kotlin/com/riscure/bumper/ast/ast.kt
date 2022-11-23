@@ -500,6 +500,7 @@ data class TranslationUnit<out E, out T>(
     val variables: List<Declaration.Var<E>>  get() = declarations.variables
     val functions: List<Declaration.Fun<T>>  get() = declarations.functions
     val structs: List<Declaration.Composite> get() = declarations.structs
+    val unions: List<Declaration.Composite>  get() = declarations.unions
     val typedefs: List<Declaration.Typedef>  get() = declarations.typedefs
     val enums: List<Declaration.Enum>        get() = declarations.enums
 
@@ -641,6 +642,10 @@ val <E, T> List<Declaration<E, T>>.enums: List<Declaration.Enum> get() =
 val <E,T> List<Declaration<E, T>>.structs: List<Declaration.Composite> get() =
     filterIsInstance<Declaration.Composite>()
         .filter { it.structOrUnion == StructOrUnion.Struct }
+
+val <E,T> List<Declaration<E, T>>.unions: List<Declaration.Composite> get() =
+    filterIsInstance<Declaration.Composite>()
+        .filter { it.structOrUnion == StructOrUnion.Union }
 
 val <T> List<Declaration.Fun<T>>.definitions: List<Declaration.Fun<T>> get() =
     filter { it.isDefinition }
