@@ -51,7 +51,7 @@ interface DependencyAnalysis<Exp,Stmt> {
             ofType(decl.underlyingType)
     }
 
-    fun ofType(type: Type): Result = when (type) {
+    fun ofType(type: Type): Result = TODO() /* when (type) {
         is Type.Fun               ->
             ofType(type.returnType)
                 .union(ofParams(type.params))
@@ -67,7 +67,7 @@ interface DependencyAnalysis<Exp,Stmt> {
         is Type.Atomic            -> ofType(type.elementType)
         is Type.Complex           -> nil
         is Type.InlineDeclaration -> ofDecl(type.declaration)
-    }
+    }*/
 
     private fun ofParams(params: List<Param>): Result =
         params

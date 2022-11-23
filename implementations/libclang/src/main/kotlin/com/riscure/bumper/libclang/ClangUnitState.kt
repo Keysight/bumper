@@ -39,12 +39,13 @@ class ClangUnitState(
     override val dependencies: DependencyAnalysis<CXCursor, CXCursor> by lazy {
         // force parsing to populate the declaration and resolution table of the parser
         ast
+        TODO()
 
-        ClangDependencyAnalysis(
+        /*ClangDependencyAnalysis(
             tuid,
             parser.declarations.toMutableMap(),
             parser.resolutions.toMutableMap()
-        )
+        )*/
     }
 
     val printer: AstWriters<CXCursor, CXCursor> = AstWriters(

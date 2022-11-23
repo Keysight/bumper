@@ -14,7 +14,6 @@ class MultipleDefinitions(name: String, matches: Collection<SymbolInfo>): IndexE
 data class SymbolInfo(
     val symbol : Symbol,
     val hasDefinition: Boolean,
-    val visibility: Visibility,
     val storage: Storage
 ) {
     val name get() = tlid.name

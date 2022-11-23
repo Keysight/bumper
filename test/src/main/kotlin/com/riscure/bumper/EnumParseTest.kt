@@ -15,16 +15,13 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
     fun test00() = parsed("""
         enum E { X, Y, Z };
     """.trimIndent()) { ast ->
-        assertEquals(1, ast.toplevelDeclarations.size)
-        val enum = assertIs<Declaration.Enum>(ast.toplevelDeclarations[0])
+        assertEquals(1, ast.declarations.size)
+        val enum = assertIs<Declaration.Enum>(ast.declarations[0])
 
-        assertFalse(enum.isAnonymous)
-        assertEquals("E".some(), enum.ident)
+        assertEquals("E", enum.ident)
         assertEquals(Storage.Default, enum.storage)
-        assertEquals(Visibility.TUnit, enum.visibility)
         assertEquals(EntityKind.Enum, enum.kind)
         assertTrue(enum.isDefinition)
-        assertEquals(Site.root + Site.Toplevel(0), enum.site)
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
@@ -38,16 +35,13 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
     fun test01() = parsed("""
         enum E { X, Y = 99, Z };
     """.trimIndent()) { ast ->
-        assertEquals(1, ast.toplevelDeclarations.size)
-        val enum = assertIs<Declaration.Enum>(ast.toplevelDeclarations[0])
+        assertEquals(1, ast.declarations.size)
+        val enum = assertIs<Declaration.Enum>(ast.declarations[0])
 
-        assertFalse(enum.isAnonymous)
-        assertEquals("E".some(), enum.ident)
+        assertEquals("E", enum.ident)
         assertEquals(Storage.Default, enum.storage)
-        assertEquals(Visibility.TUnit, enum.visibility)
         assertEquals(EntityKind.Enum, enum.kind)
         assertTrue(enum.isDefinition)
-        assertEquals(Site.root + Site.Toplevel(0), enum.site)
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
@@ -62,16 +56,13 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
     fun test02() = parsed("""
         enum E { X, Y = 20 + 22, Z };
     """.trimIndent()) { ast ->
-        assertEquals(1, ast.toplevelDeclarations.size)
-        val enum = assertIs<Declaration.Enum>(ast.toplevelDeclarations[0])
+        assertEquals(1, ast.declarations.size)
+        val enum = assertIs<Declaration.Enum>(ast.declarations[0])
 
-        assertFalse(enum.isAnonymous)
-        assertEquals("E".some(), enum.ident)
+        assertEquals("E", enum.ident)
         assertEquals(Storage.Default, enum.storage)
-        assertEquals(Visibility.TUnit, enum.visibility)
         assertEquals(EntityKind.Enum, enum.kind)
         assertTrue(enum.isDefinition)
-        assertEquals(Site.root + Site.Toplevel(0), enum.site)
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)

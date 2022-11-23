@@ -21,14 +21,6 @@ import java.nio.file.Path
 /** The type of raw identifiers */
 typealias Ident = String
 
-/**
- * The type of references to something (in practice T:Declaration)
- *
- * @property resolution indicates to what declaration the name resolved.
- */
-@Serializable
-data class Ref(val resolution: Symbol)
-
 /** A source location */
 @Serializable
 data class Location(
@@ -179,7 +171,7 @@ sealed class Type {
      */
     @Serializable
     data class Typedeffed (
-        val ref: Ref,
+        val ref: Symbol, // elaborated
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -190,7 +182,7 @@ sealed class Type {
      */
     @Serializable
     data class Struct (
-        val ref: Ref,
+        val ref: Symbol, // elaborated
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -201,7 +193,7 @@ sealed class Type {
      */
     @Serializable
     data class Union (
-        val ref: Ref,
+        val ref: Symbol, // elaborated
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -211,7 +203,7 @@ sealed class Type {
      */
     @Serializable
     data class Enum (
-        val ref: Ref,
+        val resolution: Symbol, // elaborated
         override val attrs: Attrs = listOf()
     ): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
@@ -260,10 +252,10 @@ sealed class Type {
     }
 }
 
-/* Struct or union field */
+/** Struct or union field */
 @Serializable
 data class Field(
-    val name: Option<Ident>,
+    val name: Ident,
     val type: Type,
     val bitfield: Option<Int> = none()
 ) {
@@ -275,7 +267,7 @@ enum class StructOrUnion { Struct, Union }
 typealias FieldDecls  = List<Field>
 
 @Serializable
-data class Param(val name: Option<Ident> = None, val type: Type) {
+data class Param(val name: Ident, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
 }
 typealias Params = List<Param>
@@ -313,9 +305,12 @@ data class Meta(
 @Serializable
 sealed interface Declaration<out Exp, out Stmt> {
     /**
-     * Identifier (after elaboration)
+     * Identifier (after elaboration).
+     * This is promised to be non-empty to uniquely identify an entity
+     * (but an entity can have more than one declaration in the unit).
      */
     val ident: Ident
+    fun withIdent(id: Ident): Declaration<Exp, Stmt>
 
     /**
      * Whether this declaration is also a definition
@@ -355,6 +350,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Exp, Nothing> {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -373,6 +369,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): Declaration<Nothing, Stmt> {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -394,6 +391,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -414,6 +412,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -432,6 +431,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
@@ -482,14 +482,10 @@ data class TLID(val name: Ident, val kind: EntityKind) {
 data class TranslationUnit<out E, out T>(
     val tuid: TUID,
 
-    /** The declarations at the top-level of the file. */
-    val toplevelDeclarations: List<Declaration<E, T>>,
-
-    /** All declarations with unit-level scope */
+    /**
+     * All declarations in the unit.
+     */
     val declarations: List<Declaration<E, T>>,
-
-    /** Resolution of declarations to definitions. */
-    val definitions: Map<Symbol, Symbol>
 ) {
     /**
      * Find a top-level element in this translation unit, based
@@ -501,9 +497,11 @@ data class TranslationUnit<out E, out T>(
         .toOption() // FIXME should also find inline declarations.
      */
 
-    val variables: List<Declaration.Var<E>> get()  = declarations.variables
-    val functions: List<Declaration.Fun<T>> get()  = declarations.functions
+    val variables: List<Declaration.Var<E>>  get() = declarations.variables
+    val functions: List<Declaration.Fun<T>>  get() = declarations.functions
     val structs: List<Declaration.Composite> get() = declarations.structs
+    val typedefs: List<Declaration.Typedef>  get() = declarations.typedefs
+    val enums: List<Declaration.Enum>        get() = declarations.enums
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -532,19 +530,19 @@ data class TranslationUnit<out E, out T>(
 
     /* Map locations to top-level declarations */
     fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
-        toplevelDeclarations
+        declarations
             .find { decl -> decl.meta.location.exists { it.begin == loc }}
             .toOption()
 
     /* Map locations to top-level declarations */
     fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
-        toplevelDeclarations
+        declarations
             .find { decl -> decl.meta.location.exists { it.encloses(range) }}
             .toOption()
 
     /* Map locations to top-level declarations */
     fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
-        toplevelDeclarations
+        declarations
             .find { decl -> decl.meta.location.exists { it.encloses(loc) }}
             .toOption()
 
@@ -605,12 +603,11 @@ typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>
  * Forget the expressions/statements at the leaves.
  */
 fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit =
-    TranslationUnit(
-        tuid,
-        toplevelDeclarations.map { it.erase() },
-        declarations.map { it.erase() },
-        definitions
-    )
+    TranslationUnit(tuid, declarations.map { it.erase() })
+
+/**
+ * Forget the expressions/statements on the RHS of definitions.
+ */
 fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
     is Declaration.Composite -> this
     is Declaration.Enum      -> this
@@ -621,16 +618,25 @@ fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
     is Declaration.Var       -> Declaration.Var(ident, type, rhs.map { Unit }, storage, meta)
 }
 
+/**
+ * Update all declarations with the given TLID.
+ */
 fun <E,T> TranslationUnit<E, T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
-    copy(toplevelDeclarations = toplevelDeclarations.map { if (it.tlid == id) f(it) else it })
+    copy(declarations = declarations.map { if (it.tlid == id) f(it) else it })
 
-/* filters for toplevel declarations */
+// Some convenience extension methods: filters for lists of declarations
 
 val <E, T> List<Declaration<E, T>>.variables: List<Declaration.Var<E>> get() =
     filterIsInstance<Declaration.Var<E>>()
 
 val <E, T> List<Declaration<E, T>>.functions: List<Declaration.Fun<T>> get() =
     filterIsInstance<Declaration.Fun<T>>()
+
+val <E, T> List<Declaration<E, T>>.typedefs: List<Declaration.Typedef> get() =
+    filterIsInstance<Declaration.Typedef>()
+
+val <E, T> List<Declaration<E, T>>.enums: List<Declaration.Enum> get() =
+    filterIsInstance<Declaration.Enum>()
 
 val <E,T> List<Declaration<E, T>>.structs: List<Declaration.Composite> get() =
     filterIsInstance<Declaration.Composite>()

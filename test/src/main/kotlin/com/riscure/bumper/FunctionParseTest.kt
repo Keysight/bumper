@@ -17,16 +17,13 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
 
-        assertEquals(1, ast.toplevelDeclarations.size)
-        val function = assertIs<Declaration.Fun<*>>(ast.toplevelDeclarations[0])
+        assertEquals(1, ast.declarations.size)
+        val function = assertIs<Declaration.Fun<*>>(ast.declarations[0])
 
-        assertFalse(function.isAnonymous)
-        assertEquals("main".some(), function.ident)
+        assertEquals("main", function.ident)
         assertEquals(Storage.Default, function.storage)
-        assertEquals(Visibility.TUnit, function.visibility)
         assertEquals(EntityKind.Fun, function.kind)
         assertTrue(function.isDefinition)
-        assertEquals(Site.root + Site.Toplevel(0), function.site)
     }
 
     @Test
@@ -40,14 +37,14 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
         val a1 = assertNotNull(f.params[0])
         val a2 = assertNotNull(f.params[1])
 
-        val t1 = assertIs<Type.InlineDeclaration>(a1.type)
-        val t2 = assertIs<Type.InlineDeclaration>(a2.type)
-        assertTrue(t1.declaration.isDefinition)
-        assertFalse(t2.declaration.isDefinition)
+        TODO()
+        // val t1 = assertIs<Type.InlineDeclaration>(a1.type)
+        // val t2 = assertIs<Type.InlineDeclaration>(a2.type)
+        // assertTrue(t1.declaration.isDefinition)
+        // assertFalse(t2.declaration.isDefinition)
 
-        val s2 = t2.declaration.mkSymbol(ast.tuid).getOrElse { fail() }
-        val def = assertNotNull(ast.definitions[s2])
-        assertEquals(t1.declaration.site, def.site)
+        // val s2 = t2.declaration.mkSymbol(ast.tuid).getOrElse { fail() }
+        // val def = assertNotNull(ast.definitions[s2])
     }
 
     @Test

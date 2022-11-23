@@ -27,8 +27,8 @@ object Pretty {
         FKind.FLongDouble -> "long double"
     }
 
-    fun declaration(ident: Option<Ident>, type: Type): String {
-        val (remainingType, decl) = namePart(type, ident.getOrElse { "" })
+    fun declaration(ident: Ident, type: Type): String {
+        val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
 
@@ -41,8 +41,8 @@ object Pretty {
             is Attr.NamedAttr -> TODO()
         }}
 
-    private fun formals(params: List<Param>): String =
-        params.joinToString(separator=", ") { declaration(it.name, it.type) }
+    private fun formals(params: List<Param>): String = TODO()
+        // params.joinToString(separator=", ") { declaration(it.name, it.type) }
 
     private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
 
@@ -56,7 +56,7 @@ object Pretty {
         else          -> Pair(type, name)
     }
 
-    private fun typePrefix(type: Type): String = when (type) {
+    private fun typePrefix(type: Type): String = TODO() /*when (type) {
         // This part should have been printed by the name-part printer
         is Type.Array             -> throw RuntimeException("Failed to pretty-print ill-formed type.")
         is Type.Fun               -> throw RuntimeException("Failed to pretty-print ill-formed type.")
@@ -76,11 +76,11 @@ object Pretty {
 
         // inline compound declarations are entirely printed prefix.
         is Type.InlineDeclaration -> lhs(type.declaration)
-    }
+    }*/
 
     fun prototype(thefun: Declaration.Fun<*>): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
-        return declaration("${thefun.name}(${formals(thefun.params)})".some(), thefun.returnType)
+        return declaration("${thefun.ident}(${formals(thefun.params)})", thefun.returnType)
     }
 
     fun typedef(typedef: Declaration.Typedef): String =
@@ -95,7 +95,7 @@ object Pretty {
     }
 
     fun lhs(toplevel: Declaration<*, *>): String = when (toplevel) {
-        is Declaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(name.some(), type)}" }
+        is Declaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
         is Declaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
         is Declaration.Typedef   -> typedef(toplevel)
         is Declaration.Composite -> with(toplevel) {
@@ -121,10 +121,7 @@ object Pretty {
         is Some -> " { ${fields(fields.value)}; }"
     }
 
-    private fun maybeName(ident: Option<Ident>) = when (ident) {
-        is None -> ""
-        is Some -> "${ident.value} "
-    }
+    private fun maybeName(ident: Ident) = "$ident ".trim()
 
     private fun bitFieldSpec(bitfield: Option<Int>): String =
         bitfield
@@ -148,7 +145,7 @@ class AstWriters<Exp, Stmt>(
     private val semicolon = text(";")
 
     fun print(unit: TranslationUnit<Exp, Stmt>): Either<Throwable, Writer> =
-        unit.toplevelDeclarations
+        unit.declarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }

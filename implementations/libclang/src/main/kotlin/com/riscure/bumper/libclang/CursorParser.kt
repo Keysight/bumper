@@ -15,70 +15,66 @@ private typealias Result<T> = Either<String, T>
 typealias ClangDeclaration = Declaration<CXCursor, CXCursor>
 typealias CursorHash = Int
 
+data class DeclarationInfo(
+    val fromCursor: CursorHash,
+    val declaration: ClangDeclaration
+)
+
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.
- * The state is bound to a single translation unit which should only be parsed once.
+ * The state is bound to a single translation unit, which is assumed to be parsed only once.
+ *
+ * This parser also elaborates inline definitions, rather than doing that in a separate pass.
+ * The reason for this is that libclang does not allow us to distinguish inline definitions
+ * from inline declarations. Types are treated semantically--rather than syntactically--in the
+ * libclang API.
  */
 open class CursorParser(
     val tuid: TUID,
 
     /**
-     * Mapping cursors of declarations to the parsed declarations.
+     * Declarations that were referenced and need to be elaborated
+     * to top-level definitions. Because we elaborate during parsing, we may
+     * (re)name the declaration. We store in this map the symbol with the generated/elaborated name.
+     * References should be consistently renamed to use the elaborated name.
      */
-    protected val declarationTable: MutableMap<CursorHash, ClangDeclaration> = mutableMapOf(),
+    private val elaborated: MutableMap<CursorHash, Pair<CXCursor, Symbol>> = mutableMapOf(),
 
-    /**
-     * A mapping of declarations to the cursor identifier of their corresponding definitions.
-     */
-    protected val resolutionTable: MutableMap<Declaration<*,*>, CursorHash> = mutableMapOf(),
+    private var freshNameSuffix: Int = -1
 ) {
 
-    // Parser state management
-    //-----------------------------------------------------------------------------------------------
-
-    val declarations: Map<CursorHash, ClangDeclaration> get() = declarationTable
-    val resolutions : Map<Declaration<*,*>, CursorHash> get() = resolutionTable
+    /**
+     * Generate a fresh name for an anonymous declaration.
+     * The [hint] will be incorporated to give the user some idea of where this came from.
+     */
+    private fun freshAnonymousIdentifier(hint: Option<Ident> = None): Ident {
+        freshNameSuffix += 1
+        return "__anonstruct${hint.map { "_$it" }.getOrElse { "" }}_${freshNameSuffix}"
+    }
 
     /**
      * Record a parsed declaration in the parse state tables.
      */
-    private fun <T:ClangDeclaration> CXCursor.memoize(parse: () -> Result<T>): Result<T> {
-        val id = this.hash()
+    /*private fun <T:ClangDeclaration> CXCursor.declare(parse: () -> Result<T>): Result<T> {
         val result = parse.invoke()
 
-        return result.tap { decl ->
-            declarationTable[id] = decl
+        return result
+            .tap { decl ->
+                val cId = this.hash()
+                val entryId = _declarations.size
 
-            // Ask clang if this declaration has a definition.
-            // Store the cursor hash of the definition for now.
-            // This will allow us to find the corresponding ClangDeclaration from declarationTable
-            // once we parsed the entire translation unit. At this moment the definition might not yet
-            // been seen, because the declaration can be a forward declaration.
-            clang_getCursorDefinition(this)
-                .filterNullCursor()
-                .tap { resolutionTable[decl] = it.hash() }
-        }
-    }
+                // record the declaration
+                _declarations.add(DeclarationInfo(cId, decl))
 
-    /**
-     * Get the table mapping declarations to definitions from the parser state.
-     */
-    private fun getDefinitions(): Result<Map<Symbol, Symbol>> =
-        Either.catch({"Failed to resolve declaration to corresponding definition."}) {
-            resolutionTable
-                .map { entry ->
-                    when (val def = declarationTable[entry.value].toOption()) {
-                        is None -> throw Exception() // caught
-                        is Some -> {
-                            entry.key
-                                .mkSymbol(tuid)
-                                .zip(def.value.mkSymbol(tuid))
-                                .getOrElse { throw Exception() }
-                        }
-                    }
-                }
-                .toMap()
-        }
+                // record that we parsed this cursor
+                _parsedDeclarations[cId] = entryId
+
+                // Record that the name is now taken.
+                // The result declaration should be a valid elaborated declaration,
+                // so this identifier cannot be empty.
+                _takenNames.add(decl.ident)
+            }
+    }*/
 
     // Parsing functions
     //-----------------------------------------------------------------------------------------------
@@ -96,70 +92,59 @@ open class CursorParser(
 
     fun CXCursor.asTranslationUnit(): Result<TranslationUnit<CXCursor, CXCursor>> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
-            // we make a quick pass over the children to collect some cursors that we should not parse
-            // as top-level entities, because they were not written as top-level declarations by the user,
-            // but rather lifted by clang to the top-level of the AST.
-            val ignored: Set<CursorHash> = children()
-                .flatMap {tl ->
-                    when (tl.kind()) {
-                        CXCursor_TypedefDecl ->
-                            tl.fold(mutableListOf<CursorHash>(), true) { acc ->
-                                when (this.kind()) {
-                                    // These are the cursors that libclang happens to lift to the top-level of
-                                    // its internal (but exposed) AST: struct/union/enum declarations that
-                                    // syntactically occur in a typedef.
-                                    CXCursor_StructDecl -> acc.add(this.hash())
-                                    CXCursor_UnionDecl  -> acc.add(this.hash())
-                                    CXCursor_EnumDecl   -> acc.add(this.hash())
-                                    else                -> Unit
-                                }
+            // We parse the top-level declarations
+            val toplevelDecls = children()
+                // somehow e.g. an empty ';' results in top-level UnexposedDecls
+                .filter { cursor -> (cursor.kind() != CXCursor_UnexposedDecl) }
+                .map    { cursor -> cursor.asDeclaration().map { d -> Pair(cursor, d) }}
+                .sequence() // propagate errors
 
-                                acc
-                            }
-                        else -> listOf()
-                    }
-                }
-                .toSet()
+            // In addition, we elaborate some definitions that we encountered but perhaps did not yet
+            // parse while parsing types.
+            val decls = toplevelDecls
+                .flatMap { tlds ->
+                    val alreadyParsed = tlds.map { it.first.hash() }.toSet()
 
-            // we parse the top-level declarations
-            children()
-                .filter { cursor ->
-                    when {
-                        // somehow e.g. an empty ';' results in top-level UnexposedDecls
-                        // not sure what else causes them.
-                        cursor.kind() == CXCursor_UnexposedDecl -> false
-                        cursor.hash() in ignored                -> false
-                        else                                    -> true
-                    }
+                    elaborated
+                        .values
+                        .filter { (cursor, _) -> cursor.hash() !in alreadyParsed }
+                        .map { (cursor, sym) -> cursor.asDeclaration().map { d -> Pair(cursor, d) } }
+                        .sequence()
+                        .map { tlds + it }
                 }
-                .map { it -> it.asDeclaration() }
-                .sequence()
-                .flatMap { toplevelDecls ->
-                    val unitDeclarations = declarations.values
-                        .filter { it.visibility == Visibility.TUnit }
 
-                    getDefinitions()
-                        .map { defs ->
-                            TranslationUnit(tuid, toplevelDecls, unitDeclarations, defs)
-                        }
+            // elaborate all the declarations
+            decls
+                .flatMap { ds ->
+                    ds.map { (cursor, decl) ->
+                        // rename the declaration from the programmer-written name to the elaborated name.
+                        cursor
+                            .getSymbol()
+                            .map { decl.withIdent(it.name) }
+                    }.sequence()
                 }
+                // and finally collect the outputs in a translation unit model.
+                .map {ds -> TranslationUnit(tuid, ds) }
+
+            // FIXME this is unsound when we elaborate a named definition from a local scope,
+            // because we are possibly extending the visibility of elaborated declarations,
+            // which can now clash with an existing one.
+            // We cannot fix that right now, because it requires renaming
+            // all references. This is not a problem for any reference that we parse, but we do not
+            // parse statements and expressions at the moment, so we cannot perform renaming there.
         }
 
-    fun CXCursor.asDeclaration(): Result<Declaration<CXCursor, CXCursor>> {
-        // We might as well check if we already parsed this one:
-        declarationTable[this.hash()].toOption().tap { return it.right() }
-
-        // If not, lets go and parse it:
+    fun CXCursor.asDeclaration(): Result<ClangDeclaration> {
         val decl = when (kind()) {
             CXCursor_FunctionDecl ->
                 if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
                     asFunctionDef()
                 else asFunctionDecl()
-            CXCursor_StructDecl   -> this.asStructDecl()
-            CXCursor_UnionDecl    -> this.asUnionDecl()
-            CXCursor_VarDecl      -> this.asVarDecl()
+            CXCursor_StructDecl   -> this.asStruct()
+            CXCursor_UnionDecl    -> this.elaborateUnion()
+            CXCursor_VarDecl      -> this.asVariable()
             CXCursor_TypedefDecl  -> this.asTypedef()
-            CXCursor_EnumDecl     -> this.asEnumDecl()
+            CXCursor_EnumDecl     -> this.asEnum()
             else                  -> "Expected toplevel declaration, got kind ${kindName()}".left()
         }
 
@@ -172,24 +157,50 @@ open class CursorParser(
             }
     }
 
-    fun CXCursor.asBuiltin(): Result<ClangDeclaration> =
-        getIdentifier()
-            .filter {id ->
-                // TODO is this the case for all builtins?
-                id.startsWith("__builtin")
+    fun CXCursor.asBuiltin(): Result<ClangDeclaration> = TODO()
+//        getIdentifier()
+//            .filter {id ->
+//                // TODO is this the case for all builtins?
+//                id.startsWith("__builtin")
+//            }
+//            .toEither { "Not a builtin declaration." }
+//            .flatMap { asDeclaration() }
+
+    /**
+     * Check if this is a valid C identier. Empty string is accepted.
+     */
+    private fun String.validateIdentifier(): Result<String> =
+        this.right()
+            // C identifiers start with a non-digit.
+            // But an empty string is considered valid, regarding anonymous declarations.
+            .filterOrOther({ Regex("[_a-zA-Z]?\\w*").matches(it) }) { s ->
+                "Expected valid C identifier, got '$s'."
             }
-            .toEither { "Not a builtin declaration." }
-            .flatMap { asDeclaration() }
 
-    private fun String.validateIdentifier(): Option<String> =
-        this.some().filter { Regex("[_a-zA-Z]\\w*").matches(it) }
+    /**
+     * Returns the spelling if it is a valid identifier, according to [validateIdentifier].
+     */
+    fun CXCursor.getIdentifier(): Result<String> =
+        spelling()
+            .validateIdentifier()
 
-    fun CXCursor.getIdentifier(): Option<String> = spelling().validateIdentifier()
+    /**
+     * Get the identifier for the cursor, and map it to a name for an elaborated top-level declaration.
+     * Anonymous cursors get a generated name based on [hint], and non-fresh identifiers get freshened.
+     */
+//    fun CXCursor.elaboratedIdentifier(hint: Option<Ident> = None): String =
+//        getIdentifier()
+//            .map { freshen(it) }
+//            .getOrElse { freshAnonymousIdentifier(hint) }
 
     /**
      * Collects storage for a toplevel declaration cursor.
      */
     fun CXCursor.getStorage(): Storage = clang_Cursor_getStorageClass(this).asStorage()
+
+    /**
+     * Map libclang's storage constants to our AST's enum values.
+     */
     fun Int.asStorage(): Storage = when (this) {
         CX_SC_Static   -> Storage.Static
         CX_SC_Auto     -> Storage.Auto
@@ -212,29 +223,28 @@ open class CursorParser(
         )
     }
 
-    fun CXCursor.asTypedef(): Result<Declaration.Typedef> = memoize {
+    fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
         ifKind(CXCursor_TypedefDecl, "typedef") {
             clang_getTypedefDeclUnderlyingType(this)
                 .asType()
-                .map { type ->
-                    Declaration.Typedef(clang_getTypedefName(type()).string.validateIdentifier(), type)
+                .flatMap { type ->
+                    getIdentifier().map { id -> Declaration.Typedef(id, type) }
                 }
-            }
         }
-    }
 
-    fun CXCursor.asEnumDecl(): Result<Declaration.Enum> = memoize {
+    fun CXCursor.asEnum(): Result<Declaration.Enum> =
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             if (clang_isCursorDefinition(this).toBool()) {
                 children()
                     .map { it.asEnumerator() }
                     .sequence()
-                    .map { enumerators -> Declaration.Enum(getIdentifier(), enumerators.some()) }
+                    .flatMap { enumerators ->
+                        getIdentifier().map { id -> Declaration.Enum(id, enumerators.some()) }
+                    }
             } else {
-                Declaration.Enum(getIdentifier(), None).right()
+                getIdentifier().map { id -> Declaration.Enum(id, None)}
             }
         }
-    }
 
     fun CXCursor.asEnumerator(): Result<Enumerator> =
         ifKind(CXCursor_EnumConstantDecl, "enumerator") {
@@ -259,20 +269,22 @@ open class CursorParser(
         }
 
         return fields
-            .map { fs -> Declaration.Composite(getIdentifier(), StructOrUnion.Struct, fs) }
+            .flatMap { fs ->
+                getIdentifier().map { id -> Declaration.Composite(id, StructOrUnion.Struct, fs) }
+            }
     }
 
-    fun CXCursor.asStructDecl(): Result<Declaration.Composite> = memoize {
+    fun CXCursor.asStruct(): Result<Declaration.Composite> =
         ifKind(CXCursor_StructDecl, "struct declaration") {
-            asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
+            asComposite()
+                .map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
         }
-    }
 
-    fun CXCursor.asUnionDecl(): Result<Declaration.Composite> = memoize {
+    fun CXCursor.elaborateUnion(): Result<Declaration.Composite> =
         ifKind(CXCursor_UnionDecl, "union declaration") {
-            asComposite().map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
+            asComposite()
+                .map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
         }
-    }
 
     fun CXType.fields(): List<CXCursor> {
         val ts = mutableListOf<CXCursor>()
@@ -295,17 +307,20 @@ open class CursorParser(
     fun CXCursor.asField(): Result<Field> {
         return type()
             .asType()
-            .map { type ->
+            .flatMap { type ->
                 val attrs = this.cursorAttributes(type())
-                Field(
-                    getIdentifier(),
-                    type.withAttrs(type.attrs + attrs),
-                    clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
-                )
+                getIdentifier()
+                    .map { id ->
+                        Field(
+                            id,
+                            type.withAttrs(type.attrs + attrs),
+                            clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
+                        )
+                    }
             }
     }
 
-    fun CXCursor.asVarDecl(): Result<Declaration.Var<CXCursor>> = memoize {
+    fun CXCursor.asVariable(): Result<Declaration.Var<CXCursor>> =
         ifKind(CXCursor_VarDecl, "variable declaration") {
             type()
                 .asType()
@@ -318,10 +333,11 @@ open class CursorParser(
                     } else None
 
                     rhs.sequenceEither()
-                        .map { def -> Declaration.Var(this.spelling(), type, def) }
-            }
+                        .flatMap { def ->
+                            getIdentifier().map { id -> Declaration.Var(id, type, def) }
+                        }
+                }
         }
-    }
 
     fun CXCursor.getReturnType(): Result<Type> {
         val typ = clang_getCursorResultType(this)
@@ -331,99 +347,95 @@ open class CursorParser(
     fun CXCursor.getParameters(): Result<List<Param>> {
         val nargs = clang_Cursor_getNumArguments(this)
         return (0 until nargs)
-            .map { clang_Cursor_getArgument(this, it) }
-            .mapIndexed { i, c -> c.asParam() }
+            .map { clang_Cursor_getArgument(this, it).asParam() }
             .sequence()
     }
 
-    fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> = memoize {
+    fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
         asFunctionDecl().flatMap { decl ->
             Either
                 .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
-                .mapLeft { "Could not parse function body of ${decl.name}." }
+                .mapLeft { "Could not parse function body of ${decl.ident}." }
                 .map { decl.copy(body = it.some()) }
         }
-    }
 
-    fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> = memoize {
+    fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
         ifKind(CXCursor_FunctionDecl, "function declaration") {
             getReturnType().flatMap { resultType ->
-                getParameters().map { params ->
-                    Declaration.Fun(
-                        spelling(),
-                        clang_Cursor_isFunctionInlined(this).toBool(),
-                        resultType,
-                        params,
-                        clang_Cursor_isVariadic(this).toBool(),
-                    )
+                getParameters().flatMap { params ->
+                    getIdentifier()
+                        .filterOrOther({ it != "" }) { "Anonymous function declarations are not allowed." }
+                        .map { id ->
+                            Declaration.Fun(
+                                id,
+                                clang_Cursor_isFunctionInlined(this).toBool(),
+                                resultType,
+                                params,
+                                clang_Cursor_isVariadic(this).toBool(),
+                            )
+                        }
                 }
             }
         }
-    }
 
     fun CXCursor.asParam(): Result<Param> =
         ifKind(CXCursor_ParmDecl, "parameter declaration") {
             type()
                 .asType()
-                .map { type ->
-                    Param(getIdentifier(), type)
+                .flatMap { type ->
+                    getIdentifier()
+                        .map { id -> Param(id, type) }
                 }
         }
 
     /**
-     * When 'struct S' or 'struct S { ... }' or similar appear as types,
-     * Libclang calls this an 'elaborated type'. Probably because Clang actually hoists inline
-     * definitions to top-level nodes in its internal AST.
+     * Get the entity kind for the declaration/definition under the cursor.
      */
-    fun CXCursor.asElaboratedTypeDefinition(): Result<Type> =
-        when (kind()) {
-            CXCursor_EnumDecl   -> asEnumDecl().map   { Type.InlineDeclaration(it) }
-            CXCursor_StructDecl -> asStructDecl().map { Type.InlineDeclaration(it) }
-            CXCursor_UnionDecl  -> asUnionDecl().map  { Type.InlineDeclaration(it) }
-            else                -> "Expected a compound type definition, got ${kindName()}".left()
-        }
-
-    fun CXCursor.asElaboratedTypeDeclaration(): Result<Type> =
-        when (kind()) {
-            CXCursor_EnumDecl   ->
-                Type.InlineDeclaration(Declaration.Enum(getIdentifier())).right()
-            CXCursor_StructDecl ->
-                Type.InlineDeclaration(Declaration.Composite(getIdentifier(), StructOrUnion.Struct)).right()
-            CXCursor_UnionDecl  ->
-                Type.InlineDeclaration(Declaration.Composite(getIdentifier(), StructOrUnion.Union)).right()
-            else                -> "Expected a compound type declaration, got ${kindName()}".left()
-        }
-
-    /**
-     * Return a reference to the definition under the cursor.
-     */
-    fun CXCursor.getRef(byName: String): Result<Ref> {
-        // first sanity check if this is indeed a definition
-        if (!clang_isCursorDefinition(this).toBool()) {
-            return "Expected definition, to ${kindName()}.".left()
-        }
-
-        // Get the declaration's symbol.
-        // We should already have seen and parsed the declaration, so we look in the declaration table:
-        val sym: Option<Symbol> =
-            declarationTable[this.hash()]
-                .toOption()
-                .flatMap { it.mkSymbol(tuid) }
-                .orElse {
-                    // it could be that we have not seen the declaration in the AST if it is a *builtin*,
-                    // (like __builtin_va_list). We try to parse a builtin declaration:
-                    asBuiltin()
-                        .orNone()
-                        .flatMap { it.mkSymbol(tuid) }
-                }
-
-        return when (sym) {
-            is None -> "Failed to resolve name $byName to declaration".left()
-            is Some -> Ref(byName, sym.value).right()
-        }
+    fun CXCursor.getEntityKind(): Result<EntityKind> = when (kind()) {
+        CXCursor_StructDecl   -> EntityKind.Struct.right()
+        CXCursor_UnionDecl    -> EntityKind.Union.right()
+        CXCursor_EnumDecl     -> EntityKind.Enum.right()
+        CXCursor_FunctionDecl -> EntityKind.Fun.right()
+        CXCursor_VarDecl      -> EntityKind.Var.right()
+        CXCursor_TypedefDecl  -> EntityKind.Typedef.right()
+        else                  -> "Failed to parse entity kind from cursor kind '${kindName()}'".left()
     }
 
-    fun CXType.asRef(): Result<Ref> = clang_getTypeDeclaration(this).getRef(spelling())
+    fun CXCursor.getElaboratedSymbol(): Result<Symbol> =
+        Either
+            .fromNullable(elaborated[hash()])
+            .map { it.second }
+            .mapLeft { "Failed to get elaborated name for cursor." }
+
+    /**
+     * Return a symbol for the definition under the cursor, elaborating one if necessary.
+     */
+    fun CXCursor.getSymbol(): Result<Symbol> =
+        // elaboration may have already (re)named the definition under the cursor,
+        // so we check our tables
+        getElaboratedSymbol()
+            // if not, we will generate one now,
+            // and record the generated symbol.
+            .handleErrorWith {
+                generateSymbol()
+                    .tap { sym ->
+                        assert(hash() !in elaborated)
+
+                        // We remember that we chose a name for this definition,
+                        // This also marks the cursor for elaboration.
+                        elaborated[hash()] = Pair(this, sym)
+                    }
+            }
+
+    fun CXCursor.generateSymbol(): Result<Symbol> =
+        // get what the programmer wrote.
+        getEntityKind()
+            .zip(getIdentifier())
+            .map { (kind, id) ->
+                // if the definition is anonymous, we generate a fresh name for it
+                val ident = if (id == "") freshAnonymousIdentifier() else id
+                Symbol(tuid, TLID(ident, kind))
+            }
 
     fun CXType.asType(): Result<Type> =
         when (kind()) {
@@ -460,7 +472,12 @@ open class CursorParser(
                     .map { Type.Ptr(it) }
 
             CXType_Typedef         ->
-                asRef().map { Type.Typedeffed(it) }
+                // No such thing as inline typedefs or forward references to typedefs,
+                // so we just extract the reference.
+                // No need to consider the possibility of having to elaborate a typedef.
+                clang_getTypeDeclaration(this)
+                    .getSymbol()
+                    .map { Type.Typedeffed(it) }
 
             CXType_ConstantArray   ->
                 clang_getArrayElementType(this)
@@ -486,7 +503,7 @@ open class CursorParser(
                             .map { i ->
                                 clang_getArgType(this, i)
                                     .asType()
-                                    .map { type -> Param(None, type) }
+                                    .map { type -> Param("", type) }
                             }
                             .sequence()
                             .map { args -> Type.Fun(retType, args, false) }
@@ -503,30 +520,22 @@ open class CursorParser(
                 clang_Type_getNamedType(this)
                     .asType()
 
-            // This is the struct type itself. We usually (always?) find it inside a CXType_Elaborated cursor.
-            CXType_Record -> {
-                val cursor = clang_getTypeDeclaration(this)
-
-                // Now, this is either a declaration 'struct <name>',
-                // or a definition 'struct <name> {..}`.
-                // But we don't have a way to get a cursor that represents this CXType to parse and figure out which.
-                // The best we have is [cursor], but this could be an external definition of the type...
-                // Please, let there be a better way...
-                // https://stackoverflow.com/questions/74377420/libclang-distinguish-typedeffed-struct-declaration-from-typedeffed-struct-defin
-                when (declarationTable[cursor.hash()].toOption()) {
-                    is Some -> cursor.asElaboratedTypeDeclaration()
-                    is None -> cursor.asElaboratedTypeDefinition()
-                }
+            CXType_Record          -> {
+                clang_getTypeDeclaration(this)
+                    .getSymbol()
+                    .flatMap { sym ->
+                        when (sym.kind) {
+                            EntityKind.Struct -> Type.Struct(sym).right()
+                            EntityKind.Union  -> Type.Union(sym).right()
+                            else -> "Invariant violation: failed to reference elaborated struct/union.".left()
+                        }
+                    }
             }
 
-            CXType_Enum -> {
-                val cursor = clang_getTypeDeclaration(this)
-
-                // ugh, same as above
-                when (val previousDef = declarationTable[cursor.hash()].toOption()) {
-                    is Some -> cursor.asElaboratedTypeDeclaration()
-                    is None -> cursor.asElaboratedTypeDefinition()
-                }
+            CXType_Enum            -> {
+                clang_getTypeDeclaration(this)
+                    .getSymbol()
+                    .map { sym -> Type.Enum(sym) }
             }
 
             // There are others, but as far as I know, these are non-C types.

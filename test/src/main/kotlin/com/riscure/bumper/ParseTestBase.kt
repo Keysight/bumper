@@ -113,16 +113,13 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
 
         fun eq(s1: Symbol, s2: Symbol) {
             assertEquals(s1.tlid, s2.tlid)
-            assertEquals(s1.site, s2.site)
             // units can differ in roundtrip tests
         }
 
         fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
             assertEquals(d1.tlid, d2.tlid)
-            assertEquals(d1.site, d2.site)
             assertEquals(d1.isDefinition, d2.isDefinition)
             assertEquals(d1.storage, d2.storage)
-            assertEquals(d1.visibility, d2.visibility)
 
             when (d1) {
                 is Declaration.Composite -> {
@@ -156,7 +153,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 is Declaration.Var       -> {
                     val v1 = d1
                     val v2 = assertIs<Declaration.Var<*>>(d2)
-                    assertEquals(v1.name, v2.name)
+                    assertEquals(v1.ident, v2.ident)
                     eq(v1.type, v2.type)
                 }
             }
@@ -176,6 +173,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 is Type.Float             -> assertEquals(t1, t2)
                 is Type.Void              -> assertEquals(t1, t2)
                 is Type.Complex           -> assertEquals(t1, t2)
+                is Type.VaList            -> assertIs<Type.VaList>(t2)
 
                 is Type.Array             -> {
                     val a2 = assertIs<Type.Array>(t2)
@@ -186,7 +184,6 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                     val a2 = assertIs<Type.Atomic>(t2)
                     eq(t1.elementType, a2.elementType)
                 }
-                is Type.Enum              -> assertEquals(t1, t2)
                 is Type.Fun               -> {
                     val f2 = assertIs<Type.Fun>(t2)
                     eq(t1.returnType, f2.returnType)
@@ -194,20 +191,20 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                     t1.params.zip(f2.params) { l, r -> eq(l, r) }
                     assertEquals(t1.vararg, t2.vararg)
                 }
-                is Type.InlineDeclaration -> {
-                    val d2 = assertIs<Type.InlineDeclaration>(t2)
-                    eq(t1.declaration, d2.declaration)
-                }
                 is Type.Ptr               -> {
                     val p2 = assertIs<Type.Ptr>(t2)
                     eq(t1.pointeeType, p2.pointeeType)
                 }
-                is Type.Struct            -> {
-                    val s2 = assertIs<Type.Struct>(t2)
-                    eq(t1.ref, s2.ref)
-                }
                 is Type.Typedeffed        -> {
                     val d2 = assertIs<Type.Typedeffed>(t2)
+                    eq(t1.ref, d2.ref)
+                }
+                is Type.Enum              -> {
+                    val d2 = assertIs<Type.Enum>(t2)
+                    eq(t1.resolution, d2.resolution)
+                }
+                is Type.Struct -> {
+                    val d2 = assertIs<Type.Struct>(t2)
                     eq(t1.ref, d2.ref)
                 }
                 is Type.Union             -> {
@@ -215,11 +212,6 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                     eq(t1.ref, u2.ref)
                 }
             }
-        }
-
-        fun eq(r1: Ref, r2: Ref) {
-            assertEquals(r1.byName, r2.byName)
-            // TODO, site comparison?
         }
 
         fun eq(p1: Param, p2: Param) {

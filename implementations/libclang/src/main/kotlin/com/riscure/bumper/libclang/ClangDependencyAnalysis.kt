@@ -12,7 +12,7 @@ import org.bytedeco.llvm.global.clang.*
 /**
  * An implementation of the dependency analysis interface using Libclang.
  */
-class ClangDependencyAnalysis(
+/*class ClangDependencyAnalysis(
     tuid: TUID,
 
     // The following two tables should be prepopulated by all contextual
@@ -63,4 +63,4 @@ class ClangDependencyAnalysis(
 
     override fun ofExp(exp: CXCursor): Result = cursorDependencies(exp)
     override fun ofStmt(stmt: CXCursor): Result = cursorDependencies(stmt)
-}
+}*/
