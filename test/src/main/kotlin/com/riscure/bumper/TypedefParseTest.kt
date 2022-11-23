@@ -152,6 +152,6 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     ) { ast ->
         assertEquals(1, ast.declarations.size)
         val typedef  = assertIs<Declaration.Typedef>(ast.declarations[0])
-        val builtin  = assertIs<Type.Typedeffed>(typedef.underlyingType)
+        assertIs<Type.VaList>(typedef.underlyingType)
     }
 }

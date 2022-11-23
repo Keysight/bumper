@@ -157,17 +157,8 @@ open class CursorParser(
             }
     }
 
-    fun CXCursor.asBuiltin(): Result<ClangDeclaration> = TODO()
-//        getIdentifier()
-//            .filter {id ->
-//                // TODO is this the case for all builtins?
-//                id.startsWith("__builtin")
-//            }
-//            .toEither { "Not a builtin declaration." }
-//            .flatMap { asDeclaration() }
-
     /**
-     * Check if this is a valid C identier. Empty string is accepted.
+     * Check if this is a valid C identifier. Empty string is accepted.
      */
     private fun String.validateIdentifier(): Result<String> =
         this.right()
@@ -183,15 +174,6 @@ open class CursorParser(
     fun CXCursor.getIdentifier(): Result<String> =
         spelling()
             .validateIdentifier()
-
-    /**
-     * Get the identifier for the cursor, and map it to a name for an elaborated top-level declaration.
-     * Anonymous cursors get a generated name based on [hint], and non-fresh identifiers get freshened.
-     */
-//    fun CXCursor.elaboratedIdentifier(hint: Option<Ident> = None): String =
-//        getIdentifier()
-//            .map { freshen(it) }
-//            .getOrElse { freshAnonymousIdentifier(hint) }
 
     /**
      * Collects storage for a toplevel declaration cursor.
@@ -471,13 +453,21 @@ open class CursorParser(
                     .asType()
                     .map { Type.Ptr(it) }
 
-            CXType_Typedef         ->
-                // No such thing as inline typedefs or forward references to typedefs,
-                // so we just extract the reference.
-                // No need to consider the possibility of having to elaborate a typedef.
-                clang_getTypeDeclaration(this)
-                    .getSymbol()
-                    .map { Type.Typedeffed(it) }
+            CXType_Typedef         -> {
+                val cursor = clang_getTypeDeclaration(this)
+                cursor
+                    .getIdentifier()
+                    .flatMap { id ->
+                        // clang presents this as a typedef.
+                        if (id == "__builtin_va_list") {
+                            Type.VaList().right()
+                        } else {
+                            cursor
+                                .getSymbol()
+                                .map { Type.Typedeffed(it) }
+                        }
+                    }
+            }
 
             CXType_ConstantArray   ->
                 clang_getArrayElementType(this)
@@ -527,7 +517,7 @@ open class CursorParser(
                         when (sym.kind) {
                             EntityKind.Struct -> Type.Struct(sym).right()
                             EntityKind.Union  -> Type.Union(sym).right()
-                            else -> "Invariant violation: failed to reference elaborated struct/union.".left()
+                            else              -> "Invariant violation: failed to reference elaborated struct/union.".left()
                         }
                     }
             }
