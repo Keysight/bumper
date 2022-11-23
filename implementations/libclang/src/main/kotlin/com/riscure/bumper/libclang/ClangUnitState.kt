@@ -6,17 +6,17 @@ import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
 import com.riscure.bumper.pp.AstWriters
+import com.riscure.bumper.pp.Extractor
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
 import java.nio.file.Path
 
 /**
  * The Clang parser implementation now only analyzes upto expression/statements.
- * And then remembers the cursor for those. These cursors are invalidated
- * when the unit closes, so that would be a good time to upcast the AST
- * to ErasedTranslationUnit using .erase()
+ * And then remembers the locations for those.
  */
 typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
+typealias ClangDeclaration     = Declaration<CXCursor, CXCursor>
 
 class ClangUnitState(
     val tuid: TUID,
@@ -48,10 +48,19 @@ class ClangUnitState(
         )*/
     }
 
-    val printer: AstWriters<CXCursor, CXCursor> = AstWriters(
-        { c -> clang.clang_getCursorPrettyPrinted(c, null).string.right() },
-        { c -> clang.clang_getCursorPrettyPrinted(c, null).string.right() }
-    )
+    // We could use libclang's pretty printing facilities here,
+    // except that I've encountered corner cases where pretty printing returns "" incorrectly:
+    // - https://github.com/llvm/llvm-project/issues/59155
+    // So we fall back here on extracting lines from the source file instead.
+    private val extractor = Extractor(tuid.main.toFile())
+    val printer: AstWriters<CXCursor, CXCursor> by lazy {
+        fun cursorPrinter(c: CXCursor) =
+            c.getRange()
+                .toEither { "Failed to get source range for expression." }
+                .flatMap { extractor.extract(it) }
+
+        AstWriters(::cursorPrinter, ::cursorPrinter)
+    }
 }
 
 /**

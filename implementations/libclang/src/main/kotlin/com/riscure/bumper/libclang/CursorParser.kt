@@ -12,13 +12,7 @@ import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 
 private typealias Result<T> = Either<String, T>
-typealias ClangDeclaration = Declaration<CXCursor, CXCursor>
 typealias CursorHash = Int
-
-data class DeclarationInfo(
-    val fromCursor: CursorHash,
-    val declaration: ClangDeclaration
-)
 
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.

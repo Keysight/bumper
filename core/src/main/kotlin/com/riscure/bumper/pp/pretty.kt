@@ -103,7 +103,7 @@ object Pretty {
             }
         }
         is Declaration.Enum      -> with(toplevel) {
-            "enum ${maybeName(ident)}${maybeEnumerators(enumerators)};"
+            "enum ${maybeName(ident)}${maybeEnumerators(enumerators)}"
         }
     }
 
@@ -137,23 +137,23 @@ object Pretty {
  * the method for writing the bodies of top-level definitions.
  */
 class AstWriters<Exp, Stmt>(
-    val expWriter : (exp: Exp)  -> Either<Throwable, String>,
-    val stmtWriter: (stm: Stmt) -> Either<Throwable, String>
+    val expWriter : (exp: Exp)  -> Either<String, String>,
+    val stmtWriter: (stm: Stmt) -> Either<String, String>
 ) {
     private val semicolon = text(";")
 
-    fun print(unit: TranslationUnit<Exp, Stmt>): Either<Throwable, Writer> =
+    fun print(unit: TranslationUnit<Exp, Stmt>): Either<String, Writer> =
         unit.declarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: Declaration<Exp, Stmt>): Either<Throwable, Writer> =
+    fun print(toplevel: Declaration<Exp, Stmt>): Either<String, Writer> =
         rhs(toplevel).map { rhs -> text(Pretty.lhs(toplevel)) andThen rhs }
 
-    fun rhs(toplevel: Declaration<Exp, Stmt>): Either<Throwable, Writer> = when (toplevel) {
+    fun rhs(toplevel: Declaration<Exp, Stmt>): Either<String, Writer> = when (toplevel) {
         is Declaration.Var       -> when (val exp = toplevel.rhs) {
-            is Some -> expWriter(exp.value).map { text(it) }
+            is Some -> expWriter(exp.value).map { text(" = $it;") }
             is None -> semicolon.right()
         }
 

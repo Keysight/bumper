@@ -17,8 +17,8 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
                     try {
                         eq(l, r.withMeta(l.meta))
                     } catch (e: Throwable) {
-                        // println("Pretty 1:\n" + Pretty.lhs(l))
-                        // println("Pretty 2:\n" + Pretty.lhs(r))
+                        println("Pretty 1:\n" + unit1.printer.print(l))
+                        println("Pretty 2:\n" + unit2.printer.print(r))
                         throw e
                     }
                 }

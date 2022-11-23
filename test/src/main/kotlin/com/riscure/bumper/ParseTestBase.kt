@@ -62,9 +62,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
     // Some temporary storage
-    val storage get() = Storage
-        .temporary("test-storage")
-        .getOrHandle { throw it }
+    val storage: Storage
 
     fun bumped(
         program: String,
@@ -85,6 +83,8 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             .assertOK()
 
         whenOk(result.first, result.second)
+
+        // TODO check idempotence of parsing and elaboration
     }
 
     fun roundtrip(program: String, whenOk: (TranslationUnit<E, S>) -> Unit)
