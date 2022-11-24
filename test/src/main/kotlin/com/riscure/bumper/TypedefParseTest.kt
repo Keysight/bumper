@@ -10,7 +10,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef anonymous struct")
-    fun test00() = parsed("""
+    fun test00() = parsedAndRoundtrip("""
         typedef struct { int x; } MyStruct;
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -26,7 +26,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Scoped typedef anonymous struct")
-    fun test01() = parsed("""
+    fun test01() = parsedAndRoundtrip("""
         void f() {
             typedef struct { int x; } MyStruct;
         }
@@ -37,7 +37,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef anonymous enum")
-    fun test02() = parsed("""
+    fun test02() = parsedAndRoundtrip("""
         typedef enum { Monday } MyEnum;
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -55,7 +55,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Redeclaration of identical typedef OK")
-    fun test04() = parsed("""
+    fun test04() = parsedAndRoundtrip("""
         typedef int myint;
         typedef int myint;
     """.trimIndent()) { ast ->
@@ -71,7 +71,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef pointer to anonymous struct")
-    fun test06() = parsed("""
+    fun test06() = parsedAndRoundtrip("""
         typedef struct { int member; } *mytyp;
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -82,7 +82,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef pointer to named struct")
-    fun test07() = parsed("""
+    fun test07() = parsedAndRoundtrip("""
         typedef struct mystruct { int member; } *mytyp;
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -92,7 +92,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef struct declaration with external definition")
-    fun test08() = parsed("""
+    fun test08() = parsedAndRoundtrip("""
         struct A { int member; };
         typedef struct A MyStruct;
     """.trimIndent()) { ast ->
@@ -105,7 +105,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef struct declaration without definition")
-    fun test10() = parsed("""
+    fun test10() = parsedAndRoundtrip("""
         typedef struct A MyStruct;
     """.trimIndent()) { ast ->
         // Clang gives incomplete type A warning.
@@ -114,7 +114,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef struct definition of forward declaration")
-    fun test11() = parsed("""
+    fun test11() = parsedAndRoundtrip("""
         struct A;
         typedef struct A { int member; } MyStruct;
     """.trimIndent()) { ast ->
@@ -130,7 +130,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef forward declaration")
-    fun test12() = parsed("""
+    fun test12() = parsedAndRoundtrip("""
         typedef struct A MyStruct;
         struct A { int member; };
     """.trimIndent()) { ast ->
@@ -146,7 +146,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef __builtin_va_list")
-    fun test09() = parsed("""
+    fun test09() = parsedAndRoundtrip("""
         typedef __builtin_va_list va_list;
     """.trimIndent()
     ) { ast ->

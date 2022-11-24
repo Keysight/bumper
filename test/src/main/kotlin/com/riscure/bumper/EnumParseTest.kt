@@ -12,7 +12,7 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named enum")
-    fun test00() = parsed("""
+    fun test00() = parsedAndRoundtrip("""
         enum E { X, Y, Z };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -32,7 +32,7 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named enum with fixed enumerator value")
-    fun test01() = parsed("""
+    fun test01() = parsedAndRoundtrip("""
         enum E { X, Y = 99, Z };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -53,7 +53,7 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named enum with expression enumerator value")
-    fun test02() = parsed("""
+    fun test02() = parsedAndRoundtrip("""
         enum E { X, Y = 20 + 22, Z };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)

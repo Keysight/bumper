@@ -12,7 +12,7 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Empty main")
-    fun test00() = parsed("""
+    fun test00() = parsedAndRoundtrip("""
         void main() {}
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -28,23 +28,23 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Function param local struct definition reference")
-    fun test01() = parsed("""
+    fun test01() = parsedAndRoundtrip("""
         void f(struct A { int i; } a1, struct A a2);
     """.trimIndent()){ ast ->
+        assertEquals(2, ast.declarations.size)
+
         val f = assertNotNull(ast.functions[0])
 
         assertEquals(2, f.params.size)
         val a1 = assertNotNull(f.params[0])
         val a2 = assertNotNull(f.params[1])
 
-        TODO()
-        // val t1 = assertIs<Type.InlineDeclaration>(a1.type)
-        // val t2 = assertIs<Type.InlineDeclaration>(a2.type)
-        // assertTrue(t1.declaration.isDefinition)
-        // assertFalse(t2.declaration.isDefinition)
+        val t1 = assertIs<Type.Struct>(a1.type)
+        val t2 = assertIs<Type.Struct>(a2.type)
 
-        // val s2 = t2.declaration.mkSymbol(ast.tuid).getOrElse { fail() }
-        // val def = assertNotNull(ast.definitions[s2])
+        val struct = assertNotNull(ast.structs.find { it.ident == "A" })
+        assertEquals(struct.mkSymbol(ast.tuid), t1.ref)
+        assertEquals(struct.mkSymbol(ast.tuid), t2.ref)
     }
 
     @Test
