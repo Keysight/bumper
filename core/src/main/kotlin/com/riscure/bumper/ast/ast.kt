@@ -59,6 +59,24 @@ data class SourceRange(
     val file get() = begin.sourceFile
 }
 
+/**
+ * This is a comparator for ranges of declarations in the same unit.
+ * That means that the ranges that are partially overlapping are considered equal,
+ * but nested ones have an order.
+ *
+ * One source range is less than another if it appears logically before the other.
+ * For nested ranges, this means that the innermost is less than the outermost.
+ */
+object dependencyOrder: Comparator<SourceRange> {
+    override fun compare(r1: SourceRange, r2: SourceRange): Int = when {
+        r1.end   < r2.begin -> -1                    // r2 disjoint after r1
+        r1.begin > r2.end   -> 1                     // r1 disjoint after r2
+        r1.begin > r2.begin && r1.end < r2.end -> -1 // r1 nested in r2
+        r2.begin > r1.begin && r2.end < r1.end -> 1  // r2 nested in r1
+        else                -> 0                     // not disjoint, or exactly overlapping
+    }
+}
+
 /** Different integer kinds */
 enum class IKind {
       IBoolean

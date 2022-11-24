@@ -14,6 +14,16 @@ import org.bytedeco.llvm.global.clang.*
 private typealias Result<T> = Either<String, T>
 typealias CursorHash = Int
 
+private object myDependencyOrder: Comparator<Pair<CXCursor, ClangDeclaration>> {
+    override fun compare(d1: Pair<CXCursor, ClangDeclaration>, d2: Pair<CXCursor, ClangDeclaration>): Int =
+        when (val l1 = d1.second.meta.location) {
+            is None -> -1 // stable order
+            is Some -> when (val l2 = d2.second.meta.location) {
+                is None -> 1
+                is Some -> dependencyOrder.compare(l1.value, l2.value) }
+        }
+}
+
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.
  * The state is bound to a single translation unit, which is assumed to be parsed only once.
@@ -29,10 +39,18 @@ open class CursorParser(
     /**
      * Declarations that were referenced and need to be elaborated
      * to top-level definitions. Because we elaborate during parsing, we may
-     * (re)name the declaration. We store in this map the symbol with the generated/elaborated name.
+     * (re)name the declaration.
+     *
+     * We store in this map the symbol with the generated/elaborated name.
      * References should be consistently renamed to use the elaborated name.
+     * This map is monotonically growing
      */
-    private val elaborated: MutableMap<CursorHash, Pair<CXCursor, Symbol>> = mutableMapOf(),
+    private val elaborated    : MutableMap<CursorHash, Symbol> = mutableMapOf(),
+
+    /**
+     * A worklist for cursor representing (type) definitions that need to be elaborated.
+     */
+    private val toBeElaborated: MutableList<CXCursor>          = mutableListOf(),
 
     private var freshNameSuffix: Int = -1
 ) {
@@ -47,28 +65,34 @@ open class CursorParser(
     }
 
     /**
-     * Record a parsed declaration in the parse state tables.
+     * Parse the list of [elaborated] definitions.
+     * Every parsed definition is removed from that list.
      */
-    /*private fun <T:ClangDeclaration> CXCursor.declare(parse: () -> Result<T>): Result<T> {
-        val result = parse.invoke()
+    private fun pleaseDoElaborate(done: Set<CursorHash>): Result<List<Pair<CXCursor, ClangDeclaration>>> {
+        // We use [toBeElaborated] as a worklist
+        // Parsing a declaration can add new items to the worklist as a side-effect.
+        // When parsing fails, we immediately return the failure.
+        return Either.catch({ it.message!! }) {
+            val alreadyParsed = done.toMutableSet()
+            val results = mutableListOf<Pair<CXCursor, ClangDeclaration>>()
 
-        return result
-            .tap { decl ->
-                val cId = this.hash()
-                val entryId = _declarations.size
+            // work loop
+            while (toBeElaborated.isNotEmpty()) {
+                val cursor = toBeElaborated.removeAt(0)
+                if (cursor.hash() in alreadyParsed) continue
 
-                // record the declaration
-                _declarations.add(DeclarationInfo(cId, decl))
+                val decl = cursor
+                    .asDeclaration()
+                    .getOrHandle { throw Throwable(it) } // escalate
 
-                // record that we parsed this cursor
-                _parsedDeclarations[cId] = entryId
-
-                // Record that the name is now taken.
-                // The result declaration should be a valid elaborated declaration,
-                // so this identifier cannot be empty.
-                _takenNames.add(decl.ident)
+                alreadyParsed.add(cursor.hash())
+                results.add(Pair(cursor, decl))
             }
-    }*/
+
+            results
+        }
+
+    }
 
     // Parsing functions
     //-----------------------------------------------------------------------------------------------
@@ -93,32 +117,29 @@ open class CursorParser(
                 .map    { cursor -> cursor.asDeclaration().map { d -> Pair(cursor, d) }}
                 .sequence() // propagate errors
 
-            // In addition, we elaborate some definitions that we encountered but perhaps did not yet
-            // parse while parsing types.
-            val decls = toplevelDecls
-                .flatMap { tlds ->
-                    val alreadyParsed = tlds.map { it.first.hash() }.toSet()
+            toplevelDecls.flatMap { tlds ->
+                // In addition, we elaborate some definitions that we encountered but perhaps did not yet
+                // parse while parsing types.
+                val done = tlds.map { it.first.hash() }.toMutableSet()
+                val decls = pleaseDoElaborate(done).map { r -> tlds + r }
 
-                    elaborated
-                        .values
-                        .filter { (cursor, _) -> cursor.hash() !in alreadyParsed }
-                        .map { (cursor, sym) -> cursor.asDeclaration().map { d -> Pair(cursor, d) } }
-                        .sequence()
-                        .map { tlds + it }
-                }
-
-            // elaborate all the declarations
-            decls
-                .flatMap { ds ->
-                    ds.map { (cursor, decl) ->
-                        // rename the declaration from the programmer-written name to the elaborated name.
-                        cursor
-                            .getSymbol()
-                            .map { decl.withIdent(it.name) }
-                    }.sequence()
-                }
-                // and finally collect the outputs in a translation unit model.
-                .map {ds -> TranslationUnit(tuid, ds) }
+                // elaborate all the declarations
+                decls
+                    // we sort these, because we don't know from the traversal order where
+                    // the elaborated declarations should appear. And the order is relevant for type completeness
+                    // of structs and unions.
+                    .map { it.sortedWith(myDependencyOrder) }
+                    .flatMap { ds ->
+                        ds.map { (cursor, decl) ->
+                            // rename the declaration from the programmer-written name to the elaborated name.
+                            cursor
+                                .getSymbol()
+                                .map { decl.withIdent(it.name) }
+                        }.sequence()
+                    }
+                    // and finally collect the outputs in a translation unit model.
+                    .map { ds -> TranslationUnit(tuid, ds) }
+            }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,
             // because we are possibly extending the visibility of elaborated declarations,
@@ -380,7 +401,6 @@ open class CursorParser(
     fun CXCursor.getElaboratedSymbol(): Result<Symbol> =
         Either
             .fromNullable(elaborated[hash()])
-            .map { it.second }
             .mapLeft { "Failed to get elaborated name for cursor." }
 
     /**
@@ -398,8 +418,9 @@ open class CursorParser(
                         assert(hash() !in elaborated)
 
                         // We remember that we chose a name for this definition,
-                        // This also marks the cursor for elaboration.
-                        elaborated[hash()] = Pair(this, sym)
+                        elaborated[hash()] = sym
+                        // and we mark the cursor for elaboration.
+                        toBeElaborated.add(this)
                     }
             }
 

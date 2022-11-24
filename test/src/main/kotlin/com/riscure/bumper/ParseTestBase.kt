@@ -26,13 +26,13 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     fun <T> Option<T>.assertOK(): T =
         this.getOrElse { fail("Expected some, got none") }
 
-    private fun withTemp(program: String, withFile: (file: File) -> Unit) {
+    private fun <T> withTemp(program: String, withFile: (file: File) -> T): T {
         val file: File = kotlin.io.path
             .createTempFile(suffix = ".c")
             .apply { writeText(program) }
             .toFile()
 
-        try {
+        return try {
             withFile(file)
         } finally {
             // Delete this when the JVM quits, so we have time to read it
@@ -45,20 +45,31 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         parsed(file, whenOk)
     }
 
-    fun parsed(test: File, whenOk: (ast: TranslationUnit<*,*>) -> Unit) {
+    fun parsedAndRoundtrip(program: String, whenOk: (ast: TranslationUnit<*,*>) -> Unit) =
+        parsed(program, whenOk).let {
+            // TODO improve, now we parse thrice.
+            roundtrip(program)
+        }
+
+    fun parsed(test: File, whenOk: (ast: TranslationUnit<*,*>) -> Unit): TranslationUnit<E,S> {
         val unit = parser
             .parse(test)
             .assertOK()
 
         val ast = unit.ast.assertOK()
         whenOk(ast)
+
+        return ast
     }
 
-    fun invalid(program: String) = try {
-        parsed(program) {}
+    fun invalid(program: String) {
+        try {
+            parsed(program) {}
+        } catch (e: AssertionFailedError) { /* test succeeds */
+            return // early
+        }
 
         fail("Expected parse error.")
-    } catch (e: AssertionFailedError) { /* test succeeds */
     }
 
     // Some temporary storage
@@ -83,12 +94,10 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             .assertOK()
 
         whenOk(result.first, result.second)
-
-        // TODO check idempotence of parsing and elaboration
     }
 
-    fun roundtrip(program: String, whenOk: (TranslationUnit<E, S>) -> Unit)
-    fun roundtrip(program: String): Unit = roundtrip(program) {}
+    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)
+    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program) {}
 
     fun eq(s1: Symbol, s2: Symbol) {
         assertEquals(s1.tlid, s2.tlid)

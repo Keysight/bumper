@@ -3,6 +3,7 @@ package com.riscure.bumper.libclang
 import arrow.core.*
 import com.riscure.bumper.*
 import com.riscure.bumper.ast.TranslationUnit
+import com.riscure.dobby.clang.Options
 import org.bytedeco.llvm.clang.CXCursor
 import java.nio.file.Path
 
@@ -16,16 +17,18 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
             .temporary("test-storage")
             .getOrHandle { throw it }
 
-    override fun roundtrip(program: String, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
-        bumped(program, listOf()) { ast1, unit1 ->
+    override fun roundtrip(program: String, opts: Options, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
+        bumped(program, opts) { ast1, unit1 ->
             val pp1 = unit1.printer.print(ast1).assertOK().write()
-            bumped(pp1, listOf()) { ast2, unit2 ->
+            bumped(pp1, opts) { ast2, unit2 ->
                 ast1.declarations.zip(ast2.declarations) { l, r ->
                     try {
                         eq(l, r.withMeta(l.meta))
                     } catch (e: Throwable) {
-                        println("Pretty 1:\n" + unit1.printer.print(l))
-                        println("Pretty 2:\n" + unit2.printer.print(r))
+                        println("Pretty 1:\n")
+                        println(unit1.printer.print(l).assertOK().write())
+                        println("Pretty 2:\n")
+                        println(unit1.printer.print(r).assertOK().write())
                         throw e
                     }
                 }

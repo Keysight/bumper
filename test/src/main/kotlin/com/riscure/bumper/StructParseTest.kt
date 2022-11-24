@@ -12,7 +12,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Empty anonymous struct definition")
-    fun test00() = parsed("""
+    fun test00() = parsedAndRoundtrip("""
         struct {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -32,7 +32,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct declaration")
-    fun test02() = parsed("""
+    fun test02() = parsedAndRoundtrip("""
         struct A;
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -47,7 +47,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Empty named struct definition")
-    fun test03() = parsed("""
+    fun test03() = parsedAndRoundtrip("""
         struct A {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -62,7 +62,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct with single member")
-    fun test06() = parsed("""
+    fun test06() = parsedAndRoundtrip("""
         struct A { int i; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -73,7 +73,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct with two members")
-    fun test07() = parsed("""
+    fun test07() = parsedAndRoundtrip("""
         struct A { int i; double j; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -96,7 +96,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested named struct in named struct")
-    fun test20() = parsed("""
+    fun test20() = parsedAndRoundtrip("""
         struct A { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -108,7 +108,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested struct in anonymous struct")
-    fun test21() = parsed("""
+    fun test21() = parsedAndRoundtrip("""
         struct { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -120,7 +120,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested anonymous struct in named struct")
-    fun test22() = parsed("""
+    fun test22() = parsedAndRoundtrip("""
         struct A { struct {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -134,7 +134,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Anonymous member of anonymous union type in struct")
-    fun test30() = parsed("""
+    fun test30() = parsedAndRoundtrip("""
         struct A { union { char alpha; int num; }; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -160,7 +160,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested anonymous struct in anonymous struct member")
-    fun test31() = parsed("""
+    fun test31() = parsedAndRoundtrip("""
         struct Scope { struct { int i; }; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -190,4 +190,65 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct A { struct B b; };
         struct B { int i; };
     """.trimIndent())
+
+    // Incomplete and complete types edge cases
+    // ========================================
+
+    @Test
+    @DisplayName("Pointer to forward declaration of struct is complete")
+    fun test41() = parsedAndRoundtrip("""
+        struct A { struct B *b; }; // struct B is incomplete, but under pointer, so type A is complete
+        struct B { int i; };
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.declarations.size)
+        val structA = assertNotNull(ast.structs.find { it.ident == "A" })
+        assertTrue(structA.isDefinition)
+    }
+
+    @Test
+    @DisplayName("Inline defined struct field is complete")
+    fun test42() = parsedAndRoundtrip("""
+        struct A { struct B { int i; } b; };
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.declarations.size)
+        val structA = assertNotNull(ast.structs.find { it.ident == "A" })
+        assertTrue(structA.isDefinition)
+    }
+
+    // The point of this test case is to make sure we elaborate in a way
+    // that respects type dependencies and visibility of typedefs.
+    // It shouldn't move the definition of struct B in a way that its dependencies are no longer
+    // visible to the definition.
+    // (Ideally it should also not extend the visibility of definitions, e.g. by moving both MyInt and
+    // struct B above struct A. But this property is not tested.)
+    @Test
+    @DisplayName("Pointer to forward declaration of struct respects dependencies")
+    fun test43() = parsedAndRoundtrip("""
+        struct A { struct B *b; };
+        typedef int MyInt;
+        struct B { MyInt i; };
+    """.trimIndent()) { ast ->
+        assertEquals(3, ast.declarations.size)
+        val structA = assertNotNull(ast.structs.find { it.ident == "A" })
+        assertTrue(structA.isDefinition)
+    }
+
+    @Test
+    @DisplayName("Field that forward references a struct definition is incomplete")
+    fun test44() = invalid("""
+        struct A { struct B b; };
+        struct B { int i; };
+    """.trimIndent())
+
+    @Test
+    @DisplayName("Recursive struct is incomplete")
+    fun test45() = invalid("""
+        struct A { struct A a; };
+    """.trimIndent())
+
+    @Test
+    @DisplayName("Recursive struct through pointer is complete")
+    fun test46() = parsedAndRoundtrip("""
+        struct A { struct A *a; };
+    """.trimIndent()) {}
 }
