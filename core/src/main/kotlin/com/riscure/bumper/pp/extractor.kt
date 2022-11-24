@@ -34,7 +34,7 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
             out.add(
                 line.substring(
                     if (lineno == range.begin.row) (range.begin.col - 1) else 0,
-                    if (lineno == range.end.row) endColInclusive else (line.length - 1)
+                    if (lineno == range.end.row) endColInclusive else line.length
                 )
             )
         }
