@@ -1,8 +1,6 @@
 package com.riscure.bumper.libclang
 
-import arrow.core.Either
-import arrow.core.left
-import arrow.core.right
+import arrow.core.*
 import com.riscure.dobby.clang.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.Parser
@@ -21,8 +19,12 @@ import java.io.File
 class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
     override fun parse(file: File, opts: Options, tuid: TUID): Either<Throwable, ClangUnitState> {
+        val warnErrors   = Arg
+            .reads("-Werror=${badWarnings.joinToString(separator = ",")}")
+            .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") }
+
         val cmd: Command = with(Spec.clang11) {
-            Command(opts, listOf())
+            Command(opts + warnErrors, listOf())
         }
         val args = cmd.toArguments()
 
@@ -91,6 +93,10 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
     }
 
     companion object {
+        private val spec = Spec.clang11
+
+        val badWarnings = listOf("missing-declarations")
+
         val errorCodes: Map<Int, ClangError> = ClangError.values().associateBy { it.code }
 
         enum class ClangError(val code: Int, val msg: String) {

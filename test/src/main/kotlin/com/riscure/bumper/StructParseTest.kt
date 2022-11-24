@@ -133,12 +133,21 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     // =================
 
     @Test
+    @DisplayName("Bad anonymous struct field")
+    fun test29() = invalid("""
+        struct s {
+            int;
+            unsigned int x;
+        };
+    """.trimIndent())
+
+    @Test
     @DisplayName("Anonymous member of anonymous union type in struct")
     fun test30() = parsedAndRoundtrip("""
         struct A { union { char alpha; int num; }; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
-        val structA = assertNotNull(ast.structs[0])
+        val structA = assertNotNull(ast.structs.find { it.ident == "A" })
 
         val fields = structA.fields.assertOK()
         assertEquals(1, fields.size)
@@ -287,25 +296,4 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
           unsigned int __g_signals[2];
         };
    """.trimIndent()) {}
-
-    @Test
-    @DisplayName("Tricky union fields")
-    fun test48() = parsedAndRoundtrip("""
-        struct __anontype_17 { unsigned int __low; unsigned int __high; };
-        union __anontype_6 { unsigned long long __wseq; struct __anontype_17 __wseq32; };
-        union __anontype_7 { unsigned long long __g1_start; };
-        struct __pthread_cond_s {
-            union __anontype_6;
-            union __anontype_7;
-            unsigned int __g_refs[2];
-            unsigned int __g_size[2];
-            unsigned int __g1_orig_size;
-            unsigned int __wrefs;
-            unsigned int __g_signals[2];
-        };
-    """.trimIndent()) { ast ->
-        val pthread = assertNotNull(ast.structs.find { it.ident == "__pthread_cond_s" })
-        val fields = pthread.fields.assertOK()
-        assertEquals(7, fields.size)
-    }
 }
