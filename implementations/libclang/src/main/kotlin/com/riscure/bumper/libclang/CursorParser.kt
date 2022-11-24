@@ -303,7 +303,7 @@ open class CursorParser(
 
     fun CXCursor.asField(): Result<Field> {
         return type()
-            .asType()
+            .asFieldType()
             .flatMap { type ->
                 val attrs = this.cursorAttributes(type())
                 getIdentifier()
@@ -434,6 +434,30 @@ open class CursorParser(
                 Symbol(tuid, TLID(ident, kind))
             }
 
+    /**
+     * Field types are treated a little different,
+     * because anonymouse inline struct/union type definitions need
+     * not to be elaborated. That would change the visibility of the
+     * nested members.
+     */
+    fun CXType.asFieldType(): Result<FieldType> =
+        when (kind()) {
+            // anonymous union/struct field are treated differently
+            CXType_Record -> {
+                clang_getTypeDeclaration(this)
+                    .asDeclaration()
+                    .flatMap { d ->
+                        // sanity check
+                        assert(d.ident == "")
+                        when (d) {
+                            is Declaration.Composite -> FieldType.AnonComposite(d.structOrUnion, d.fields).right()
+                            else -> "Invariant violation: failed to parse anonymous field.".left()
+                        }
+                    }
+            }
+            else -> asType()
+        }
+
     fun CXType.asType(): Result<Type> =
         when (kind()) {
             CXType_Void            -> Type.Void().right()
@@ -519,8 +543,7 @@ open class CursorParser(
                     .asType()
                     .map { Type.Atomic(it) }
 
-            // Special type kind for inline declarations.
-            // Any named struct or union type is actually an inline declaration or definition.
+            // Special type kind for inline declarations are elaborated by clang.
             CXType_Elaborated      ->
                 clang_Type_getNamedType(this)
                     .asType()

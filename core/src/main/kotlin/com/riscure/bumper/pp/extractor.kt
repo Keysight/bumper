@@ -15,7 +15,10 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
     private val lines = file.readLines(charset = charset)
 
     fun extract(range: SourceRange): Either<String, String> {
-        if (lines.size < range.end.row) {
+        val endColInclusive = range.end.col - 1
+
+        if (lines.size < range.end.row ||
+            lines.size == range.end.row && lines.last().length < endColInclusive) {
             return "Source range exceeds file boundaries".left()
         }
 
@@ -28,8 +31,12 @@ class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
             if (lineno > range.end.row) break
 
             // cut off the line segments we don't want
-            val line2 = if (lineno == range.begin.row) line.substring(range.begin.col - 1) else line
-            out.add(if (lineno == range.end.row) line2.substring(0, range.end.col - 1) else line2)
+            out.add(
+                line.substring(
+                    if (lineno == range.begin.row) (range.begin.col - 1) else 0,
+                    if (lineno == range.end.row) endColInclusive else (line.length - 1)
+                )
+            )
         }
 
         return out.joinToString(separator = "\n").right()

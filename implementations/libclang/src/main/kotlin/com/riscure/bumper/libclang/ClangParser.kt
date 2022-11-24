@@ -19,9 +19,12 @@ import java.io.File
 class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
     override fun parse(file: File, opts: Options, tuid: TUID): Either<Throwable, ClangUnitState> {
-        val warnErrors   = Arg
-            .reads("-Werror=${badWarnings.joinToString(separator = ",")}")
-            .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") }
+        // escalate some warnings to errors
+        val warnErrors   = if (badWarnings.size > 0) {
+            listOf(Arg
+                .reads("-Werror=${badWarnings.joinToString(separator = ",")}")
+                .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") })
+        } else listOf()
 
         val cmd: Command = with(Spec.clang11) {
             Command(opts + warnErrors, listOf())
@@ -95,7 +98,10 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
     companion object {
         private val spec = Spec.clang11
 
-        val badWarnings = listOf("missing-declarations")
+        // Use this to escalate some warnings to errors.
+        // For example, if you want to specify '-Werror=missing-declarations',
+        // add "missing-declarations" to the list.
+        val badWarnings = listOf<String>()
 
         val errorCodes: Map<Int, ClangError> = ClangError.values().associateBy { it.code }
 

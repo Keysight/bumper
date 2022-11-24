@@ -31,7 +31,8 @@ interface DependencyAnalysis<Exp,Stmt> {
                 .getOrElse { nil }
                 .union(ofType(decl.type))
         is Declaration.Composite ->
-            decl.fields
+            TODO()
+            /*decl.fields
                 .map { fields ->
                     fields
                         .map { ofType(it.type) }
@@ -39,7 +40,7 @@ interface DependencyAnalysis<Exp,Stmt> {
                         .map { it.flatten().toSet() }
                 }
                 // if no fields are defined, no dependencies
-                .getOrElse { nil }
+                .getOrElse { nil }*/
         is Declaration.Enum      -> nil
         is Declaration.Fun       ->
             decl.body

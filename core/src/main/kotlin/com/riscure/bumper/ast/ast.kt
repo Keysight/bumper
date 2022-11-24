@@ -125,12 +125,26 @@ enum class Storage {
 
 typealias Attrs = List<Attr>
 
+/**
+ * A superset of types that can act as types of a field.
+ */
+sealed interface FieldType {
+    abstract val attrs: Attrs
+    abstract fun withAttrs(attrs: Attrs): FieldType
+
+    data class AnonComposite(
+        val structOrUnion: StructOrUnion,
+        val fields: Option<FieldDecls> = None,
+        override val attrs: Attrs = listOf()
+    ) : FieldType {
+        override fun withAttrs(attrs: Attrs): AnonComposite = copy(attrs = attrs)
+    }
+}
+
 /* Types */
 @Serializable
-sealed class Type {
-    abstract val attrs: Attrs
-    abstract fun withAttrs(attrs: Attrs): Type
-
+sealed class Type: FieldType {
+    abstract override fun withAttrs(attrs: Attrs): Type // refine the return type.
     fun const() = withAttrs(attrs + Attr.Constant)
     fun restrict() = withAttrs(attrs + Attr.Restrict)
 
@@ -274,7 +288,7 @@ sealed class Type {
 @Serializable
 data class Field(
     val name: Ident,
-    val type: Type,
+    val type: FieldType,
     val bitfield: Option<Int> = none()
 ) {
     val isAnonymous: Boolean get() = name.isEmpty()

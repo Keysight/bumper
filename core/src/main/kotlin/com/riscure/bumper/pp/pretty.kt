@@ -27,7 +27,7 @@ object Pretty {
         FKind.FLongDouble -> "long double"
     }
 
-    fun declaration(ident: Ident, type: Type): String {
+    fun declaration(ident: Ident, type: FieldType): String {
         val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
@@ -46,7 +46,7 @@ object Pretty {
 
     private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
 
-    private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
+    private fun namePart(type: FieldType, name: String): Pair<FieldType, String> = when (type) {
         is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrs)}${name}")
         is Type.Fun   -> {
             // this is strange, but true, I think
@@ -56,7 +56,7 @@ object Pretty {
         else          -> Pair(type, name)
     }
 
-    private fun typePrefix(type: Type): String = when (type) {
+    private fun typePrefix(type: FieldType): String = when (type) {
         // This part should have been printed by the name-part printer
         is Type.Array             -> throw RuntimeException("Failed to pretty-print ill-formed type.")
         is Type.Fun               -> throw RuntimeException("Failed to pretty-print ill-formed type.")
@@ -74,6 +74,8 @@ object Pretty {
         is Type.Complex           -> "${floatKind(type.kind)} _Complex"
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
         is Type.VaList            -> "__builtin_va_list"
+
+        is FieldType.AnonComposite -> with (type) { composite(structOrUnion, "", fields) }
     }
 
     fun prototype(thefun: Declaration.Fun<*>): String {
@@ -83,6 +85,11 @@ object Pretty {
 
     fun typedef(typedef: Declaration.Typedef): String =
         "typedef ${declaration(typedef.ident, typedef.underlyingType)}"
+
+    fun composite(structOrUnion: StructOrUnion, id: Ident, fields: Option<FieldDecls>) = when (structOrUnion) {
+        StructOrUnion.Struct -> "struct ${maybeName(id)}${maybeFields(fields)}"
+        StructOrUnion.Union  -> "union ${maybeName(id)}${maybeFields(fields)}"
+    }
 
     fun storage(storage: Storage): String = when (storage) {
         Storage.Default  -> ""
@@ -97,10 +104,7 @@ object Pretty {
         is Declaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
         is Declaration.Typedef   -> typedef(toplevel)
         is Declaration.Composite -> with(toplevel) {
-            when (structOrUnion) {
-                StructOrUnion.Struct -> "struct ${maybeName(ident)}${maybeFields(fields)}"
-                StructOrUnion.Union  -> "union ${maybeName(ident)}${maybeFields(fields)}"
-            }
+            composite(structOrUnion, ident, fields)
         }
         is Declaration.Enum      -> with(toplevel) {
             "enum ${maybeName(ident)}${maybeEnumerators(enumerators)}"

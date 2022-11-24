@@ -133,18 +133,25 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     // =================
 
     @Test
-    @DisplayName("Bad anonymous struct field")
-    fun test29() = invalid("""
+    @DisplayName("Ignored anonymous struct field")
+    fun test29() = parsedAndRoundtrip("""
         struct s {
             int;
             unsigned int x;
         };
-    """.trimIndent())
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.declarations.size)
+        val struct = assertIs<Declaration.Composite>(ast.structs[0])
+        val fields = struct.fields.assertOK()
+        assertEquals(1, fields.size)
+        assertEquals("x", fields[0].name)
+    }
 
     @Test
-    @DisplayName("Anonymous member of anonymous union type in struct")
+    @DisplayName("Anonymous union member in struct")
     fun test30() = parsedAndRoundtrip("""
         struct A { union { char alpha; int num; }; };
+        void f(struct A a) { a.num = 42; } // check if union members are accessible
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
         val structA = assertNotNull(ast.structs.find { it.ident == "A" })
@@ -153,12 +160,9 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field = assertNotNull(fields[0])
-        val unionType = assertIs<Type.Union>(field.type)
+        val union = assertIs<FieldType.AnonComposite>(field.type)
 
-        val union = assertIs<Declaration.Composite>(ast.unions[0])
         assertEquals(StructOrUnion.Union, union.structOrUnion)
-        assertEquals(union.mkSymbol(ast.tuid), unionType.ref)
-
         val fs = union.fields.getOrElse { fail("Expected fields") }
         assertEquals(2, fs.size)
         val alpha = assertNotNull(fs[0])
@@ -172,18 +176,15 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     fun test31() = parsedAndRoundtrip("""
         struct Scope { struct { int i; }; };
     """.trimIndent()) { ast ->
-        assertEquals(2, ast.declarations.size)
+        assertEquals(1, ast.declarations.size)
         val scope = assertNotNull(ast.structs.find { it.ident == "Scope" })
 
         val fields = scope.fields.assertOK()
         assertEquals(1, fields.size)
 
-        val field = assertNotNull(fields[0])
-        val typeref = assertIs<Type.Struct>(field.type)
-        val struct  = assertIs<Declaration.Composite>(ast.structs.find { it.ident.startsWith("__") })
+        val field  = assertNotNull(fields[0])
+        val struct = assertIs<FieldType.AnonComposite>(field.type)
         assertEquals(StructOrUnion.Struct, struct.structOrUnion)
-
-        assertEquals(struct.mkSymbol(ast.tuid), typeref.ref)
 
         val fs = struct.fields.getOrElse { fail("Expected fields") }
         assertEquals(1, fs.size)

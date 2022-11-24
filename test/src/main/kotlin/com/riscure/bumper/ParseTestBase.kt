@@ -12,8 +12,8 @@ import kotlin.io.path.writeText
 import kotlin.test.*
 
 interface ParseTestBase<E,S,U: UnitState<E, S>> {
-    val frontend : Frontend<E, S, U>
-    val parser   : Parser<E, S, U> get() = frontend
+    val frontend: Frontend<E, S, U>
+    val parser: Parser<E, S, U> get() = frontend
 
     fun <E, T> Either<E, T>.assertOK(): T =
         this.getOrHandle { error ->
@@ -41,17 +41,17 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         }
     }
 
-    fun parsed(program: String, whenOk: (ast: TranslationUnit<*,*>) -> Unit) = withTemp(program) { file ->
+    fun parsed(program: String, whenOk: (ast: TranslationUnit<*, *>) -> Unit) = withTemp(program) { file ->
         parsed(file, whenOk)
     }
 
-    fun parsedAndRoundtrip(program: String, whenOk: (ast: TranslationUnit<*,*>) -> Unit) =
+    fun parsedAndRoundtrip(program: String, whenOk: (ast: TranslationUnit<*, *>) -> Unit) =
         parsed(program, whenOk).let {
             // TODO improve, now we parse thrice.
             roundtrip(program)
         }
 
-    fun parsed(test: File, whenOk: (ast: TranslationUnit<*,*>) -> Unit): TranslationUnit<E,S> {
+    fun parsed(test: File, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
         val unit = parser
             .parse(test)
             .assertOK()
@@ -104,6 +104,20 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         // units can differ in roundtrip tests
     }
 
+    fun eq(f1: FieldDecls, f2: FieldDecls) {
+        f1.zip(f2) { l, r -> eq(l, r) }
+    }
+
+    fun eq(f1: Option<FieldDecls>, f2: Option<FieldDecls>) {
+        when (f1) {
+            is Some -> {
+                val v2 = assertIs<Some<FieldDecls>>(f2)
+                eq(f1.value, v2.value)
+            }
+            is None -> assertIs<None>(f2)
+        }
+    }
+
     fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
         assertEquals(d1.tlid, d2.tlid)
         assertEquals(d1.isDefinition, d2.isDefinition)
@@ -114,12 +128,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 val c1 = d1
                 val c2 = assertIs<Declaration.Composite>(d2)
                 assertEquals(c1.structOrUnion, c2.structOrUnion)
-                assertEquals(c1.fields.isDefined(), c2.fields.isDefined())
-                c1.fields.tap { f1 -> c2.fields.tap { f2 ->
-                    f1.zip(f2) { l, r ->
-                        eq(l, r)
-                    }
-                }}
+                eq(c1.fields, c2.fields)
             }
             is Declaration.Enum      -> {
                 val e1 = d1
@@ -153,7 +162,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         eq(f1.type, f2.type)
     }
 
-    fun eq(t1: Type, t2: Type) {
+    fun eq(t1: FieldType, t2: FieldType) {
         assertEquals(t1.attrs, t2.attrs)
 
         when (t1) {
@@ -198,6 +207,11 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             is Type.Union             -> {
                 val u2 = assertIs<Type.Union>(t2)
                 eq(t1.ref, u2.ref)
+            }
+            is FieldType.AnonComposite -> {
+                val c2 = assertIs<FieldType.AnonComposite>(t2)
+                assertEquals(t1.structOrUnion, c2.structOrUnion)
+                eq(t1.fields, c2.fields)
             }
         }
     }
