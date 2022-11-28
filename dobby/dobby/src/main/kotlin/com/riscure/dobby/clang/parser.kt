@@ -97,7 +97,7 @@ object ClangParser {
                 } else {
                     arg.arg.copy(values = arg.arg.values.plus(tail)).right()
                 }
-            is Positional -> "Expected clang option, got ${head}".left()
+            is Positional -> "Expected clang option, got $head".left()
         }}
 
     private fun tryPositional(input: String): Result<Positional> =

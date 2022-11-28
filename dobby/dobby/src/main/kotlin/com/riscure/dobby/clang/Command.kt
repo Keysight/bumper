@@ -1,5 +1,6 @@
 package com.riscure.dobby.clang
 
+import arrow.core.*
 import com.riscure.dobby.shell.Arg as ShellArg
 
 typealias Options = List<Arg>
@@ -11,9 +12,11 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     /**
      * Return a command without [opt] or any of its aliases.
      */
-    fun filter(spec: Spec, opts: Set<OptionSpec>): Command {
+    fun filter(spec: Spec, opts: Collection<OptionSpec>): Command {
         return this.copy(
-            optArgs = optArgs.filter { (argSpec, _) -> !opts.any { blacklisted -> spec.equal(argSpec, blacklisted) } }
+            optArgs = optArgs.filter { (argSpec, _) ->
+                !opts.any { blacklisted -> spec.equal(argSpec, blacklisted) }
+            }
         )
     }
 
@@ -58,10 +61,12 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
         optArgs.map { it.shellify().toString() } + positionalArgs.map { ShellArg.quote(it).toString() }
 
     companion object : arrow.typeclasses.Monoid<Command> {
+        @JvmStatic
         override fun empty(): Command = Command(listOf(), listOf())
         override fun Command.combine(b: Command): Command =
             Command(optArgs.plus(b.optArgs), positionalArgs.plus(b.positionalArgs))
 
+        @JvmStatic
         fun reads(arguments: List<String>) = ClangParser.parseArguments(arguments)
     }
 }
@@ -86,6 +91,7 @@ data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
     }
 
     companion object {
+        @JvmStatic
         fun reads(head: String, vararg tail: String) = ClangParser.parseOption(head, *tail)
     }
 }
