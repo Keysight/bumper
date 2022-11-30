@@ -1,7 +1,6 @@
 package com.riscure.langs.c.pp
 
 import arrow.core.*
-import com.riscure.langs.c.ast.*
 import java.nio.charset.Charset
 import kotlin.io.path.*
 import kotlin.test.*

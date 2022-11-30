@@ -15,7 +15,7 @@ fun ByteArray.toAsciiHexString() = joinToString("") {
 
 class BinaryAstFormatTest {
 
-    @Nested
+    /*@Nested
     inner class Types {
         fun roundtrip(type: Type) {
             val bytes = ProtoBuf.encodeToByteArray(type)
@@ -53,5 +53,5 @@ class BinaryAstFormatTest {
                     )
                 )
             }
-    }
+    }*/
 }
