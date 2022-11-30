@@ -24,6 +24,7 @@ dependencies {
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
     implementation(kotlin("test"))
+    implementation(files("./src/main/resources"))
 }
 
 tasks.compileKotlin {

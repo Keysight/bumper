@@ -2,16 +2,31 @@ package com.riscure.bumper
 
 import arrow.core.*
 import com.riscure.bumper.ast.*
-import com.riscure.dobby.clang.Options
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
+import com.riscure.dobby.clang.Arg
+import com.riscure.dobby.clang.Options
 import org.opentest4j.AssertionFailedError
 import java.io.File
+import java.nio.file.Path
 import kotlin.io.path.writeText
-import kotlin.test.*
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.fail
 
 interface ParseTestBase<E,S,U: UnitState<E, S>> {
+
+    companion object {
+        val glibc = Path.of(ParseTestBase::class.java.classLoader.getResource("glibc/include").toURI())
+        val clangResourceDir = Path.of(ParseTestBase::class.java.classLoader.getResource("clang/include").toURI())
+        val stdopts = Arg.readMany(
+                listOf(listOf("-I$glibc"), listOf("-I$clangResourceDir"), listOf("-nostdinc"))
+        ).getOrHandle { err ->
+            throw RuntimeException(err)
+        }
+    }
+
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
 

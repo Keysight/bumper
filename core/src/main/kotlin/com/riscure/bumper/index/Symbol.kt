@@ -22,5 +22,7 @@ data class Symbol(
             Symbol(unit, TLID.union(name))
         @JvmStatic fun enum(unit: TUID, name: String) =
             Symbol(unit, TLID.enum(name))
+        @JvmStatic fun typedef(unit: TUID, name: String) =
+            Symbol(unit, TLID.typedef(name))
     }
 }
