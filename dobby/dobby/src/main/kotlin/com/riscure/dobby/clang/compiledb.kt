@@ -35,6 +35,16 @@ data class CompilationDb(val entries: List<Entry>) {
 
     fun get(main: Path): Option<Entry> = byMain[main].toOption()
 
+    /**
+     * Apply a path mapping to the entries' mainSource fields.
+     */
+    fun remap(mapping: (p: Path) -> Path) =
+        CompilationDb(
+            entries.map {
+                with(it) { copy(mainSource = mapping(mainSource)) }
+            }
+        )
+
     data class Entry(
         val workingDirectory: Path,
         val mainSource: Path,

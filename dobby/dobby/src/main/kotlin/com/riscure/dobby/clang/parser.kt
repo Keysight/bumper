@@ -88,6 +88,7 @@ object ClangParser {
         }
     }
 
+    @JvmStatic
     fun parseOption(head: String, vararg tail: String): Result<Arg> =
         parseClangArgument(head).flatMap { arg -> when (arg) {
             is Whole -> arg.arg.right()
@@ -112,6 +113,7 @@ object ClangParser {
      * If you have a shell-quoted line instead, you first have to parse it and evaluate
      * the quotes/escapes using com.riscure.dobby.shell.
      */
+    @JvmStatic
     fun parseArguments(arguments: List<String>): Result<Command> = when (arguments.size) {
         0    -> Command.empty().right()
         else -> {

@@ -74,8 +74,9 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 /**
  * Clang compilation optional arguments, with semantic info from the spec attached.
  */
-data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
+data class Arg(val opt: OptionSpec, val values: List<String>) {
     constructor(opt: OptionSpec, value: String):  this(opt, listOf(value))
+    constructor(opt: OptionSpec):  this(opt, listOf())
 
     /**
      * Join arguments according to the option specification.
@@ -91,7 +92,18 @@ data class Arg(val opt: OptionSpec, val values: List<String> = listOf()) {
     }
 
     companion object {
-        @JvmStatic
-        fun reads(head: String, vararg tail: String) = ClangParser.parseOption(head, *tail)
+        /**
+         * Read a single option argument with a possible [tail] of separated values.
+         */
+        @JvmStatic fun reads(head: String, vararg tail: String) = ClangParser.parseOption(head, *tail)
+        @JvmStatic fun readMany(args: List<List<String>>): Either<String, List<Arg>> = args
+            .flatMap { parts ->
+                if (parts.isEmpty()) {
+                    listOf()
+                } else {
+                    listOf(ClangParser.parseOption(parts[0], *parts.drop(1).toTypedArray()))
+                }
+            }
+            .sequence()
     }
 }
