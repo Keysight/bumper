@@ -24,6 +24,11 @@ private object myDependencyOrder: Comparator<Pair<CXCursor, ClangDeclaration>> {
         }
 }
 
+data class UnitWithCursorData(
+    val ast: TranslationUnit<CXCursor, CXCursor>,
+    val elaboratedCursors: Map<CursorHash, ClangDeclaration>
+)
+
 /**
  * A stateful translation from libclang's CXCursors to our typed C ASTs.
  * The state is bound to a single translation unit, which is assumed to be parsed only once.
@@ -108,7 +113,7 @@ open class CursorParser(
         return whenMatch()
     }
 
-    fun CXCursor.asTranslationUnit(): Result<TranslationUnit<CXCursor, CXCursor>> =
+    fun CXCursor.asTranslationUnit(): Result<UnitWithCursorData> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
             // We parse the top-level declarations
             val toplevelDecls = children()
@@ -130,15 +135,17 @@ open class CursorParser(
                     // of structs and unions.
                     .map { it.sortedWith(myDependencyOrder) }
                     .flatMap { ds ->
-                        ds.map { (cursor, decl) ->
-                            // rename the declaration from the programmer-written name to the elaborated name.
-                            cursor
-                                .getSymbol()
-                                .map { decl.withIdent(it.name) }
-                        }.sequence()
+                        ds
+                            .map { (cursor, decl) ->
+                                // rename the declaration from the programmer-written name to the elaborated name.
+                                cursor
+                                    .getSymbol()
+                                    .map { Pair(cursor.hash(), decl.withIdent(it.name)) }
+                            }
+                            .sequence()
                     }
                     // and finally collect the outputs in a translation unit model.
-                    .map { ds -> TranslationUnit(tuid, ds) }
+                    .map { ds -> UnitWithCursorData(TranslationUnit(tuid, ds.map { it.second }), ds.toMap()) }
             }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,

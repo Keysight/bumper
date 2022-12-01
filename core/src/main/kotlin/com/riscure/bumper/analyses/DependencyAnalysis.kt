@@ -9,13 +9,13 @@ typealias Result = Either<String, Set<Symbol>>
 fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
 
 /**
- * Implements a dependency analysis for C programs:
- * that is, it computes a set of symbols that a given AST element depends on,
- * directly or transitively.
+ * Implements a dependency analysis for C translation units.
  *
- * This eagerly computes transitive dependencies, making use of caching
- * to avoid recomputing dependencies for the same symbol multiple times.
- * It maintains a stack to detect cycles in the dependency graph.
+ * That is, it computes a set of symbols that a given AST element depends on, *directly*.
+ * To compute the full set of dependencies, you have to take the reflexive-transitive
+ * closure of the computed direct dependencies.
+ *
+ * By the nature of C, the dependencies are always local to the translation unit.
  */
 interface DependencyAnalysis<Exp,Stmt> {
     val nil: Result get() = setOf<Symbol>().right()
@@ -31,8 +31,7 @@ interface DependencyAnalysis<Exp,Stmt> {
                 .getOrElse { nil }
                 .union(ofType(decl.type))
         is Declaration.Composite ->
-            TODO()
-            /*decl.fields
+            decl.fields
                 .map { fields ->
                     fields
                         .map { ofType(it.type) }
@@ -40,7 +39,7 @@ interface DependencyAnalysis<Exp,Stmt> {
                         .map { it.flatten().toSet() }
                 }
                 // if no fields are defined, no dependencies
-                .getOrElse { nil }*/
+                .getOrElse { nil }
         is Declaration.Enum      -> nil
         is Declaration.Fun       ->
             decl.body
@@ -52,23 +51,24 @@ interface DependencyAnalysis<Exp,Stmt> {
             ofType(decl.underlyingType)
     }
 
-    fun ofType(type: Type): Result = TODO() /* when (type) {
-        is Type.Fun               ->
+    fun ofType(type: FieldType): Result = when (type) {
+        is Type.Fun                ->
             ofType(type.returnType)
                 .union(ofParams(type.params))
-        is Type.Array             -> ofType(type.elementType)
-        is Type.Ptr               -> ofType(type.pointeeType)
-        is Type.Typedeffed        -> setOf(type.ref.resolution).right()
-        is Type.Struct            -> setOf(type.ref.resolution).right()
-        is Type.Union             -> setOf(type.ref.resolution).right()
-        is Type.Int               -> nil
-        is Type.Enum              -> nil
-        is Type.Float             -> nil
-        is Type.Void              -> nil
-        is Type.Atomic            -> ofType(type.elementType)
-        is Type.Complex           -> nil
-        is Type.InlineDeclaration -> ofDecl(type.declaration)
-    }*/
+        is Type.Array              -> ofType(type.elementType)
+        is Type.Ptr                -> ofType(type.pointeeType)
+        is Type.Typedeffed         -> setOf(type.ref).right()
+        is Type.Struct             -> setOf(type.ref).right()
+        is Type.Union              -> setOf(type.ref).right()
+        is Type.Int                -> nil
+        is Type.Enum               -> nil
+        is Type.Float              -> nil
+        is Type.Void               -> nil
+        is Type.Atomic             -> ofType(type.elementType)
+        is Type.Complex            -> nil
+        is Type.VaList             -> nil
+        is FieldType.AnonComposite -> TODO()
+    }
 
     private fun ofParams(params: List<Param>): Result =
         params

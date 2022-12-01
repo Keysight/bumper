@@ -521,15 +521,16 @@ data class TranslationUnit<out E, out T>(
      */
     val declarations: List<Declaration<E, T>>,
 ) {
-    /**
-     * Find a top-level element in this translation unit, based
-     * on a given [TLID] [id].
-     */
-    /*
-    operator fun get(id: TLID): Option<Declaration<E, T>> = decls
-        .find { it.ident.exists { it == id.name } && it.ofKind(id.kind) }
-        .toOption() // FIXME should also find inline declarations.
-     */
+    val byIdentifier: Map<TLID, List<Declaration<E, T>>> by lazy {
+        val mapping = mutableMapOf<TLID, MutableList<Declaration<E,T>>>()
+        for (d  in declarations) {
+            val ds = mapping.getOrDefault(d.tlid, mutableListOf())
+            ds.add(d)
+            mapping[d.tlid] = ds
+        }
+
+        mapping
+    }
 
     val variables: List<Declaration.Var<E>>  get() = declarations.variables
     val functions: List<Declaration.Fun<T>>  get() = declarations.functions
@@ -537,6 +538,46 @@ data class TranslationUnit<out E, out T>(
     val unions: List<Declaration.Composite>  get() = declarations.unions
     val typedefs: List<Declaration.Typedef>  get() = declarations.typedefs
     val enums: List<Declaration.Enum>        get() = declarations.enums
+
+    fun filter(predicate: (d: Declaration<E, T>) -> Boolean) =
+        copy(declarations = declarations.filter(predicate))
+
+    /** Map locations to top-level declarations */
+    fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
+        declarations
+            .find { decl -> decl.meta.location.exists { it.begin == loc }}
+            .toOption()
+
+    /** Map locations to top-level declarations */
+    fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
+        declarations
+            .find { decl -> decl.meta.location.exists { it.encloses(range) }}
+            .toOption()
+
+    /** Map locations to top-level declarations */
+    fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
+        declarations
+            .find { decl -> decl.meta.location.exists { it.encloses(loc) }}
+            .toOption()
+
+    /**
+     * Find declarations in this translation unit with a given [TLID] [id],
+     * in the order that they appear.
+     */
+    fun declarationsForTLID(id: TLID): List<Declaration<E, T>> = byIdentifier.getOrDefault(id, listOf())
+
+    /**
+     * Find declarations in this translation unit with a given [Symbol] [sym],
+     * in the order that they appear.
+     */
+    fun declarationsForSymbol(sym: Symbol): List<Declaration<E, T>> =
+        if (sym.unit == tuid) byIdentifier.getOrDefault(sym.tlid, listOf())
+        else listOf()
+
+    fun definitionFor(id: TLID): Option<Declaration<E,T>> =
+        byIdentifier[id]
+            ?.find { it.isDefinition }
+            .toOption()
 
     /**
      * Given a function definition identifier, turn it into a declaration only.
@@ -563,30 +604,8 @@ data class TranslationUnit<out E, out T>(
         defs.fold(this) { acc, it -> acc.dropDefinition(it) }
     */
 
-    /* Map locations to top-level declarations */
-    fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
-        declarations
-            .find { decl -> decl.meta.location.exists { it.begin == loc }}
-            .toOption()
-
-    /* Map locations to top-level declarations */
-    fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
-        declarations
-            .find { decl -> decl.meta.location.exists { it.encloses(range) }}
-            .toOption()
-
-    /* Map locations to top-level declarations */
-    fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
-        declarations
-            .find { decl -> decl.meta.location.exists { it.encloses(loc) }}
-            .toOption()
-
 
     /*
-    // Indexing a translation unit
-    val symbols: List<Symbol> get() = TODO("Gotta fix them symbols") // decls.map { tl -> Symbol(tuid, tl.tlid) }
-    val index   get() = Index.create(symbols)
-
     /**
      * We can use an index as a whitelist to mask a translation unit.
      * This returns a translation unit AST with only those decls that are whitelisted.
@@ -630,6 +649,9 @@ data class TranslationUnit<out E, out T>(
     }
     */
 }
+
+typealias AnyDeclaration     = Declaration<Any?, Any?>
+typealias AnyTranslationUnit = TranslationUnit<Any?, Any?>
 
 typealias ErasedDeclaration     = Declaration<Unit, Unit>
 typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>

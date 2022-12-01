@@ -30,6 +30,9 @@ interface UnitState<Exp,Stmt>: Closeable {
 
     /**
      * The dependency analyzer.
+     *
+     * This is only available if [ast] is an instance of Right.
+     * @throws UnsupportedOperationException when [ast] is Left
      */
     val dependencies: DependencyAnalysis<Exp, Stmt>
 }

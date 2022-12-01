@@ -24,28 +24,22 @@ class ClangUnitState(
 ) : UnitState<CXCursor, CXCursor> {
 
     private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-    private val parser = CursorParser(tuid)
-
-    override fun close() = cxunit.close()
-
-    override val ast by lazy {
-        with (parser) {
+    private val parsed by lazy {
+        with(CursorParser(tuid)) {
             rootCursor
                 .asTranslationUnit()
                 .mapLeft { Throwable(it) }
         }
     }
 
-    override val dependencies: DependencyAnalysis<CXCursor, CXCursor> by lazy {
-        // force parsing to populate the declaration and resolution table of the parser
-        ast
-        TODO()
+    override fun close() = cxunit.close()
 
-        /*ClangDependencyAnalysis(
-            tuid,
-            parser.declarations.toMutableMap(),
-            parser.resolutions.toMutableMap()
-        )*/
+    override val ast by lazy { parsed.map { it.ast }}
+
+    override val dependencies: DependencyAnalysis<CXCursor, CXCursor> by lazy {
+        // this exception is part of the contract of the interface.
+        val data = parsed.getOrHandle { error -> throw UnsupportedOperationException(error) }
+        ClangDependencyAnalysis(tuid, data.elaboratedCursors)
     }
 
     // We could use libclang's pretty printing facilities here,
