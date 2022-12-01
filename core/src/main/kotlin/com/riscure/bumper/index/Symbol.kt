@@ -17,7 +17,7 @@ data class Symbol(
         @JvmStatic fun function(unit: TUID, name: String) =
             Symbol(unit, TLID.function(name))
         @JvmStatic fun struct(unit: TUID, name: String) =
-            Symbol(unit, TLID.function(name))
+            Symbol(unit, TLID.struct(name))
         @JvmStatic fun union(unit: TUID, name: String) =
             Symbol(unit, TLID.union(name))
         @JvmStatic fun enum(unit: TUID, name: String) =

@@ -7,9 +7,17 @@ import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.io.TempDir
 import org.opentest4j.AssertionFailedError
 import java.io.File
-import java.nio.file.Path
+import java.io.IOException
+import java.nio.file.*
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.jar.JarInputStream
+import kotlin.io.path.copyTo
+import kotlin.io.path.createTempDirectory
+import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -18,10 +26,27 @@ import kotlin.test.fail
 interface ParseTestBase<E,S,U: UnitState<E, S>> {
 
     companion object {
-        val glibc = Path.of(ParseTestBase::class.java.classLoader.getResource("glibc/include").toURI())
-        val clangResourceDir = Path.of(ParseTestBase::class.java.classLoader.getResource("clang/include").toURI())
-        val stdopts = Arg.readMany(
-                listOf(listOf("-I$glibc"), listOf("-I$clangResourceDir"), listOf("-nostdinc"))
+
+        private fun unpackStdHeaders(includeDir: String): Path {
+            val temp = createTempDirectory("stdheaders")
+            val resource = ParseTestBase::class.java.classLoader.getResource(includeDir)
+            FileSystems.newFileSystem(resource?.toURI(), System.getenv()).use { fs ->
+                val root = fs.getPath("/");
+                Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+                    override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                        val destination = temp.resolve(root.relativize(file).toString())
+                        destination.parent.toFile().mkdirs()
+                        file.copyTo(destination)
+                        return FileVisitResult.CONTINUE
+                    }
+                })
+            }
+            return temp.resolve(includeDir)
+        }
+
+        private val glibc = unpackStdHeaders("glibc/include")
+        private val clangResourceDir = unpackStdHeaders("clang/include")
+        val stdopts = Arg.readMany(listOf(listOf("-I$glibc"), listOf("-I$clangResourceDir"), listOf("-nostdinc"))
         ).getOrHandle { err ->
             throw RuntimeException(err)
         }

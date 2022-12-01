@@ -147,6 +147,7 @@ sealed class Type: FieldType {
     abstract override fun withAttrs(attrs: Attrs): Type // refine the return type.
     fun const() = withAttrs(attrs + Attr.Constant)
     fun restrict() = withAttrs(attrs + Attr.Restrict)
+    fun ptr() = Ptr(this)
 
     @Serializable
     data class Void (

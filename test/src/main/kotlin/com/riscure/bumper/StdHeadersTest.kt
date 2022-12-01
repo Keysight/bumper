@@ -2,10 +2,8 @@ package com.riscure.bumper
 
 import arrow.core.some
 import com.riscure.bumper.ParseTestBase.Companion.stdopts
-import com.riscure.bumper.ast.Field
-import com.riscure.bumper.ast.Param
-import com.riscure.bumper.ast.TranslationUnit
-import com.riscure.bumper.ast.Type
+import com.riscure.bumper.ast.*
+import com.riscure.bumper.ast.Storage
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
@@ -18,6 +16,7 @@ import kotlin.test.*
 
 private val uint32 = Type.Typedeffed(Symbol.typedef(TUID(Path.of("")), "__uint32_t"));
 private val uint64 = Type.Typedeffed(Symbol.typedef(TUID(Path.of("")), "__uint64_t"));
+private val wchar_t = Type.Typedeffed(Symbol(TUID(Path.of("")), TLID("wchar_t", EntityKind.Typedef)))
 
 /**
  * In this test, we parse and pretty-print some standard headers.
@@ -60,7 +59,6 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         /* Function signatures of some functions that we verify from the headers */
         @JvmStatic
         fun functions(): Stream<Arguments> = Stream.of(
-                /* assert.h --------------------------------------------------------- */
                 Arguments.of(
                         "assert", "__assert_fail",
                         Type.function(
@@ -69,17 +67,60 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
                                 Param("__file", Type.Ptr(Type.char.const())),
                                 Param("__line", Type.uint),
                                 Param("__function", Type.Ptr(Type.char.const())),
-                        )
+                        ),
+                        Storage.Extern
                 ),
-
-                /* stdio.h --------------------------------------------------------- */
                 Arguments.of(
                         "stdio", "printf",
                         Type.function(
                                 Type.int,
                                 Param("__format", Type.Ptr(Type.char.const()).restrict()),
                                 variadic = true
-                        )
+                        ),
+                        Storage.Extern
+                ),
+                Arguments.of(
+                        "setjmp", "setjmp",
+                        Type.function(
+                                Type.int,
+                                Param(
+                                        "__env",
+                                        Type.Typedeffed(
+                                            Symbol(
+                                                TUID(Path.of("")),
+                                                TLID("jmp_buf", EntityKind.Typedef)
+                                            )
+                                        )
+                                )
+                        ),
+                        Storage.Extern
+                ),
+                Arguments.of(
+                        "netdb", "gethostbyname",
+                        Type.function(
+                                Type.Ptr(Type.Struct(Symbol.struct(TUID(Path.of("")), "hostent"))),
+                                Param(
+                                        "__name",
+                                        Type.char.const().ptr()
+                                )
+                        ),
+                        Storage.Extern
+                ),
+                Arguments.of(
+                        "printf", "register_printf_modifier",
+                        Type.function(
+                                Type.int,
+                                Param("__str", wchar_t.const().ptr())
+                        ),
+                        Storage.Extern
+                ),
+                Arguments.of(
+                        "printf", "register_printf_modifier",
+                        Type.function(
+                                Type.int,
+                                Param("__str", wchar_t.const().ptr())
+                        ),
+                    Storage.Extern
                 )
         )
 
@@ -119,11 +160,12 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     @ParameterizedTest(name = "{0}.h:{1} function type")
     @MethodSource("functions")
-    fun testStdFunction(header: String, ident: String, type: Type) {
+    fun testStdFunction(header: String, ident: String, type: Type, storage: Storage) {
         val input = "#include <$header.h>"
         bumped(input, stdopts) { ast: TranslationUnit<E, S>, _: U ->
-            val element = ast.functions.find { it.ident == ident }
-            assertEquals(type, assertNotNull(element).type())
+            val element = assertNotNull(ast.functions.find { it.ident == ident })
+            eq(type, element.type())
+            assertEquals(storage, element.storage)
         }
     }
 
