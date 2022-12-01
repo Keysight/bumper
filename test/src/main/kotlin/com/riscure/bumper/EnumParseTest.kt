@@ -1,6 +1,5 @@
 package com.riscure.bumper
 
-import arrow.core.*
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
 import com.riscure.bumper.parser.UnitState
@@ -71,4 +70,43 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         assertEquals(Enumerator("Z", 43L), enums[2])
     }
 
+    @Test
+    @DisplayName("Whitespace and expressions")
+    fun test03() = parsedAndRoundtrip("""
+        enum E { X
+            =
+
+                    1
+                    ,
+          Y = 20
+
+
+            +
+                22
+
+                ,
+            Z
+
+                =
+                    4
+             *
+
+
+                4
+        };
+    """.trimIndent()) { ast ->
+        assertEquals(1, ast.declarations.size)
+        val enum = assertIs<Declaration.Enum>(ast.declarations[0])
+
+        assertEquals("E", enum.ident)
+        assertEquals(Storage.Default, enum.storage)
+        assertEquals(EntityKind.Enum, enum.kind)
+        assertTrue(enum.isDefinition)
+
+        val enums = enum.enumerators.assertOK()
+        assertEquals(3, enums.size)
+        assertEquals(Enumerator("X", 1L), enums[0])
+        assertEquals(Enumerator("Y", 42L), enums[1])
+        assertEquals(Enumerator("Z", 16L), enums[2])
+    }
 }
