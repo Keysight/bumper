@@ -275,6 +275,7 @@ sealed class Type: FieldType {
         @JvmStatic val uint = Int(IKind.IUInt)
         @JvmStatic val int = Int(IKind.IInt)
         @JvmStatic val ulong = Int(IKind.IULong)
+        @JvmStatic val ulonglong = Int(IKind.IULongLong)
         @JvmStatic val double = Float(FKind.FDouble)
         @JvmStatic val longdouble = Float(FKind.FLongDouble)
         @JvmStatic val float = Float(FKind.FFloat)

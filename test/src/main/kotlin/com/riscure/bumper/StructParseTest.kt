@@ -1,11 +1,16 @@
 package com.riscure.bumper
 
-import arrow.core.*
+import arrow.core.None
+import arrow.core.getOrElse
+import arrow.core.some
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
+import com.riscure.bumper.index.Symbol
+import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
 import kotlin.test.*
 
 interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
@@ -297,4 +302,103 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
           unsigned int __g_signals[2];
         };
    """.trimIndent()) {}
+
+    @Test
+    @DisplayName("anonymous nested struct")
+    fun test48() = parsedAndRoundtrip("""
+        struct X {
+          union U {
+            struct X* x;
+            unsigned long long y;
+            double z;
+          } data;
+
+          union V {
+            struct {
+              int x;
+              int y;
+            } vec;
+            float f;
+            double d;
+          } more;
+        };
+    """.trimIndent()) { ast: TranslationUnit<*, *> ->
+        assertEquals(4, ast.declarations.size)
+        val structX = assertNotNull(ast.structs.find { it.ident == "X" })
+        val fields = structX.fields.assertOK()
+        assertEquals(2, fields.size)
+
+        assertEquals("data", fields[0].name)
+        assertEquals("more", fields[1].name)
+
+        val unionU = assertIs<Type.Union>(fields[0].type)
+        val unionUComposite = ast.declarations.unions.find { it.tlid == unionU.ref.tlid }
+        assertNotNull(unionUComposite)
+        assertEquals("x", unionUComposite.fields.assertOK()[0].name)
+        assertEquals("y", unionUComposite.fields.assertOK()[1].name)
+        assertEquals("z", unionUComposite.fields.assertOK()[2].name)
+
+        eq(Type.Struct(Symbol.struct(TUID(Path.of("")), "X")).ptr(), unionUComposite.fields.assertOK()[0].type)
+        eq(Type.ulonglong, unionUComposite.fields.assertOK()[1].type)
+        eq(Type.double, unionUComposite.fields.assertOK()[2].type)
+
+        val unionV = assertIs<Type.Union>(fields[1].type)
+        val unionVComposite = ast.declarations.unions.find { it.tlid == unionV.ref.tlid }
+        assertNotNull(unionVComposite)
+        assertEquals("vec", unionVComposite.fields.assertOK()[0].name)
+        assertEquals("f", unionVComposite.fields.assertOK()[1].name)
+        assertEquals("d", unionVComposite.fields.assertOK()[2].name)
+
+        val anonymousStruct = assertNotNull(ast.declarations.structs.find {
+            it.tlid == assertIs<Type.Struct>(unionVComposite.fields.assertOK()[0].type).ref.tlid
+        })
+
+        assertEquals("x", anonymousStruct.fields.assertOK()[0].name)
+        assertEquals("y", anonymousStruct.fields.assertOK()[1].name)
+        assertEquals(Type.int, anonymousStruct.fields.assertOK()[0].type)
+        assertEquals(Type.int, anonymousStruct.fields.assertOK()[1].type)
+    }
+
+    @Test
+    @DisplayName("typedeffed structs")
+    fun test49() = parsedAndRoundtrip("""
+        typedef struct {
+            int x;
+            int y;
+        } Point2D;
+
+        typedef struct {
+            Point2D a;
+            Point2D b;
+            Point2D c;
+        } Triangle;
+
+        typedef Triangle* Mesh;
+    """.trimIndent()) { ast: TranslationUnit<*, *> ->
+        // A typedef is a separate declaration.
+        // Two structs, three typedefs, makes 5.
+        assertEquals(5, ast.declarations.size)
+
+        val triangle = assertNotNull(ast.typedefs.find { it.ident == "Triangle" })
+        val triangleStruct = assertNotNull(ast.structs.find {
+            it.tlid == assertIs<Type.Struct>(triangle.underlyingType).ref.tlid
+        })
+
+        val point2DTypedef = assertIs<Type.Typedeffed>(
+                assertNotNull(triangleStruct.fields.assertOK().find { it.name == "a" }).type
+        )
+        val point2DTypedef2 = assertNotNull(ast.typedefs.find { it.tlid == point2DTypedef.ref.tlid })
+        val point2DStruct = assertNotNull(ast.structs.find {
+            it.tlid == assertIs<Type.Struct>(point2DTypedef2.underlyingType).ref.tlid
+        })
+        assertEquals("x", point2DStruct.fields.assertOK()[0].name)
+        assertEquals("y", point2DStruct.fields.assertOK()[1].name)
+
+        assertNotNull(triangleStruct.fields.assertOK().find { it.name == "b" })
+        assertNotNull(triangleStruct.fields.assertOK().find { it.name == "c" })
+
+        val meshTypedef = assertNotNull(ast.typedefs.find { it.ident == "Mesh" })
+        val ptr = assertIs<Type.Ptr>(meshTypedef.underlyingType)
+        assertEquals(triangle.tlid, assertIs<Type.Typedeffed>(ptr.pointeeType).ref.tlid)
+    }
 }
