@@ -109,4 +109,25 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         assertEquals(Enumerator("Y", 42L), enums[1])
         assertEquals(Enumerator("Z", 16L), enums[2])
     }
+
+    @Test
+    @DisplayName("Typedeffed enum")
+    fun test04() = parsedAndRoundtrip("""
+        typedef enum { eMediumDPI, eHighDPI, eRetina } DPI;
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.declarations.size)
+        val enumTypedef = assertIs<Declaration.Typedef>(ast.typedefs.find { it.ident == "DPI" })
+        val enum = assertIs<Declaration.Enum>(ast.enums.find {
+            it.tlid == assertIs<Type.Enum>(enumTypedef.underlyingType).ref.tlid
+        })
+        assertEquals(Storage.Default, enum.storage)
+        assertEquals(EntityKind.Enum, enum.kind)
+        assertTrue(enum.isDefinition)
+
+        val enums = enum.enumerators.assertOK()
+        assertEquals(3, enums.size)
+        assertEquals(Enumerator("eMediumDPI", 0L), enums[0])
+        assertEquals(Enumerator("eHighDPI", 1L), enums[1])
+        assertEquals(Enumerator("eRetina", 2L), enums[2])
+    }
 }
