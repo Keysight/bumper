@@ -115,12 +115,22 @@ sealed class Attr {
 }
 
 /** Different ways of storing values in C */
-enum class Storage {
-    Default, // used for toplevel names without explicit storage
-    Extern,
-    Static,
-    Auto, // used for block-scoped names without explicit storage
-    Register
+sealed interface Storage {
+    sealed interface Public: Storage
+
+    fun isPublic(): Option<Public> = when (this) {
+        is Static -> None
+        Auto      -> (this as Public).some()
+        Default   -> (this as Public).some()
+        Extern    -> (this as Public).some()
+        Register  -> (this as Public).some()
+    }
+
+    object Static: Storage
+    object Default: Public // used for toplevel names without explicit storage
+    object Extern: Public
+    object Auto: Public // used for block-scoped names without explicit storage
+    object Register: Public
 }
 
 typealias Attrs = List<Attr>
@@ -373,6 +383,9 @@ sealed interface Declaration<out Exp, out Stmt> {
     /** Everything that can be used as a type */
     sealed interface Typelike
 
+    /** Everything that is visible to other translation units (non-types) */
+    sealed interface Valuelike<out Exp, out Stmt> : Declaration<Exp, Stmt>
+
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: Declaration<Nothing, Nothing>, Typelike
 
@@ -383,7 +396,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val rhs: Option<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Exp, Nothing> {
+    ): Valuelike<Exp, Nothing> {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -402,12 +415,12 @@ sealed interface Declaration<out Exp, out Stmt> {
         val body: Option<Stmt>        = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
-    ): Declaration<Nothing, Stmt> {
+    ): Valuelike<Nothing, Stmt> {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
-        fun type(): Type = Type.Fun(returnType, params, vararg)
+        val type get(): Type = Type.Fun(returnType, params, vararg)
 
         override val isDefinition: Boolean get() = body.isDefined()
 
@@ -538,6 +551,8 @@ data class TranslationUnit<out E, out T>(
     val unions: List<Declaration.Composite>  get() = declarations.unions
     val typedefs: List<Declaration.Typedef>  get() = declarations.typedefs
     val enums: List<Declaration.Enum>        get() = declarations.enums
+    val typlikeDeclarations  : List<Declaration.Typelike>        get() = declarations.typelikeDeclarations
+    val valuelikeDeclarations: List<Declaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
 
     fun filter(predicate: (d: Declaration<E, T>) -> Boolean) =
         copy(declarations = declarations.filter(predicate))
@@ -709,5 +724,8 @@ val <T> List<Declaration.Fun<T>>.definitions: List<Declaration.Fun<T>> get() =
 val <T> List<Declaration.Fun<T>>.declarations: List<Declaration.Fun<T>> get() =
     filter { !it.isDefinition }
 
-val <E, T> List<Declaration<E, T>>.typelike: List<Declaration.Typelike> get() =
+val <E, T> List<Declaration<E, T>>.typelikeDeclarations: List<Declaration.Typelike> get() =
     filterIsInstance<Declaration.Typelike>()
+
+val <E, T> List<Declaration<E, T>>.valuelikeDeclarations: List<Declaration.Valuelike<E, T>> get() =
+    filterIsInstance<Declaration.Valuelike<E,T>>()

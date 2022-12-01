@@ -66,18 +66,30 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     fun <T> Option<T>.assertOK(): T =
         this.getOrElse { fail("Expected some, got none") }
 
-    private fun <T> withTemp(program: String, withFile: (file: File) -> T): T {
-        val file: File = kotlin.io.path
-            .createTempFile(suffix = ".c")
-            .apply { writeText(program) }
-            .toFile()
+    fun mkTempCFile(program: String): File = kotlin.io.path
+        .createTempFile(suffix = ".c")
+        .apply { writeText(program) }
+        .toFile()
 
+    private fun <T> withTemp(program: String, withFile: (file: File) -> T): T {
+        val file = mkTempCFile(program)
         return try {
             withFile(file)
         } finally {
             // Delete this when the JVM quits, so we have time to read it
             // when we pause the JVM during debug
             file.deleteOnExit()
+        }
+    }
+
+    private fun <T> withTemp(programs: List<String>, withFiles: (files: List<File>) -> T): T {
+        val files = programs.map { mkTempCFile(it) }
+        return try {
+            withFiles(files)
+        } finally {
+            for (file in files) {
+                file.deleteOnExit()
+            }
         }
     }
 
@@ -122,18 +134,33 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     ): Unit = withTemp(program) { file -> bumped(file, opts, whenOk) }
 
     fun bumped(
+        vararg programs: String,
+        opts: Options = listOf(),
+        whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
+    ): Unit = withTemp(programs.toList()) { files -> bumped(files, opts, whenOk) }
+
+    fun bumped(
         file: File,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ) {
+        val (ast, unit) = process(file, opts)
+        whenOk(ast, unit)
+    }
+
+    fun bumped(
+        files: List<File>,
+        opts: Options = listOf(),
+        whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
+    ) = whenOk(files.map { process(it, opts) })
+
+    private fun process(file: File, opts: Options): Pair<TranslationUnit<E, S>, U> {
         println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
 
-        val result = frontend
+        return frontend
             .process(file, opts)
             .flatMap { it.ast.map { ast -> Pair(ast, it) } }
             .assertOK()
-
-        whenOk(result.first, result.second)
     }
 
     fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)
