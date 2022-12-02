@@ -1,7 +1,7 @@
 package com.riscure.bumper.libclang
 
 import arrow.core.*
-import com.riscure.bumper.analyses.DependencyAnalysis
+import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
@@ -36,7 +36,7 @@ class ClangUnitState(
 
     override val ast by lazy { parsed.map { it.ast }}
 
-    override val dependencies: DependencyAnalysis<CXCursor, CXCursor> by lazy {
+    override val dependencies: UnitDependencyAnalysis<CXCursor, CXCursor> by lazy {
         // this exception is part of the contract of the interface.
         val data = parsed.getOrHandle { error -> throw UnsupportedOperationException(error) }
         ClangDependencyAnalysis(tuid, data.elaboratedCursors)

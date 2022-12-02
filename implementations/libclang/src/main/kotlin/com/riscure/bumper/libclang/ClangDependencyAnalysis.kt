@@ -1,7 +1,7 @@
 package com.riscure.bumper.libclang
 
 import arrow.core.*
-import com.riscure.bumper.analyses.DependencyAnalysis
+import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.analyses.Result
 import com.riscure.bumper.analyses.union
 import com.riscure.bumper.ast.*
@@ -15,7 +15,7 @@ import org.bytedeco.llvm.global.clang.*
 class ClangDependencyAnalysis(
     private val tuid: TUID,
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>
-) : DependencyAnalysis<CXCursor, CXCursor> {
+) : UnitDependencyAnalysis<CXCursor, CXCursor> {
 
     private fun typeOf(cursor: CXCursor): Either<String, Type> =
         with (CursorParser(tuid)) {
@@ -24,9 +24,11 @@ class ClangDependencyAnalysis(
 
     private fun CXCursor.refDependencies(): Result {
         // let libclang resolve the reference
-        val def = clang_getCursorDefinition(this)
+        val def = clang_getCursorReferenced(this)
 
-        // check whether we elaborated a declaration from the defining cursor.
+        // Check whether we elaborated a declaration from the defining cursor.
+        // If not, we are dealing with a (reference to) a local declaration,
+        // and we don't include those.
         return when (val decl = elaboratedCursors.getOrNone(def.hash())) {
             is Some -> setOf(decl.value.mkSymbol(tuid)).right()
             // otherwise we assume it is a local declaration

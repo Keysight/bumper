@@ -73,4 +73,20 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         assertEquals(1, deps1.size)
         assertContains(deps1, myInt.mkSymbol(ast.tuid))
     }
+
+    @DisplayName("Function using two other functions")
+    @Test
+    fun test05() = bumped("""
+        void g();
+        void h();
+        void f() {
+          g();
+          h();
+        }
+        void h() {}
+    """.trimIndent()) { ast, unit ->
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = unit.dependencies.ofDecl(f).assertOK()
+        assertEquals(2, deps.size)
+    }
 }

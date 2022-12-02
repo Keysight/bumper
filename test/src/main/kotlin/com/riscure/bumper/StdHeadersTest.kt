@@ -164,7 +164,7 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         val input = "#include <$header.h>"
         bumped(input, stdopts) { ast: TranslationUnit<E, S>, _: U ->
             val element = assertNotNull(ast.functions.find { it.ident == ident })
-            eq(type, element.type())
+            eq(type, element.type)
             assertEquals(storage, element.storage)
         }
     }
