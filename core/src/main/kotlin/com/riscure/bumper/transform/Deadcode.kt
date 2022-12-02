@@ -4,22 +4,22 @@ import arrow.core.*
 import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
-import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
 
 /**
  * Removes "dead declarations" from a link target, represented by a set of units.
+ * Anything that [alive] depends on is kept alive.
  */
 fun <E,S> eliminateDeadDeclarations(
     units: Collection<UnitState<E, S>>,
-    keep: Set<Symbol>
+    alive: Set<Symbol>
 ): Either<Throwable, Collection<TranslationUnit<E, S>>> = Either.catch {
     val dependencies = LinkAnalysis
         .crossUnitDependencyGraph(units)
         .getOrHandle { throw Throwable(it) }
 
     // we start with the given set of symbols to keep
-    val worklist     = keep.toMutableList()
+    val worklist     = alive.toMutableList()
     val reachable    = mutableSetOf<Symbol>()
 
     // then we recursively add dependencies,
