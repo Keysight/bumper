@@ -86,7 +86,8 @@ data class CompilationDb(val entries: List<Entry>) {
                         .map { it.drop(1) } // drop executable name
                         .flatMap { it ->
                             ClangParser.parseArguments(it).mapLeft {
-                            IllegalArgumentException("failed to parse entry \"" + entry.file + "\": $it")}
+                                IllegalArgumentException("failed to parse entry \"" + entry.file + "\": $it")
+                            }
                         }
                         .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
 
