@@ -3,6 +3,7 @@ package com.riscure.bumper.parser
 import arrow.core.*
 import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.ast.*
+import com.riscure.bumper.pp.AstWriters
 import java.io.Closeable
 
 /**
@@ -35,4 +36,9 @@ interface UnitState<Exp,Stmt>: Closeable {
      * @throws UnsupportedOperationException when [ast] is Left
      */
     val dependencies: UnitDependencyAnalysis<Exp, Stmt>
+
+    /**
+     * The pretty printers for the AST elements.
+     */
+    val printer: AstWriters<Exp, Stmt>
 }

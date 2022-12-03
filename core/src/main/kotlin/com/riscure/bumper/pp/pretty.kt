@@ -2,6 +2,7 @@ package com.riscure.bumper.pp
 
 import arrow.core.*
 import com.riscure.bumper.ast.*
+import com.riscure.bumper.index.TUID
 
 /**
  * Total pretty printing functions, mainly for C types.
@@ -169,5 +170,20 @@ class AstWriters<Exp, Stmt>(
         is Declaration.Typedef   -> semicolon.right()
         is Declaration.Composite -> semicolon.right()
         is Declaration.Enum      -> semicolon.right()
+    }
+
+    companion object {
+
+        /**
+         * An instance of AstWriters for translation units whose expressions and statements
+         * are represented by source ranges. We can use the code extractor to print such
+         * ASTs.
+         */
+        fun usingExtraction(tuid: TUID): AstWriters<SourceRange, SourceRange> {
+            val extractor = Extractor(tuid.main.toFile())
+            fun rangePrinter(it: SourceRange) = extractor.extract(it)
+            return AstWriters(::rangePrinter, ::rangePrinter)
+        }
+
     }
 }

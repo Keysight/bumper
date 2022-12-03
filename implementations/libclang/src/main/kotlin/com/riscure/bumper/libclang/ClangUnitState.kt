@@ -46,14 +46,22 @@ class ClangUnitState(
     // except that I've encountered corner cases where pretty printing returns "" incorrectly:
     // - https://github.com/llvm/llvm-project/issues/59155
     // So we fall back here on extracting lines from the source file instead.
-    private val extractor = Extractor(tuid.main.toFile())
-    val printer: AstWriters<CXCursor, CXCursor> by lazy {
-        fun cursorPrinter(c: CXCursor) =
-            c.getRange()
-                .toEither { "Failed to get source range for expression." }
-                .flatMap { extractor.extract(it) }
+    override val printer: AstWriters<CXCursor, CXCursor> = ClangUnitState.mkPrinter(tuid)
 
-        AstWriters(::cursorPrinter, ::cursorPrinter)
+    companion object {
+        /**
+         * Utility function to create the ast pretty printers for a [ClangTranslationUnit].
+         */
+        fun mkPrinter(tuid: TUID): AstWriters<CXCursor, CXCursor> {
+            val extractor = Extractor(tuid.main.toFile())
+
+            fun cursorPrinter(c: CXCursor) =
+                c.getRange()
+                    .toEither { "Failed to get source range for expression." }
+                    .flatMap { extractor.extract(it) }
+
+            return AstWriters(::cursorPrinter, ::cursorPrinter)
+        }
     }
 }
 
