@@ -31,7 +31,7 @@ class LinkAnalysisTest: LibclangTestBase() {
     ) { units ->
         run {
             // We test the link graph
-            val graph = LinkAnalysis.dependencyGraph(units.map { it.first }).assertOK()
+            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
             val (unit1, unit2) = units
 
             val unit1Deps = graph[unit1.first.tuid].assertOK()

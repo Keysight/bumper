@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
+import com.riscure.bumper.parser.UnitData
 import com.riscure.bumper.parser.UnitState
 import com.riscure.bumper.pp.AstWriters
 import com.riscure.bumper.pp.Extractor
@@ -18,40 +19,54 @@ import java.nio.file.Path
 typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
 typealias ClangDeclaration     = Declaration<CXCursor, CXCursor>
 
+/**
+ * The state of a parsed unit in context of the libclang state of the AST.
+ * As soon as you close this UnitState, the cursors are invalidated.
+ */
 class ClangUnitState(
-    val tuid: TUID,
-    val cxunit: CXTranslationUnit
+    override val ast: TranslationUnit<CXCursor, CXCursor>,
+    private val cxunit: CXTranslationUnit,
+    private val elaboratedCursors: Map<CursorHash, ClangDeclaration>
 ) : UnitState<CXCursor, CXCursor> {
-
-    private val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-    private val parsed by lazy {
-        with(CursorParser(tuid)) {
-            rootCursor
-                .asTranslationUnit()
-                .mapLeft { Throwable(it) }
-        }
-    }
-
     override fun close() = cxunit.close()
-
-    override val ast by lazy { parsed.map { it.ast }}
-
-    override val dependencies: UnitDependencyAnalysis<CXCursor, CXCursor> by lazy {
-        // this exception is part of the contract of the interface.
-        val data = parsed.getOrHandle { error -> throw UnsupportedOperationException(error) }
-        ClangDependencyAnalysis(tuid, data.elaboratedCursors)
-    }
 
     // We could use libclang's pretty printing facilities here,
     // except that I've encountered corner cases where pretty printing returns "" incorrectly:
     // - https://github.com/llvm/llvm-project/issues/59155
     // So we fall back here on extracting lines from the source file instead.
-    override val printer: AstWriters<CXCursor, CXCursor> = ClangUnitState.mkPrinter(tuid)
+    override val printer: AstWriters<CXCursor, CXCursor> = mkPrinter(tuid)
+    override fun erase() = Either
+        .catch({ e -> close(); e.message!! }) {
+            fun rangeExtractor(c: CXCursor) = c.getRange().getOrElse {
+                throw Throwable("Failed to extract source ranges of definitions.")
+            }
+
+            ast
+                .map(::rangeExtractor, ::rangeExtractor)
+                .let { ast ->
+                    this@ClangUnitState.close()
+                    UnitData(ast, dependencies)
+                }
+        }
+
+    override val dependencies get() =
+        ClangDependencyAnalysis(tuid, elaboratedCursors).ofUnit(ast)
 
     companion object {
+        @JvmStatic
+        fun create(tuid: TUID, cxunit: CXTranslationUnit): Either<String, ClangUnitState> {
+            val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
+            return with(CursorParser(tuid)) {
+                rootCursor
+                    .asTranslationUnit()
+                    .map { (ast, cursors) -> ClangUnitState(ast, cxunit, cursors) }
+            }
+        }
+
         /**
          * Utility function to create the ast pretty printers for a [ClangTranslationUnit].
          */
+        @JvmStatic
         fun mkPrinter(tuid: TUID): AstWriters<CXCursor, CXCursor> {
             val extractor = Extractor(tuid.main.toFile())
 
@@ -64,30 +79,3 @@ class ClangUnitState(
         }
     }
 }
-
-/**
- * In the context of a ClangUnitState we can convert some things
- * back to their libclang counterparts.
- */
-
-/**
- * Returns the innermost cursor at [this] location.
- */
-context(ClangUnitState)
-fun Location.getCursor()  =
-    clang.clang_getCursor(cxunit, cx())
-
-context(ClangUnitState)
-fun SourceRange.cx(): CXSourceRange =
-    clang.clang_getRange(this.begin.cx(), this.end.cx())
-
-context(ClangUnitState)
-fun Location.cx(): CXSourceLocation =
-    clang.clang_getLocation(cxunit, sourceFile.cx(), row, col)
-
-// FIXME this can actually fail if the Path
-// is not a path in the translation unit,
-// which can be the case for those that we get from presumed locations, for example.
-context(ClangUnitState)
-fun Path.cx(): CXFile =
-    clang.clang_getFile(cxunit, toString())

@@ -1,6 +1,7 @@
 package com.riscure.bumper.transform
 
 import arrow.core.*
+import com.riscure.bumper.analyses.DependencyGraph
 import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
@@ -10,37 +11,40 @@ import com.riscure.bumper.parser.UnitState
  * Removes "dead declarations" from a link target, represented by a set of units.
  * Anything that [alive] depends on is kept alive.
  */
-fun <E,S> eliminateDeadDeclarations(
-    units: Collection<UnitState<E, S>>,
-    alive: Set<Symbol>
-): Either<Throwable, Collection<TranslationUnit<E, S>>> = Either.catch {
-    val dependencies = LinkAnalysis
-        .crossUnitDependencyGraph(units)
-        .getOrHandle { throw Throwable(it) }
+object Deadcode {
 
-    // we start with the given set of symbols to keep
-    val worklist     = alive.toMutableList()
-    val reachable    = mutableSetOf<Symbol>()
+    @JvmStatic
+    fun <E, S> eliminate(dependencies: DependencyGraph, units: Collection<UnitState<E, S>>, alive: Set<Symbol>)
+    : Either<Throwable, Collection<TranslationUnit<E, S>>> = Either.catch {
+        val reachable = dependencies.reachable(alive)
 
-    // then we recursively add dependencies,
-    // monotonically growing the set of reachable nodes in the dependency graph
-    while (worklist.isNotEmpty()) {
-        val focus = worklist.removeAt(0)
-
-        if (focus in reachable) continue // already analyzed
-        else reachable.add(focus)
-
-        worklist.addAll(dependencies.getOrDefault(focus, listOf()))
+        units
+            .map { unit ->
+                unit.ast.copy(
+                    declarations = unit.ast.declarations
+                        .filter { decl -> decl.mkSymbol(unit.tuid) in reachable }
+                )
+            }
     }
 
-    // Now we have to filter the ASTS
-    val asts = units.map { it.ast.getOrHandle { throw Throwable(it) } }
+    @JvmStatic
+    fun <E, S> eliminate(units: Collection<UnitState<E, S>>, alive: Set<Symbol>)
+    : Either<String, Collection<TranslationUnit<E, S>>> = Either.catch({ e -> e.message!! }) {
+        val asts = units.map { it.ast }
 
-    asts.map { unit ->
-        unit.copy(
-            declarations = unit
-                .declarations
-                .filter { decl -> decl.mkSymbol(unit.tuid) in reachable }
-        )
+        val linkDependencies = LinkAnalysis
+            .linkGraph(asts)
+            .getOrHandle { throw Throwable(it) }
+            .externalDependencyGraph
+
+        val internalDependencies = units
+            .map { unit -> unit.dependencies }
+            .sequence()
+            .getOrHandle { throw Throwable(it) }
+            .let { DependencyGraph.union(it) }
+
+        val dependencies = linkDependencies.union(internalDependencies)
+
+        eliminate(dependencies, units, alive).getOrHandle { throw it }
     }
 }

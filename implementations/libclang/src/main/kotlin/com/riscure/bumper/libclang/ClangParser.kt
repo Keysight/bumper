@@ -75,13 +75,17 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
                 }}
                 .map { clang_getDiagnosticSpelling(it).string }
 
-            return if (errors.size > 0) {
+            return if (errors.isNotEmpty()) {
                 Parser.Error(
                     file,
                     "Translation unit has error diagnostics:\n" +
-                            errors.joinToString("\n") { "- ${it}" }
+                            errors.joinToString("\n") { "- $it" }
                 ).left()
-            } else ClangUnitState(tuid, c_tu).right()
+            } else {
+                ClangUnitState
+                    .create(tuid, c_tu)
+                    .mapLeft { msg -> Parser.Error(file, msg) }
+            }
         }
         catch (e : Exception) {
             // if something went wrong, we do have to free the tu

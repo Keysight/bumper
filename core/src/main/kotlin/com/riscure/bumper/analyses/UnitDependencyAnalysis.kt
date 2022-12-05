@@ -21,6 +21,12 @@ fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + ri
 interface UnitDependencyAnalysis<Exp,Stmt> {
     val nil: Result get() = setOf<Symbol>().right()
 
+    fun ofUnit(unit: TranslationUnit<Exp, Stmt>): Either<String, DependencyGraph> =
+        unit.declarations
+            .map { d -> ofDecl(d).map { deps -> Pair(d.mkSymbol(unit.tuid), deps) }}
+            .sequence()
+            .map { DependencyGraph(it.toMap()) }
+
     fun ofExp(exp: Exp): Result
     fun ofStmt(stmt: Stmt): Result
 
@@ -28,18 +34,11 @@ interface UnitDependencyAnalysis<Exp,Stmt> {
         is Declaration.Var       ->
             decl.rhs
                 .map { ofExp(it) }
-                // if no rhs is given, no dependencies
                 .getOrElse { nil }
                 .union(ofType(decl.type))
         is Declaration.Composite ->
             decl.fields
-                .map { fields ->
-                    fields
-                        .map { ofType(it.type) }
-                        .sequence()
-                        .map { it.flatten().toSet() }
-                }
-                // if no fields are defined, no dependencies
+                .map(::ofFields)
                 .getOrElse { nil }
         is Declaration.Enum      -> nil
         is Declaration.Fun       ->
@@ -51,6 +50,12 @@ interface UnitDependencyAnalysis<Exp,Stmt> {
         is Declaration.Typedef   ->
             ofType(decl.underlyingType)
     }
+
+    fun ofFields(fields: FieldDecls) =
+        fields
+            .map { ofType(it.type) }
+            .sequence()
+            .map { it.flatten().toSet() }
 
     fun ofType(type: FieldType): Result = when (type) {
         is Type.Fun                ->
@@ -68,7 +73,7 @@ interface UnitDependencyAnalysis<Exp,Stmt> {
         is Type.Atomic             -> ofType(type.elementType)
         is Type.Complex            -> nil
         is Type.VaList             -> nil
-        is FieldType.AnonComposite -> TODO()
+        is FieldType.AnonComposite -> ofFields(type.fields.getOrElse { listOf() })
     }
 
     private fun ofParams(params: List<Param>): Result =

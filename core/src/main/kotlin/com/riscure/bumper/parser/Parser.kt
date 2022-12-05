@@ -6,7 +6,7 @@ import com.riscure.bumper.index.TUID
 import java.io.File
 
 fun interface Parser<Exp, Stmt, out S : UnitState<Exp, Stmt>> {
-    class Error(input: File, reason: String) : Throwable("Failed to parse ${input}: ${reason}")
+    class Error(input: File, reason: String) : Throwable("Failed to parse $input: $reason")
 
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform

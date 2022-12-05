@@ -1,10 +1,13 @@
 package com.riscure.bumper.parser
 
-import arrow.core.*
-import com.riscure.bumper.analyses.UnitDependencyAnalysis
+import arrow.core.Either
+import arrow.core.right
+import com.riscure.bumper.analyses.DependencyGraph
 import com.riscure.bumper.ast.*
+import com.riscure.bumper.index.TUID
 import com.riscure.bumper.pp.AstWriters
 import java.io.Closeable
+import java.nio.file.Path
 
 /**
  * The interface to the state of the parser. This negotiates between
@@ -21,24 +24,42 @@ import java.io.Closeable
  * the instance of UnitState.
  */
 interface UnitState<Exp,Stmt>: Closeable {
-    class NoSource(val name: String):
-        Exception("Failed to get source for top-level declaration '$name'")
+    val tuid: TUID get() = ast.tuid
 
     /**
      * Convert this translation unit to an AST.
      */
-    val ast: Either<Throwable, TranslationUnit<Exp, Stmt>>
+    val ast: TranslationUnit<Exp, Stmt>
 
     /**
-     * The dependency analyzer.
-     *
-     * This is only available if [ast] is an instance of Right.
-     * @throws UnsupportedOperationException when [ast] is Left
+     * The dependency graph for this unit.
      */
-    val dependencies: UnitDependencyAnalysis<Exp, Stmt>
+    val dependencies: Either<String, DependencyGraph>
 
     /**
      * The pretty printers for the AST elements.
      */
     val printer: AstWriters<Exp, Stmt>
+
+    /**
+     * An improved [close], that returns a side-effect free
+     * projection of the data that can be retrieved from the [UnitState] API.
+     */
+    fun erase(): Either<String, UnitData>
+
+}
+
+/**
+ * The free implementation of the [UnitState] interface
+ */
+data class UnitData(
+    override val ast: TranslationUnit<SourceRange, SourceRange>,
+    override val dependencies: Either<String, DependencyGraph>
+) : UnitState<SourceRange, SourceRange> {
+    override val printer: AstWriters<SourceRange, SourceRange>
+        get() = AstWriters.usingExtraction(ast.tuid)
+
+    override fun erase(): Either<String, UnitData> = this.right()
+
+    override fun close() { /* noop */ }
 }

@@ -403,6 +403,9 @@ sealed interface Declaration<out Exp, out Stmt> {
 
         override val isDefinition: Boolean get() = rhs.isDefined()
         override val kind: EntityKind get() = EntityKind.Var
+
+        fun toPrototype() = copy(rhs = None)
+        fun <E> mapRhs(onExp: (Exp) -> E): Var<E> = Var(ident, type, rhs.map(onExp), storage, meta)
     }
 
     @Serializable
@@ -425,6 +428,10 @@ sealed interface Declaration<out Exp, out Stmt> {
         override val isDefinition: Boolean get() = body.isDefined()
 
         override val kind: EntityKind get() = EntityKind.Fun
+
+        fun toPrototype() = copy(body = None)
+        fun <S> mapBody(f: (body: Stmt) -> S): Fun<S> =
+            Fun(ident, inline, returnType, params, vararg, body.map(f), storage, meta)
     }
 
     /**
@@ -527,7 +534,8 @@ data class TLID(val name: Ident, val kind: EntityKind) {
 
 @Serializable
 data class TranslationUnit<out E, out T>(
-    val tuid: TUID,
+    /** The (preprocessed) C translation unit identifier */
+    val tuid  : TUID,
 
     /**
      * All declarations in the unit.
@@ -691,10 +699,32 @@ fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
 }
 
 /**
+ * Translation unit is functorial
+ */
+fun <E1, E2, S1, S2> TranslationUnit<E1, S1>.map(
+    onExp : (decl: E1) -> E2,
+    onStmt: (stmt: S1) -> S2,
+): TranslationUnit<E2, S2> =
+    declarations
+        .map { d ->
+            when (d) {
+                is Declaration.Composite -> d
+                is Declaration.Enum      -> d
+                is Declaration.Typedef   -> d
+                is Declaration.Fun       -> d.mapBody(onStmt)
+                is Declaration.Var       -> d.mapRhs(onExp)
+            }
+        }
+        .let { decls -> TranslationUnit(tuid, decls) }
+
+/**
  * Update all declarations with the given TLID.
  */
-fun <E,T> TranslationUnit<E, T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
+fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
     copy(declarations = declarations.map { if (it.tlid == id) f(it) else it })
+
+fun <E,T> TranslationUnit<E,T>.collect(transform: (d: Declaration<E, T>) -> Option<Declaration<E, T>>) =
+    copy(declarations = declarations.flatMap { d -> transform(d).toList() })
 
 // Some convenience extension methods: filters for lists of declarations
 

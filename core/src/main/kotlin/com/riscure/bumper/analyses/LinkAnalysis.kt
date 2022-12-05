@@ -1,10 +1,10 @@
 package com.riscure.bumper.analyses
 
 import arrow.core.*
+import arrow.typeclasses.Monoid
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
-import com.riscure.bumper.parser.UnitState
 
 data class DeclarationInUnit<E, S>(
     val unit: TUID,
@@ -18,15 +18,57 @@ data class Link<E, S>(
     val definition : DeclarationInUnit<E,S>,
 )
 
+data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
+
+    fun union(other: DependencyGraph) = with (graphMonoid) { combine(other) }
+
+    /**
+     * Performs a reachability analysis on the dependency graph,
+     * returning the set of symbols that are reachale from the roots.
+     */
+    fun reachable(roots: Set<Symbol>): Set<Symbol> {
+        // we start with the given set of symbols to keep
+        val worklist     = roots.toMutableList()
+        val reachable    = mutableSetOf<Symbol>()
+
+        // then we recursively add dependencies,
+        // monotonically growing the set of reachable nodes in the dependency graph
+        while (worklist.isNotEmpty()) {
+            val focus = worklist.removeAt(0)
+
+            if (focus in reachable) continue // already analyzed
+            else reachable.add(focus)
+
+            worklist.addAll(dependencies.getOrDefault(focus, listOf()))
+        }
+
+        return reachable
+    }
+
+    companion object {
+        object graphMonoid: Monoid<DependencyGraph> {
+            override fun DependencyGraph.combine(b: DependencyGraph) = DependencyGraph(
+                this.dependencies.zip(b.dependencies) { _, l, r -> l + r }
+            )
+
+            override fun empty() = DependencyGraph(mapOf())
+        }
+
+        @JvmStatic fun empty() = graphMonoid.empty()
+        @JvmStatic fun union(graphs: List<DependencyGraph>) = graphMonoid.fold(graphs)
+
+    }
+}
+
 data class LinkGraph<E, S>(private val dependencies: Map<TUID, Set<Link<E, S>>>) {
 
     /**
      * For every symbol, a set of symbols in other translation unit that it depends on.
      */
-    private val externalDependencyGraph: DependencyGraph by lazy {
+    val externalDependencyGraph: DependencyGraph by lazy {
         val result = mutableMapOf<Symbol, MutableSet<Symbol>>()
 
-        for ((tuid, links) in dependencies) {
+        for ((_, links) in dependencies) {
             for ((declaration, definition) in links) {
                 val from = declaration.symbol
 
@@ -37,7 +79,7 @@ data class LinkGraph<E, S>(private val dependencies: Map<TUID, Set<Link<E, S>>>)
             }
         }
 
-        result
+        DependencyGraph(result)
     }
 
     operator fun get(tuid: TUID) = dependencies[tuid].toOption()
@@ -45,10 +87,10 @@ data class LinkGraph<E, S>(private val dependencies: Map<TUID, Set<Link<E, S>>>)
     /**
      * Get the *external direct dependencies* for the given [symbol]
      */
-    operator fun get(symbol: Symbol): Set<Symbol> = externalDependencyGraph.getOrDefault(symbol, setOf())
+    operator fun get(symbol: Symbol): Set<Symbol> = externalDependencyGraph
+        .dependencies
+        .getOrDefault(symbol, setOf())
 }
-
-typealias DependencyGraph = Map<Symbol, Set<Symbol>>
 
 /**
  * Implements a dependency analysis *between* translation units
@@ -63,9 +105,10 @@ typealias DependencyGraph = Map<Symbol, Set<Symbol>>
 object LinkAnalysis {
 
     /**
-     * Compute the edgeset for each node in the dependency graph
+     * Compute the edge-set for each node in the link graph
      */
-    fun <E, S> dependencyGraph(units: Collection<TranslationUnit<E, S>>): Either<String, LinkGraph<E, S>> {
+    @JvmStatic
+    fun <E, S> linkGraph(units: Collection<TranslationUnit<E, S>>): Either<String, LinkGraph<E, S>> {
         // compute for each translation unit its interface
         val interfaces = units.associate { unit -> Pair(unit.tuid, objectInterface(unit)) }
 
@@ -84,14 +127,14 @@ object LinkAnalysis {
             interfaces
                 .mapValues { (tuid, intf) ->
                     intf.imports
-                        .map { import ->
-                            val resolution = exportIndex[import.tlid]
+                        .flatMap { import ->
+                            // we try to resolve the import.
+                            // If it fails, then we don't have a definition
+                            // within the translation unit, and we don't incur a link dependency.
+                            exportIndex[import.tlid]
                                 .toOption()
-                                .getOrElse {
-                                    throw Throwable("Could not resolve declaration of ${import.tlid} to definition.")
-                                }
-
-                            Link(DeclarationInUnit(tuid ,import), resolution)
+                                .map { Link(DeclarationInUnit(tuid, import), it) }
+                                .toList()
                         }
                         .toSet()
                 }
@@ -107,6 +150,7 @@ object LinkAnalysis {
     /**
      * Compute the set of imports and exports of a translation unit.
      */
+    @JvmStatic
     fun <E, S> objectInterface(unit: TranslationUnit<E, S>): UnitInterface<E, S> {
         // compute the list of declarations that are visible
         // across linked units
@@ -121,37 +165,4 @@ object LinkAnalysis {
 
         return UnitInterface(imports.toSet(), exports.toSet())
     }
-
-    /**
-     * Compute the cross-unit *direct* dependencies of every symbol in the given [units],
-     * combining the [UnitDependencyAnalysis] with the [LinkGraph].
-     * This powers, for example, the dead-code elimination.
-     */
-    fun <E,S> crossUnitDependencyGraph(units: Collection<UnitState<E, S>>): Either<Throwable,DependencyGraph> =
-        Either.catch {
-            val asts  = units.map { it.ast.getOrHandle { throw Throwable(it) }}
-            val links = dependencyGraph(asts).getOrHandle { throw Throwable(it) }
-
-            units
-                .flatMap { unit ->
-                    val ast = unit.ast.getOrHandle { throw Throwable(it) }
-                    val pairs: List<Pair<Symbol, Set<Symbol>>> = ast
-                        .declarations
-                        .map { decl ->
-                            val sym = decl.mkSymbol(ast.tuid)
-
-                            val localdeps: Set<Symbol> = unit
-                                .dependencies
-                                .ofDecl(decl).getOrHandle { throw Throwable(it) }
-
-                            val externaldeps = links.get(sym)
-
-                            Pair(sym, localdeps + externaldeps)
-                        }
-
-                    pairs
-                }
-                .toMap()
-        }
-
 }
