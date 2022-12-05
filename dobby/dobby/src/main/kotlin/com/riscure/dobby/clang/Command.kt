@@ -60,6 +60,8 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     fun toArguments(): List<String> =
         optArgs.map { it.shellify().toString() } + positionalArgs.map { ShellArg.quote(it).toString() }
 
+    fun toShell(): String = toArguments().joinToString(separator = " ") { it }
+
     companion object : arrow.typeclasses.Monoid<Command> {
         @JvmStatic
         override fun empty(): Command = Command(listOf(), listOf())
