@@ -1,5 +1,7 @@
 package com.riscure.bumper.libclang
 
+import arrow.core.some
+import com.riscure.bumper.ast.EntityKind
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*
 
@@ -87,5 +89,30 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         val f = assertNotNull(ast.functions.find { it.ident == "f" })
         val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
         assertEquals(2, deps.size)
+    }
+
+    @DisplayName("Forward-declared struct")
+    @Test
+    fun test06() = bumped("""
+        struct X;
+        void f(struct X*);
+        struct X { int a; int b; };
+    """.trimIndent()) { ast, unit ->
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertEquals(EntityKind.Struct, deps.first().tlid.kind)
+    }
+
+    @DisplayName("Typedeffed struct")
+    @Test
+    fun test07() = bumped("""
+        typedef struct { int a; int b; } X;
+        void f(X*);
+    """.trimIndent()) { ast, unit ->
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertEquals(EntityKind.Typedef, deps.first().tlid.kind)
     }
 }
