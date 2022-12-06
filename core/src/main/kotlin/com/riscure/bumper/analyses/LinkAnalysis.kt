@@ -2,6 +2,7 @@ package com.riscure.bumper.analyses
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
+import arrow.typeclasses.Semigroup
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
@@ -46,10 +47,18 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
     }
 
     companion object {
+
         object graphMonoid: Monoid<DependencyGraph> {
-            override fun DependencyGraph.combine(b: DependencyGraph) = DependencyGraph(
-                this.dependencies.zip(b.dependencies) { _, l, r -> l + r }
-            )
+
+            override fun DependencyGraph.combine(b: DependencyGraph): DependencyGraph {
+                val result = mutableMapOf<Symbol, Set<Symbol>>()
+
+                for (k in this.dependencies.keys + b.dependencies.keys) {
+                    result[k] = this.dependencies.getOrDefault(k, setOf()) + b.dependencies.getOrDefault(k, setOf())
+                }
+
+                return DependencyGraph(result)
+            }
 
             override fun empty() = DependencyGraph(mapOf())
         }
