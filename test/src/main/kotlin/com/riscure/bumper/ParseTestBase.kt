@@ -7,17 +7,12 @@ import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Options
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.io.TempDir
 import org.opentest4j.AssertionFailedError
 import java.io.File
-import java.io.IOException
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
-import java.util.jar.JarInputStream
 import kotlin.io.path.copyTo
 import kotlin.io.path.createTempDirectory
-import kotlin.io.path.relativeTo
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -104,14 +99,9 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         }
 
     fun parsed(test: File, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
-        val unit = parser
-            .parse(test)
-            .assertOK()
-
-        val ast = unit.ast.assertOK()
-        whenOk(ast)
-
-        return ast
+        val unit = parser.parse(test).assertOK()
+        whenOk(unit.ast)
+        return unit.ast
     }
 
     fun invalid(program: String) {
@@ -149,6 +139,12 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
     fun bumped(
+            file: Path,
+            opts: Options = listOf(),
+            whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
+    ): Unit = bumped(file.toFile(), opts, whenOk)
+
+    fun bumped(
         files: List<File>,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
@@ -156,11 +152,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
 
     private fun process(file: File, opts: Options): Pair<TranslationUnit<E, S>, U> {
         println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
-
-        return frontend
-            .process(file, opts)
-            .flatMap { it.ast.map { ast -> Pair(ast, it) } }
-            .assertOK()
+        return frontend.process(file, opts).map { Pair(it.ast, it) }.assertOK()
     }
 
     fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)

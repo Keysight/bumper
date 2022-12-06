@@ -18,7 +18,7 @@ fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + ri
  * By the nature of C, the dependencies are always local to the translation unit.
  * This can be extended to a dependency graph across translation units using the [LinkAnalysis].
  */
-interface UnitDependencyAnalysis<Exp,Stmt> {
+interface UnitDependencyAnalysis<Exp, Stmt> {
     val nil: Result get() = setOf<Symbol>().right()
 
     fun ofUnit(unit: TranslationUnit<Exp, Stmt>): Either<String, DependencyGraph> =

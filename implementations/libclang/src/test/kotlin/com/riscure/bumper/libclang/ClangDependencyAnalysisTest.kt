@@ -16,8 +16,7 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         val f = assertNotNull(ast.functions[0])
         val struct = assertNotNull(ast.structs[0])
 
-        val deps = unit.dependencies.ofDecl(f).assertOK()
-
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
         assertEquals(1, deps.size)
         assertEquals(struct.mkSymbol(ast.tuid), deps.first())
     }
@@ -31,7 +30,7 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         val f = assertNotNull(ast.functions[0])
         val struct = assertNotNull(ast.structs[0])
 
-        val deps = unit.dependencies.ofDecl(f).assertOK()
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
 
         assertEquals(1, deps.size)
         assertEquals(struct.mkSymbol(ast.tuid), deps.first())
@@ -47,11 +46,11 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         val struct_S = assertNotNull(ast.structs.find { it.ident == "S" })
         val struct_T = assertNotNull(ast.structs.find { it.ident == "T" })
 
-        val deps1 = unit.dependencies.ofDecl(f).assertOK()
+        val deps1 = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
         assertEquals(1, deps1.size)
         assertContains(deps1, struct_S.mkSymbol(ast.tuid))
 
-        val deps2 = unit.dependencies.ofDecl(struct_S).assertOK()
+        val deps2 = assertNotNull(unit.dependencies.assertOK().dependencies[struct_S.mkSymbol(ast.tuid)])
         assertEquals(1, deps2.size)
         assertContains(deps2, struct_T.mkSymbol(ast.tuid))
     }
@@ -69,7 +68,7 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         val f = assertNotNull(ast.functions[0])
         val myInt = assertNotNull(ast.typedefs.find { it.ident == "MyInt" })
 
-        val deps1 = unit.dependencies.ofDecl(f).assertOK()
+        val deps1 = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
         assertEquals(1, deps1.size)
         assertContains(deps1, myInt.mkSymbol(ast.tuid))
     }
@@ -86,7 +85,7 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         void h() {}
     """.trimIndent()) { ast, unit ->
         val f = assertNotNull(ast.functions.find { it.ident == "f" })
-        val deps = unit.dependencies.ofDecl(f).assertOK()
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
         assertEquals(2, deps.size)
     }
 }
