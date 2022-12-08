@@ -155,7 +155,7 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         """.trimIndent()
 
         println("Roundtrip test for: $input")
-        roundtrip(input)
+        roundtrip(input, stdopts)
     }
 
     @ParameterizedTest(name = "{0}.h:{1} function type")

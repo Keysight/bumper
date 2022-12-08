@@ -5,8 +5,7 @@ import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
-import com.riscure.dobby.clang.Arg
-import com.riscure.dobby.clang.Options
+import com.riscure.dobby.clang.*
 import org.opentest4j.AssertionFailedError
 import java.io.File
 import java.nio.file.*
@@ -18,6 +17,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.fail
 
+fun <E, T> Either<E, T>.assertOK(): T =
+    this.getOrHandle { error ->
+        if (error is Throwable)
+            fail("Expected success, got error", error)
+        else
+            fail("Expected success, got error: $error")
+    }
+
+fun <T> Option<T>.assertOK(): T =
+    this.getOrElse { fail("Expected some, got none") }
+
 interface ParseTestBase<E,S,U: UnitState<E, S>> {
 
     companion object {
@@ -26,7 +36,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             val temp = createTempDirectory("stdheaders")
             val resource = ParseTestBase::class.java.classLoader.getResource(includeDir)
             FileSystems.newFileSystem(resource?.toURI(), System.getenv()).use { fs ->
-                val root = fs.getPath("/");
+                val root = fs.getPath("/")
                 Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
                     override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
                         val destination = temp.resolve(root.relativize(file).toString())
@@ -39,27 +49,16 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             return temp.resolve(includeDir)
         }
 
-        private val glibc = unpackStdHeaders("glibc/include")
+        private val glibc            = unpackStdHeaders("glibc/include")
         private val clangResourceDir = unpackStdHeaders("clang/include")
-        val stdopts = Arg.readMany(listOf(listOf("-I$glibc"), listOf("-I$clangResourceDir"), listOf("-nostdinc"))
-        ).getOrHandle { err ->
-            throw RuntimeException(err)
-        }
+
+        val stdopts = ClangParser
+            .parseOptions(listOf("-I$glibc", "-I$clangResourceDir", "-nostdinc"))
+            .assertOK()
     }
 
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
-
-    fun <E, T> Either<E, T>.assertOK(): T =
-        this.getOrHandle { error ->
-            if (error is Throwable)
-                fail("Expected success, got error", error)
-            else
-                fail("Expected success, got error: $error")
-        }
-
-    fun <T> Option<T>.assertOK(): T =
-        this.getOrElse { fail("Expected some, got none") }
 
     fun mkTempCFile(program: String): File = kotlin.io.path
         .createTempFile(suffix = ".c")
@@ -104,9 +103,9 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         return unit.ast
     }
 
-    fun invalid(program: String) {
+    fun invalid(vararg program: String) {
         try {
-            parsed(program) {}
+            program.forEach { parsed(it) {} }
         } catch (e: AssertionFailedError) { /* test succeeds */
             return // early
         }
@@ -156,7 +155,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
     fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)
-    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program) {}
+    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program, opts) {}
 
     fun eq(s1: Symbol, s2: Symbol) {
         assertEquals(s1.tlid, s2.tlid)

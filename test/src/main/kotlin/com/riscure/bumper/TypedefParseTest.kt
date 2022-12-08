@@ -2,8 +2,7 @@ package com.riscure.bumper
 
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.parser.UnitState
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.*
 import kotlin.test.*
 
 interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
@@ -46,12 +45,6 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val enumRef = assertIs<Type.Enum>(typedef.underlyingType)
         assertEquals(enum.mkSymbol(ast.tuid), enumRef.ref)
     }
-
-    @Test
-    @DisplayName("Anonymous typedef doesn't parse")
-    fun test03() = invalid("""
-        typedef int;
-    """.trimIndent())
 
     @Test
     @DisplayName("Redeclaration of identical typedef OK")

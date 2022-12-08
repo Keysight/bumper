@@ -1,6 +1,6 @@
 package com.riscure.bumper.libclang
 
-import arrow.core.some
+import com.riscure.bumper.assertOK
 import com.riscure.bumper.ast.EntityKind
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*

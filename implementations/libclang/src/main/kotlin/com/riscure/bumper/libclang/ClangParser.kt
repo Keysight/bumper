@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.dobby.clang.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.Parser
+import com.riscure.dobby.clang.ClangParser
 import org.bytedeco.javacpp.BytePointer
 import org.bytedeco.javacpp.PointerPointer
 import org.bytedeco.llvm.clang.*
@@ -20,10 +21,11 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
     override fun parse(file: File, opts: Options, tuid: TUID): Either<Throwable, ClangUnitState> {
         // escalate some warnings to errors
-        val warnErrors   = if (badWarnings.size > 0) {
-            listOf(Arg
-                .reads("-Werror=${badWarnings.joinToString(separator = ",")}")
-                .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") })
+        val warnErrors   = if (badWarnings.isNotEmpty()) {
+            listOf(
+                ClangParser
+                    .parseOption("-Werror=${badWarnings.joinToString(separator = ",")}")
+                    .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") })
         } else listOf()
 
         val cmd: Command = with(Spec.clang11) {
@@ -105,7 +107,11 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
         // Use this to escalate some warnings to errors.
         // For example, if you want to specify '-Werror=missing-declarations',
         // add "missing-declarations" to the list.
-        val badWarnings = listOf<String>()
+        val badWarnings = listOf<String>(
+            // LinkAnalyses does not handle implicit function declarations correctly.
+            // So by escalating this warning, we avoid bugs downstream. See LinkAnalysisTest
+            "implicit-function-declaration"
+        )
 
         val errorCodes: Map<Int, ClangError> = ClangError.values().associateBy { it.code }
 
