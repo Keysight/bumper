@@ -94,13 +94,16 @@ data class Arg(val opt: OptionSpec, val values: List<String>) {
     }
 
     companion object {
-        // TODO these should not be here, because they hardcode the spcification.
+        // TODO these should not be here, because they hardcode the specification.
         // This class should not be biased towards the clang 11 spec.
 
         /**
          * Read a single option argument with a possible [tail] of separated values.
          */
+        @Deprecated("use ClangParser.parseOption instead", ReplaceWith("ClangParser.parseOption(head, *tail)"))
         @JvmStatic fun reads(head: String, vararg tail: String) = ClangParser.parseOption(head, *tail)
+
+        @Deprecated("use ClangParser.parseOptions instead", ReplaceWith("ClangParser.parseOptions(args.flatten())"))
         @JvmStatic fun readMany(args: List<List<String>>): Either<String, List<Arg>> = args
             .flatMap { parts ->
                 if (parts.isEmpty()) {

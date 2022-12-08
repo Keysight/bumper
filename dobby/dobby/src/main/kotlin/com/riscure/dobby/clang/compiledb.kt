@@ -55,20 +55,28 @@ data class CompilationDb(val entries: List<Entry>) {
         )
 
     data class Entry(
+        /**
+         * Any relative [mainSource] or path argument in [command] is relative w.r.t. this directory.
+         * It is unclear from the spec if this can itself be relative.
+         */
         val workingDirectory: Path,
         val mainSource: Path,
         val command: Command
     )
 
     companion object {
-        /** Read a compilation database from a file */
+        /**
+         * Read a compilation database from a file
+         */
         @JvmStatic
         fun read(file: File, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> =
             Either
                 .catch { file.inputStream().buffered() }
                 .flatMap { read(it, recover) }
 
-        /** Read a compilation database from an input stream */
+        /**
+         * Read a compilation database from an input stream
+         */
         @JvmStatic
         fun read(reader: InputStream, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> {
             val entries = try {

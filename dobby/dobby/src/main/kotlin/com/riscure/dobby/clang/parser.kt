@@ -51,8 +51,28 @@ object ClangParser {
         }}
 
     /**
-     * Parse a list of arguments, as specified by the compilation database reference, but
-     * without the name of the executable at the head position.
+     * Parse a list of options, as specified by the compilation database reference but without the
+     * executable as the first argument and fail if there are any positional arguments.
+     *
+     * @param options   As per the specification, arguments are not shell-quoted.
+     *                  If you have a shell-quoted line instead, you first have to parse it and evaluate
+     *                  the quotes/escapes using com.riscure.dobby.shell.
+     * @param recover   The function calls back when it encounters a string that looks like an option
+     *                  but it is not in the spec. The boolean returned should indicate if we can just drop it.
+     */
+    @JvmStatic
+    fun parseOptions(options: List<String>, recover: RecoverCallback = { false }): Result<Options> =
+        parseArguments(options, recover)
+            .flatMap { cmd ->
+                if (cmd.positionalArgs.isNotEmpty())
+                    "Expected only options, but found positional arguments: ${cmd.positionalArgs}".left()
+                else
+                    cmd.optArgs.right()
+            }
+
+    /**
+     * Parse a list of arguments, as specified by the compilation database reference but without the
+     * executable as the first argument.
      *
      * @param arguments As per the specification, arguments are not shell-quoted.
      *                  If you have a shell-quoted line instead, you first have to parse it and evaluate
