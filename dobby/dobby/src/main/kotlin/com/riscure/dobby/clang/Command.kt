@@ -94,6 +94,9 @@ data class Arg(val opt: OptionSpec, val values: List<String>) {
     }
 
     companion object {
+        // TODO these should not be here, because they hardcode the spcification.
+        // This class should not be biased towards the clang 11 spec.
+
         /**
          * Read a single option argument with a possible [tail] of separated values.
          */

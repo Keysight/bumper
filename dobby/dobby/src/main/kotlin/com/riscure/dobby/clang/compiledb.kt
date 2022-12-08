@@ -11,6 +11,15 @@ import kotlinx.serialization.json.decodeFromStream
 import java.io.File
 import java.io.InputStream
 
+fun interface OnUnrecognizedOption {
+    fun callback(entry: String, surpriseArgument: String): Boolean
+
+    companion object {
+        @JvmStatic val ignore: OnUnrecognizedOption = OnUnrecognizedOption { _, _ -> true  }
+        @JvmStatic val strict: OnUnrecognizedOption = OnUnrecognizedOption { _, _ -> false }
+    }
+}
+
 /**
  * This is the raw compilation database as written/read from disk.
  * It is only the intermediate value for the serialization.
@@ -52,16 +61,16 @@ data class CompilationDb(val entries: List<Entry>) {
     )
 
     companion object {
-        /* Read a compilation database from a file */
+        /** Read a compilation database from a file */
         @JvmStatic
-        fun read(file: File): Either<Throwable,CompilationDb> =
+        fun read(file: File, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> =
             Either
                 .catch { file.inputStream().buffered() }
-                .flatMap { read(it) }
+                .flatMap { read(it, recover) }
 
-        /* Read a compilation database from an input stream */
+        /** Read a compilation database from an input stream */
         @JvmStatic
-        fun read(reader: InputStream): Either<Throwable,CompilationDb> {
+        fun read(reader: InputStream, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> {
             val entries = try {
                 Json.decodeFromStream<List<PlainCompilationDb.Entry>>(reader).right()
             } catch (e: Throwable) {
@@ -70,8 +79,10 @@ data class CompilationDb(val entries: List<Entry>) {
 
             return entries.flatMap { es ->
                 es.map { entry ->
+                    // first we try to get the arguments array
                     val args = when (val args = entry.arguments.toOption()) {
                         is Some -> args.value.right()
+                        // if that is missing, we parse the shell command into arguments.
                         None ->
                             when (val plaincmd = entry.command.toOption()) {
                                 is Some -> Shell.line(plaincmd.value).map { it.eval() }
@@ -85,9 +96,16 @@ data class CompilationDb(val entries: List<Entry>) {
                     args
                         .map { it.drop(1) } // drop executable name
                         .flatMap { it ->
-                            ClangParser.parseArguments(it).mapLeft {
-                                IllegalArgumentException("failed to parse entry \"" + entry.file + "\": $it")
-                            }
+                            ClangParser
+                                .parseArguments(it) { unrecognizedOption ->
+                                    recover.callback(entry.file, unrecognizedOption)
+                                }
+                                .mapLeft {
+                                    // give some context to the exception.
+                                    IllegalArgumentException(
+                                        "failed to parse compile command for main '" + entry.file + "': $it"
+                                    )
+                                }
                         }
                         .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
 
@@ -96,5 +114,8 @@ data class CompilationDb(val entries: List<Entry>) {
                 .map { CompilationDb(it) }
             }
         }
+
+        @JvmStatic fun read(reader: InputStream) = read(reader, OnUnrecognizedOption.strict)
+        @JvmStatic fun read(file: File) = read(file, OnUnrecognizedOption.strict)
     }
 }
