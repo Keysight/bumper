@@ -46,8 +46,8 @@ class ClangDependencyAnalysis(
                             .flatMap { ofType(it) }
                     CXCursor_DeclRefExpr ->
                         refDependencies()
-                    CXCursor_MemberRef   ->
-                        TODO()
+//                    CXCursor_MemberRef   ->
+//                        TODO()
                     else                 -> nil
                 }
             )

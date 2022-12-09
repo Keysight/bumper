@@ -41,7 +41,12 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
         val c_args = PointerPointer<BytePointer>(args.size.toLong())
         val c_parseOptions = CXTranslationUnit_SingleFileParse
 
-        c_arg_pointers.forEach { c_args.put(it) }
+        // put all the pointers into the array
+        c_arg_pointers.forEachIndexed { i, it ->
+            c_args.position(i.toLong())
+            c_args.put(it)
+        }
+        c_args.position(0L)
 
         // Define the deallocator
         fun free() {
