@@ -38,11 +38,18 @@ data class PlainCompilationDb(val entries: List<Entry>) {
     )
 }
 
-/* Semantic model of a compilation database */
+/** Semantic model of a compilation database */
 data class CompilationDb(val entries: List<Entry>) {
-    private val byMain: Map<Path, Entry> = entries.associateBy { it.mainSource }
+    private val byMain: Map<Path, Entry> = entries.associateBy {
+        // mainSource can be relative to the working directory according to
+        // the specification of compilation databases
+        it.resolvedMainSource
+    }
 
     fun get(main: Path): Option<Entry> = byMain[main].toOption()
+    fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
+    fun plus(entries: List<Entry>): CompilationDb  = copy(entries = entries.plus(entries))
+    fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
 
     /**
      * Apply a path mapping to the entries' mainSource fields.
@@ -60,9 +67,16 @@ data class CompilationDb(val entries: List<Entry>) {
          * It is unclear from the spec if this can itself be relative.
          */
         val workingDirectory: Path,
+
+        /**
+         * The main source file. This can be relative, in which case it should be resolved
+         * with respect to [workingDirectory] (see [resolvedMainSource]).
+         */
         val mainSource: Path,
         val command: Command
-    )
+    ) {
+        val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource)
+    }
 
     companion object {
         /**
