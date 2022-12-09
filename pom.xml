@@ -12,7 +12,7 @@
         <groupId>com.riscure</groupId>
         <artifactId>riscure-truecode-parent</artifactId>
         <version>0.18-SNAPSHOT</version> <!--parent-->
-        <relativePath>../riscure-truecode-parent</relativePath>
+        <relativePath>../../riscure-truecode-parent</relativePath>
     </parent>
     <properties>
         <kotlin.version>1.7.20</kotlin.version>
