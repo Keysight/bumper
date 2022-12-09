@@ -49,7 +49,7 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
 
         // detect failures
         if (res.resultCode != 0) {
-            Preprocessor.Error(main, res.output).left()
+            Preprocessor.Error(main, res.output.joinToString(separator = "\n")).left()
         } else Unit.right()
     }
 }
