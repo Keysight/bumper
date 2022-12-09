@@ -43,7 +43,7 @@ tasks.test {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = listOf()
     }
 }
@@ -62,7 +62,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = "dobby"
+            artifactId = "riscure-dobby"
             version    = version
 
             from(components["java"])
