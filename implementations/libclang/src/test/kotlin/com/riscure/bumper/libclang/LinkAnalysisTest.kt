@@ -90,8 +90,9 @@ class LinkAnalysisTest: LibclangTestBase() {
         }
     }
 
+    /** See test03 */
     @Test
-    fun test02() = bumped(
+    fun test02() = invalid(
             """
             void f(int);
             void g() { printf("general kenobi"); } // implicit declaration
@@ -100,7 +101,7 @@ class LinkAnalysisTest: LibclangTestBase() {
             void f(int x) {}
             """.trimIndent()
 
-    ) { units ->
+    ) /* { units ->
         run {
             val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
             val (unit1, _) = units
@@ -110,7 +111,7 @@ class LinkAnalysisTest: LibclangTestBase() {
             assertNotNull(edge.definition)
             assertEquals("f", edge.definition.decl.ident)
         }
-    }
+    }*/
 
     /**
      * This actually goes through clang usually and links
