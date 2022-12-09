@@ -4,10 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.riscure</groupId>
-    <artifactId>bumper</artifactId>
+    <artifactId>riscure-bumper</artifactId>
     <name>Riscure C Frontend</name>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <parent>
+        <groupId>com.riscure</groupId>
+        <artifactId>riscure-truecode-parent</artifactId>
+        <version>0.18-SNAPSHOT</version> <!--parent-->
+        <relativePath>../riscure-truecode-parent</relativePath>
+    </parent>
     <properties>
         <kotlin.version>1.7.20</kotlin.version>
         <llvm.version>11.0.0</llvm.version>
@@ -16,36 +22,6 @@
         <arrow.version>1.1.2</arrow.version>
         <coroutines.version>1.5.1</coroutines.version>
     </properties>
-    <repositories>
-        <repository>
-            <id>riscure</id>
-            <url>http://nexus3.riscure.com:8081/repository/riscure</url>
-            <snapshots><enabled>false</enabled></snapshots>
-        </repository>
-        <repository>
-            <id>riscure-snapshots</id>
-            <url>http://nexus3.riscure.com:8081/repository/riscure-snapshots</url>
-            <snapshots><enabled>true</enabled></snapshots>
-        </repository>
-        <repository>
-            <id>3rdparty</id>
-            <url>http://nexus3.riscure.com:8081/repository/3rdparty</url>
-            <snapshots><enabled>false</enabled></snapshots>
-        </repository>
-        <repository>
-            <id>3rdparty-snapshots</id>
-            <url>http://nexus3.riscure.com:8081/repository/3rdparty-snapshots</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-        <repository>
-            <id>p2-proxy</id>
-            <url>http://nexus3.riscure.com:8081/repository/p2-proxy</url>
-            <snapshots><enabled>true</enabled></snapshots>
-        </repository>
-    </repositories>
     <dependencies>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
@@ -76,20 +52,18 @@
         </dependency>
         <dependency>
             <groupId>com.riscure</groupId>
-            <artifactId>dobby</artifactId>
+            <artifactId>riscure-dobby</artifactId>
             <version>${dobby.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bytedeco</groupId>
             <artifactId>llvm-platform</artifactId>
             <version>${bytedeco.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.25</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.github.pgreze</groupId>
@@ -104,35 +78,45 @@
         </dependency>
     </dependencies>
     <build>
-        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
-        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
             <plugin>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-maven-plugin</artifactId>
-                <version>${kotlin.version}</version>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>compile</id>
-                        <phase>compile</phase>
+                        <id>build-and-test-bumper</id>
+                        <phase>test</phase>
                         <goals>
-                            <goal>compile</goal>
+                            <goal>exec</goal>
                         </goals>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>build</arguments>
+                        </configuration>
                     </execution>
                     <execution>
-                        <id>test-compile</id>
-                        <phase>test-compile</phase>
+                        <id>build-and-publish-bumper</id>
+                        <phase>install</phase>
                         <goals>
-                            <goal>test-compile</goal>
+                            <goal>exec</goal>
                         </goals>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>publishToMavenLocal</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>clean-bumper</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <phase>clean</phase>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>clean</arguments>
+                        </configuration>
                     </execution>
                 </executions>
-                <configuration>
-                    <args>
-                        <arg>-Xcontext-receivers</arg>
-                        <arg>-Xskip-prerelease-check</arg>
-                    </args>
-                </configuration>
             </plugin>
         </plugins>
     </build>

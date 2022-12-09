@@ -33,7 +33,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.25")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation(kotlin("test"))
@@ -49,14 +49,14 @@ tasks.named<Test>("test") {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
@@ -72,7 +72,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = rootProject.name
+            artifactId = "riscure-bumper-core"
             version    = version
 
             from(components["java"])

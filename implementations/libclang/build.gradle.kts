@@ -29,7 +29,7 @@ dependencies {
     implementation("com.github.pgreze:kotlin-process:1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
 
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
     implementation(project(":bumper-core"))
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
@@ -47,14 +47,49 @@ tasks.named<Test>("test") {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+    }
+}
+
+// Publishing
+
+fun env(key: String): String? = System.getenv(key)
+
+val nexusUsername = env("NEXUS_USERNAME")
+val nexusPassword = env("NEXUS_PASSWORD")
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId    = "com.riscure"
+            artifactId = "riscure-bumper-libclang"
+            version    = version
+
+            from(components["java"])
+
+            pom {
+                name.set(rootProject.name)
+                description.set("Bumper libclang implementation")
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            isAllowInsecureProtocol = true
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
+            }
+        }
     }
 }

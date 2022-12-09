@@ -20,7 +20,7 @@ repositories {
 
 dependencies {
     implementation(project(":bumper-core"))
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
     implementation(kotlin("test"))
@@ -29,14 +29,14 @@ dependencies {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
