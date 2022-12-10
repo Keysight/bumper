@@ -24,6 +24,12 @@ repositories {
         isAllowInsecureProtocol = true
     }
 
+    // "llvm-platform" is located in "3rdparty-snapshots" repo in nexus
+    maven  {
+        url = uri("http://nexus3.riscure.com:8081/repository/3rdparty-snapshots/")
+        isAllowInsecureProtocol = true
+    }
+
     mavenLocal()
 }
 

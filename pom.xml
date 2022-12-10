@@ -15,12 +15,7 @@
         <relativePath>../../riscure-truecode-parent</relativePath>
     </parent>
     <properties>
-        <kotlin.version>1.7.20</kotlin.version>
-        <llvm.version>11.0.0</llvm.version>
         <dobby.version>0.1.0-SNAPSHOT</dobby.version>
-        <bytedeco.version>${llvm.version}-1.5.5-SNAPSHOT</bytedeco.version>
-        <arrow.version>1.1.2</arrow.version>
-        <coroutines.version>1.5.1</coroutines.version>
     </properties>
     <profiles>
         <profile>
