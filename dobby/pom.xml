@@ -86,7 +86,10 @@
                         <phase>install</phase>
                         <configuration>
                             <executable>./gradlew.bat</executable>
-                            <arguments>publishToMavenLocal</arguments>
+                            <arguments>
+                                <argument>publishToMavenLocal</argument>
+                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
+                            </arguments>
                         </configuration>
                     </execution>
                     <execution>

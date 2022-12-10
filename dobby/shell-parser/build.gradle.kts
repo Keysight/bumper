@@ -36,14 +36,9 @@ tasks.generateGrammarSource {
 }
 
 // Publishing
+fun systemProperty(key: String): String? = System.getProperty(key)
 
-fun env(key: String): String? = System.getenv(key)
-
-val nexusUsername = env("NEXUS_USERNAME")
-val nexusPassword = env("NEXUS_PASSWORD")
-
-val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
-val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
 
 publishing {
     publications {
@@ -63,12 +58,9 @@ publishing {
 
     repositories {
         maven {
-            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            url = uri(bambooLocal)
+            name = "localBamboo"
             isAllowInsecureProtocol = true
-            credentials {
-                username = nexusUsername
-                password = nexusPassword
-            }
         }
     }
 }
