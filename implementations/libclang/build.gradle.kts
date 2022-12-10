@@ -18,7 +18,12 @@ repositories {
     maven { url = releases ; isAllowInsecureProtocol = true }
     maven { url = snapshots; isAllowInsecureProtocol = true }
 
-    mavenCentral()
+    // Maven central is proxied through nexus
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
+        isAllowInsecureProtocol = true
+    }
+
     mavenLocal()
 }
 
