@@ -8,7 +8,9 @@ plugins {
 }
 
 repositories {
-    // Use the plugin portal to be able
-    // to depend on gradle plugins in our plugins
-    gradlePluginPortal()
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/gradle-central-plugins/")
+        isAllowInsecureProtocol = true
+    }
 }
+
