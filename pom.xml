@@ -65,6 +65,38 @@
         </pluginManagement>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install-bumper-core</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <file>core/build/libs/bumper-core-0.1.0-SNAPSHOT.jar</file>
+                            <groupId>com.riscure</groupId>
+                            <artifactId>riscure-bumper-core</artifactId>
+                            <version>${project.version}</version>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-libclang-implementation</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <file>implementations/libclang/build/libs/bumper-libclang-0.1.0-SNAPSHOT.jar</file>
+                            <groupId>com.riscure</groupId>
+                            <artifactId>riscure-bumper-libclang</artifactId>
+                            <version>${project.version}</version>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
@@ -84,6 +116,20 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>test-bumper</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>
+                                <argument>test</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <!--
+                    <execution>
                         <id>build-and-publish-bumper</id>
                         <phase>install</phase>
                         <goals>
@@ -92,12 +138,13 @@
                         <configuration>
                             <executable>./gradlew.bat</executable>
                             <arguments>
-                                <argument>--info</argument>
+                                <argument>-info</argument>
                                 <argument>publishMavenPublicationToLocalBambooRepository</argument>
                                 <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
                             </arguments>
                         </configuration>
                     </execution>
+                    -->
                     <execution>
                         <id>clean-bumper</id>
                         <goals>
