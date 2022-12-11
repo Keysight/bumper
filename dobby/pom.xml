@@ -87,6 +87,7 @@
                         <configuration>
                             <executable>./gradlew.bat</executable>
                             <arguments>
+                                <argument>--info</argument>
                                 <argument>publishMavenPublicationToLocalBambooRepository</argument>
                                 <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
                             </arguments>
