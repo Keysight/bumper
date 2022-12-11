@@ -49,6 +49,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
+                    <version>3.1.0</version>
                     <executions>
                         <execution>
                             <id>default-install</id>
@@ -62,6 +63,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <id>install-shell-parser</id>
@@ -74,6 +76,7 @@
                             <groupId>com.riscure</groupId>
                             <artifactId>riscure-shell-parser</artifactId>
                             <version>${project.version}</version>
+                            <packaging>jar</packaging>
                         </configuration>
                     </execution>
                     <execution>
@@ -87,6 +90,7 @@
                             <groupId>com.riscure</groupId>
                             <artifactId>riscure-dobby</artifactId>
                             <version>${project.version}</version>
+                            <packaging>jar</packaging>
                         </configuration>
                     </execution>
                 </executions>
@@ -104,6 +108,7 @@
                         <configuration>
                             <executable>./gradlew.bat</executable>
                             <arguments>
+                                <argument>--info</argument>
                                 <argument>build</argument>
                                 <argument>-x</argument>
                                 <argument>test</argument>

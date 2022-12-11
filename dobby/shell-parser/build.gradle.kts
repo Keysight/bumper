@@ -3,10 +3,20 @@ plugins {
     antlr
 }
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 group   = "com.riscure"
 version = "0.1.0-SNAPSHOT"
 
 repositories {
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+        isAllowInsecureProtocol = true
+    }
+
     maven {
         url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
         isAllowInsecureProtocol = true
@@ -36,10 +46,6 @@ tasks.generateGrammarSource {
 }
 
 // Publishing
-fun systemProperty(key: String): String? = System.getProperty(key)
-
-val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
-
 publishing {
     publications {
         create<MavenPublication>("maven") {
