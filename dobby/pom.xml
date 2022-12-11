@@ -60,6 +60,38 @@
         </pluginManagement>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install-shell-parser</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <file>shell-parser/build/libs/shell-parser-0.1.0-SNAPSHOT.jar</file>
+                            <groupId>com.riscure</groupId>
+                            <artifactId>riscure-shell-parser</artifactId>
+                            <version>${project.version}</version>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install-dobby</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <file>dobby/build/libs/dobby-0.1.0-SNAPSHOT.jar</file>
+                            <groupId>com.riscure</groupId>
+                            <artifactId>riscure-dobby</artifactId>
+                            <version>${project.version}</version>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
@@ -79,6 +111,20 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>test-dobby</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>
+                                <argument>test</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <!--
+                    <execution>
                         <id>build-and-publish-dobby</id>
                         <goals>
                             <goal>exec</goal>
@@ -87,12 +133,13 @@
                         <configuration>
                             <executable>./gradlew.bat</executable>
                             <arguments>
-                                <argument>--info</argument>
+                                <argument>-info</argument>
                                 <argument>publishMavenPublicationToLocalBambooRepository</argument>
                                 <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
                             </arguments>
                         </configuration>
                     </execution>
+                    -->
                     <execution>
                         <id>clean-dobby</id>
                         <goals>
