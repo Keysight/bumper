@@ -26,6 +26,7 @@ repositories {
 dependencies {
     implementation(project(":bumper-core"))
     implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
     implementation(kotlin("test"))

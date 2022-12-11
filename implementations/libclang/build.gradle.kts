@@ -8,6 +8,10 @@ plugins {
     `maven-publish`
 }
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 group   = "com.riscure"
 version = "0.1.0-SNAPSHOT"
 
@@ -17,6 +21,11 @@ val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots
 repositories {
     maven { url = releases ; isAllowInsecureProtocol = true }
     maven { url = snapshots; isAllowInsecureProtocol = true }
+
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+    }
 
     // Maven central is proxied through nexus
     maven {
@@ -71,10 +80,6 @@ tasks.compileTestKotlin {
 }
 
 // Publishing
-fun systemProperty(key: String): String? = System.getProperty(key)
-
-val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
-
 publishing {
     publications {
         create<MavenPublication>("maven") {

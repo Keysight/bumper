@@ -67,6 +67,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <id>install-bumper-core</id>
@@ -79,6 +80,7 @@
                             <groupId>com.riscure</groupId>
                             <artifactId>riscure-bumper-core</artifactId>
                             <version>${project.version}</version>
+                            <packaging>jar</packaging>
                         </configuration>
                     </execution>
                     <execution>
@@ -92,6 +94,7 @@
                             <groupId>com.riscure</groupId>
                             <artifactId>riscure-bumper-libclang</artifactId>
                             <version>${project.version}</version>
+                            <packaging>jar</packaging>
                         </configuration>
                     </execution>
                 </executions>
@@ -109,6 +112,7 @@
                         <configuration>
                             <executable>./gradlew.bat</executable>
                             <arguments>
+                                <argument>--info</argument>
                                 <argument>build</argument>
                                 <argument>-x</argument>
                                 <argument>test</argument>
