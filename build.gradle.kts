@@ -6,7 +6,16 @@ plugins {
 val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
 val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 repositories {
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+    }
+
     maven {
         url = uri("https://repo.maven.apache.org/maven2/")
     }

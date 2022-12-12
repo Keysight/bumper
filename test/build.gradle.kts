@@ -14,13 +14,19 @@ repositories {
     maven { url = releases ; isAllowInsecureProtocol = true }
     maven { url = snapshots; isAllowInsecureProtocol = true }
 
-    mavenCentral()
+    // Maven central is proxied through nexus
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
+        isAllowInsecureProtocol = true
+    }
+
     mavenLocal()
 }
 
 dependencies {
     implementation(project(":bumper-core"))
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
     implementation(kotlin("test"))
@@ -29,14 +35,14 @@ dependencies {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }

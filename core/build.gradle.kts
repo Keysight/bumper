@@ -11,6 +11,10 @@ plugins {
     `maven-publish`
 }
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 group   = "com.riscure"
 version = "0.1.0-SNAPSHOT"
 
@@ -21,7 +25,18 @@ repositories {
     maven { url = releases ; isAllowInsecureProtocol = true }
     maven { url = snapshots; isAllowInsecureProtocol = true }
 
-    mavenCentral()
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+        isAllowInsecureProtocol = true
+    }
+
+    // Maven central is proxied through nexus
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
+        isAllowInsecureProtocol = true
+    }
+
     mavenLocal()
 }
 
@@ -33,7 +48,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.25")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation(kotlin("test"))
@@ -49,30 +64,24 @@ tasks.named<Test>("test") {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 // Publishing
-
-fun env(key: String): String? = System.getenv(key)
-
-val nexusUsername = env("NEXUS_USERNAME")
-val nexusPassword = env("NEXUS_PASSWORD")
-
 publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = rootProject.name
+            artifactId = "riscure-bumper-core"
             version    = version
 
             from(components["java"])
@@ -86,12 +95,8 @@ publishing {
 
     repositories {
         maven {
-            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
-            isAllowInsecureProtocol = true
-            credentials {
-                username = nexusUsername
-                password = nexusPassword
-            }
+            url = uri(bambooLocal)
+            name = "localBamboo"
         }
     }
 }

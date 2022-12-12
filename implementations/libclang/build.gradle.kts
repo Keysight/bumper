@@ -8,6 +8,10 @@ plugins {
     `maven-publish`
 }
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 group   = "com.riscure"
 version = "0.1.0-SNAPSHOT"
 
@@ -18,7 +22,23 @@ repositories {
     maven { url = releases ; isAllowInsecureProtocol = true }
     maven { url = snapshots; isAllowInsecureProtocol = true }
 
-    mavenCentral()
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+    }
+
+    // Maven central is proxied through nexus
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
+        isAllowInsecureProtocol = true
+    }
+
+    // "llvm-platform" is located in "3rdparty-snapshots" repo in nexus
+    maven  {
+        url = uri("http://nexus3.riscure.com:8081/repository/3rdparty-snapshots/")
+        isAllowInsecureProtocol = true
+    }
+
     mavenLocal()
 }
 
@@ -29,7 +49,7 @@ dependencies {
     implementation("com.github.pgreze:kotlin-process:1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
 
-    implementation("com.riscure:dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
     implementation(project(":bumper-core"))
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
@@ -47,14 +67,40 @@ tasks.named<Test>("test") {
 
 tasks.compileKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+    }
+}
+
+// Publishing
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId    = "com.riscure"
+            artifactId = "riscure-bumper-libclang"
+            version    = version
+
+            from(components["java"])
+
+            pom {
+                name.set(rootProject.name)
+                description.set("Bumper libclang implementation")
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(bambooLocal)
+            name = "localBamboo"
+            isAllowInsecureProtocol = true
+        }
     }
 }
