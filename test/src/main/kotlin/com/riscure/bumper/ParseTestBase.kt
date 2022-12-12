@@ -13,9 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.copyTo
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.fail
+import kotlin.test.*
 
 fun <E, T> Either<E, T>.assertOK(): T =
     this.getOrHandle { error ->
@@ -24,6 +22,8 @@ fun <E, T> Either<E, T>.assertOK(): T =
         else
             fail("Expected success, got error: $error")
     }
+
+fun <T> T?.assertOK(): T = assertNotNull(this)
 
 fun <T> Option<T>.assertOK(): T =
     this.getOrElse { fail("Expected some, got none") }
