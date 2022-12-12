@@ -573,6 +573,14 @@ open class CursorParser(
                     .map { sym -> Type.Enum(sym) }
             }
 
+            CXType_Unexposed       -> {
+                // Some types that libclang keeps symbolic it does not expose via the libclang interface.
+                // In particular: typeof expressions.
+                // But, we can try to get a semantically equivalent type at this point from libclang
+                // and parse that instead:
+                clang_getCanonicalType(this).asType()
+            }
+
             // There are others, but as far as I know, these are non-C types.
             else                   -> "Could not parse type of kind '${kindName()}'".left()
         }.map { type -> type.withAttrs(getTypeAttrs()) }

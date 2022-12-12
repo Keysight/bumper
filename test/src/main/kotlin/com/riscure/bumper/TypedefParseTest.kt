@@ -147,4 +147,17 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typedef  = assertIs<Declaration.Typedef>(ast.declarations[0])
         assertIs<Type.VaList>(typedef.underlyingType)
     }
+
+    @Test
+    @DisplayName("typeof")
+    fun test13() = parsedAndRoundtrip("""
+        struct A {
+          int m;
+        };
+        typedef typeof (((struct A *)0)->m) mytype;
+    """.trimIndent()) { ast ->
+        assertEquals(2, ast.declarations.size)
+        val typedef  = assertIs<Declaration.Typedef>(ast.typedefs.find { it.ident == "mytype"})
+        assertEquals(Type.int, typedef.underlyingType)
+    }
 }
