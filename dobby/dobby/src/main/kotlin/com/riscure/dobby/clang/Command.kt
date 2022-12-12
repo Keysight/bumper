@@ -43,6 +43,11 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     fun replace(spec: Spec, arg: Arg): Command = filter(spec, arg.opt) + arg
 
     /**
+     * Removes any alias of [arg.opt] and then adds [arg].
+     */
+    fun replace(spec: Spec, args: List<Arg>): Command = filter(spec, args.map { it.opt }) + args
+
+    /**
      * Adds [arg] to the (rear of) the options of this command
      */
     operator fun plus(arg: Arg) = this.copy(optArgs = optArgs + arg)
