@@ -9,11 +9,24 @@ plugins {
     kotlin("plugin.serialization")
 }
 
+fun systemProperty(key: String): String? = System.getProperty(key)
+
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
+
 group   = "com.riscure"
 version = "0.1.0-SNAPSHOT"
 
 repositories {
-    mavenCentral()
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
+        isAllowInsecureProtocol = true
+    }
 }
 
 dependencies {
@@ -43,26 +56,17 @@ tasks.test {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
         freeCompilerArgs = listOf()
     }
 }
 
 // Publishing
-
-fun env(key: String): String? = System.getenv(key)
-
-val nexusUsername = env("NEXUS_USERNAME")
-val nexusPassword = env("NEXUS_PASSWORD")
-
-val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
-val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
-
 publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = "dobby"
+            artifactId = "riscure-dobby"
             version    = version
 
             from(components["java"])
@@ -76,12 +80,9 @@ publishing {
 
     repositories {
         maven {
-            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            url = uri(bambooLocal)
+            name = "localBamboo"
             isAllowInsecureProtocol = true
-            credentials {
-                username = nexusUsername
-                password = nexusPassword
-            }
         }
     }
 }
