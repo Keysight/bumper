@@ -1,6 +1,7 @@
 package com.riscure.dobby.clang
 
 import arrow.core.*
+import com.riscure.dobby.shell.Val
 import com.riscure.dobby.shell.Arg as ShellArg
 
 typealias Options = List<Arg>
@@ -63,9 +64,17 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     operator fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
 
     fun toArguments(): List<String> =
-        optArgs.map { it.shellify().toString() } + positionalArgs.map { ShellArg.quote(it).toString() }
+        optArgs
+            .map { it.toString() }
+            .plus(positionalArgs)
 
-    fun toShell(): String = toArguments().joinToString(separator = " ") { it }
+    fun toShellArguments(): List<String> =
+        optArgs
+            .flatMap { it.shellify() }
+            .plus(positionalArgs.map { ShellArg.quote(it) })
+            .map { it.toString() }
+
+    fun toShell(): String = toShellArguments().joinToString(separator = " ")
 
     companion object : arrow.typeclasses.Monoid<Command> {
         @JvmStatic
@@ -80,23 +89,47 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 
 /**
  * Clang compilation optional arguments, with semantic info from the spec attached.
+ * The number of values is determined by the [opt] spec.
  */
 data class Arg(val opt: OptionSpec, val values: List<String>) {
     constructor(opt: OptionSpec, value: String):  this(opt, listOf(value))
     constructor(opt: OptionSpec):  this(opt, listOf())
 
     /**
-     * Join arguments according to the option specification.
+     * Join arguments according to the option specification for passing via the shell.
      */
-    fun shellify() = when(opt.type) {
-        OptionType.Joined            -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
-        OptionType.CommaJoined       -> ShellArg.quote(opt.appearance(), values.joinToString(separator = ",") { it })
-        OptionType.JoinedAndSeparate -> ShellArg.quote(opt.appearance() + values[0], *values.drop(1).toTypedArray())
-        OptionType.JoinedOrSeparate  -> ShellArg.quote(opt.appearance(), *values.toTypedArray()) // separate
-        OptionType.Separate          -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
-        OptionType.Toggle            -> ShellArg.quote(opt.appearance())
-        is OptionType.MultiArg       -> ShellArg.quote(opt.appearance(), *values.toTypedArray())
-    }
+    fun shellify(): List<ShellArg> = ShellArg(Val.raw(opt.appearance()))
+        .let { op ->
+            when (opt.type) {
+                OptionType.Joined            -> listOf(op + ShellArg.quote(values)) // single argument
+                OptionType.CommaJoined       -> {
+                    // TODO fix escaping here
+                    val values = Val.raw(values.joinToString(separator = ",") { it })
+                    listOf(op) + ShellArg(listOf(values))
+                }
+                OptionType.JoinedAndSeparate -> listOf(op + ShellArg.quote(values[0])) + ShellArg.quote(values.drop(1))
+                OptionType.JoinedOrSeparate  -> listOf(op) + values.map { ShellArg.quote(it) }
+                OptionType.Separate          -> listOf(op) + values.map { ShellArg.quote(it) }
+                OptionType.Toggle            -> listOf(op)
+                is OptionType.MultiArg       -> listOf(op) + values.map { ShellArg.quote(it) }
+            }
+        }
+
+    /**
+     * Join arguments according to the option specification to an unescaped string option.
+     */
+    override fun toString(): String = opt.appearance()
+        .let { op ->
+            when (opt.type) {
+                OptionType.Joined            -> op + values.joinToString("")
+                OptionType.CommaJoined       -> op + values.joinToString(",")
+                OptionType.JoinedAndSeparate -> op + values[0] + " " + values.joinToString(" ")
+                OptionType.JoinedOrSeparate  -> op + values.joinToString(" ")
+                OptionType.Separate          -> op + values.joinToString(" ")
+                OptionType.Toggle            -> op
+                is OptionType.MultiArg       -> op + values.joinToString(" ")
+            }
+        }
 
     companion object {
         // TODO these should not be here, because they hardcode the specification.
