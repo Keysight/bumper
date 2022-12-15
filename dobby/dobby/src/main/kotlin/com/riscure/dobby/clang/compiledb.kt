@@ -46,18 +46,18 @@ data class CompilationDb(val entries: List<Entry>) {
         it.resolvedMainSource
     }
 
-    fun get(main: Path): Option<Entry> = byMain[main].toOption()
+    fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
     fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
     fun plus(entries: List<Entry>): CompilationDb  = copy(entries = entries.plus(entries))
     fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
 
     /**
-     * Apply a path mapping to the entries' mainSource fields.
+     * Apply a path mapping to the entries' resolvedMainSource, obtaining a new database.
      */
     fun remap(mapping: (p: Path) -> Path) =
         CompilationDb(
             entries.map {
-                with(it) { copy(mainSource = mapping(mainSource)) }
+                with(it) { copy(mainSource = mapping(resolvedMainSource)) }
             }
         )
 
@@ -71,11 +71,13 @@ data class CompilationDb(val entries: List<Entry>) {
         /**
          * The main source file. This can be relative, in which case it should be resolved
          * with respect to [workingDirectory] (see [resolvedMainSource]).
+         *
+         * Use with caution!
          */
         val mainSource: Path,
         val command: Command
     ) {
-        val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource)
+        val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource).normalize()
     }
 
     companion object {
