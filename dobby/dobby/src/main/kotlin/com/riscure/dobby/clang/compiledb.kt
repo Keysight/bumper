@@ -61,6 +61,13 @@ data class CompilationDb(val entries: List<Entry>) {
             }
         )
 
+    fun filter(mapping: (p: Path) -> Boolean) =
+        CompilationDb(
+            entries.filter {
+                it -> mapping(it.mainSource)
+            }
+        )
+
     data class Entry(
         /**
          * Any relative [mainSource] or path argument in [command] is relative w.r.t. this directory.
