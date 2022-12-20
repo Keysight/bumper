@@ -532,6 +532,10 @@ data class TLID(val name: Ident, val kind: EntityKind) {
     }
 }
 
+/**
+ * @param <E> the type of expressions in the AST.
+ * @param <S> the type of statements in the AST.
+ */
 @Serializable
 data class TranslationUnit<out E, out T>(
     /** The (preprocessed) C translation unit identifier */
