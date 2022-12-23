@@ -546,6 +546,8 @@ data class TranslationUnit<out E, out T>(
      */
     val declarations: List<Declaration<E, T>>,
 ) {
+    val isEmpty get() = declarations.isEmpty()
+
     val byIdentifier: Map<TLID, List<Declaration<E, T>>> by lazy {
         val mapping = mutableMapOf<TLID, MutableList<Declaration<E,T>>>()
         for (d  in declarations) {

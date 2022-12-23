@@ -4,7 +4,6 @@ import arrow.core.*
 import com.riscure.Digest
 import java.io.File
 import java.nio.file.Path
-import java.util.*
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 
@@ -37,10 +36,7 @@ interface Storage {
 
 class FileStorage(val directory: Path): Storage {
     override fun inputAddressed(prefix: String, vararg inputs: Digest, suffix: String): File {
-        val hash = Base64.getUrlEncoder()
-            .encodeToString(Digest.combineAll(inputs.toList()).bytes)
-            .take(15)
-
+        val hash = Digest.combineAll(inputs.toList()).makeKey(15)
         return directory
             .resolve("${prefix}-${hash}${suffix}")
             .toFile()
