@@ -6,6 +6,11 @@ description = "Riscure True Code C Frontend -- Libclang Implementation"
 plugins {
     kotlin("jvm") version "1.7.20"
     `maven-publish`
+    application
+}
+
+application {
+    mainClass.set("com.riscure.bumper.BumperCmdKt")
 }
 
 fun systemProperty(key: String): String? = System.getProperty(key)
@@ -43,14 +48,14 @@ repositories {
 }
 
 dependencies {
-    implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation(project(":bumper-core"))
 
+    implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-
-    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
-    implementation(project(":bumper-core"))
+    implementation("info.picocli:picocli:4.6.3")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation(project(":bumper-test"))
