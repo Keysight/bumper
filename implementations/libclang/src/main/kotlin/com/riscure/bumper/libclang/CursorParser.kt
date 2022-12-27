@@ -331,9 +331,19 @@ open class CursorParser(
                 .flatMap { type ->
                     val rhs: Option<Result<CXCursor>> = if (clang_isCursorDefinition(this).toBool()) {
                         val subexps = this.children().filter { clang_isExpression(it.kind()).toBool() }
-                        if (subexps.size != 1) {
-                            "Failed to extract right-hand side of variable declaration.".left().some()
-                        } else subexps[0].right().some()
+                        when {
+                            // most global variable initializations are of the form `<typed name> = <exp>`
+                            subexps.size == 1                                               ->
+                                subexps[0].right().some()
+                            // an array can be initialized as xs[size] = expr,
+                            // in which case we have two sub-expressions, and the last one represents the rhs.
+                            type is Type.Array && type.size.isDefined() && subexps.size > 1 ->
+                                subexps.last().right().some()
+                            // some other form that has a differently shaped AST that we have not forseen
+                            else                                                            ->
+                                "Failed to extract right-hand side of variable declaration '${spelling()}'.".left()
+                                    .some()
+                        }
                     } else None
 
                     rhs.sequenceEither()
