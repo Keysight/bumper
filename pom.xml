@@ -49,20 +49,6 @@
         </profile>
     </profiles>
     <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-install-plugin</artifactId>
-                    <executions>
-                        <execution>
-                            <id>default-install</id>
-                            <phase>none</phase>
-                        </execution>
-                    </executions>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -132,23 +118,6 @@
                             </arguments>
                         </configuration>
                     </execution>
-                    <!--
-                    <execution>
-                        <id>build-and-publish-bumper</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>./gradlew.bat</executable>
-                            <arguments>
-                                <argument>-info</argument>
-                                <argument>publishMavenPublicationToLocalBambooRepository</argument>
-                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                    -->
                     <execution>
                         <id>clean-bumper</id>
                         <goals>
