@@ -48,14 +48,14 @@ repositories {
 }
 
 dependencies {
-    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
-    implementation(project(":bumper-core"))
-
     implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("com.github.pgreze:kotlin-process:1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-    implementation("info.picocli:picocli:4.6.3")
+
+    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation(project(":bumper-core"))
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation(project(":bumper-test"))
