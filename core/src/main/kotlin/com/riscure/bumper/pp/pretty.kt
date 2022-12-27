@@ -9,7 +9,7 @@ import com.riscure.bumper.index.TUID
  */
 object Pretty {
     fun integerKind(kind: IKind): String = when (kind) {
-        IKind.IBoolean   -> "bool"
+        IKind.IBoolean   -> "_Bool"
         IKind.IChar      -> "char"
         IKind.ISChar     -> "signed char"
         IKind.IUChar     -> "unsigned char"
