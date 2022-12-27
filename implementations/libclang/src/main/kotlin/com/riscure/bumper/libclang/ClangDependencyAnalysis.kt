@@ -41,6 +41,9 @@ class ClangDependencyAnalysis(
         cursor.fold(nil, true) { acc: Result ->
             acc.union(
                 when (kind()) {
+                    CXCursor_TypeRef     ->
+                        typeOf(this)
+                            .flatMap { ofType(it) }
                     CXCursor_VarDecl     ->
                         typeOf(this)
                             .flatMap { ofType(it) }

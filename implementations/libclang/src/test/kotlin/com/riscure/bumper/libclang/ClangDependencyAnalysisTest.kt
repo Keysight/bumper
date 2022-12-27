@@ -115,4 +115,18 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         assertEquals(1, deps.size)
         assertEquals(EntityKind.Typedef, deps.first().tlid.kind)
     }
+
+    @DisplayName("sizeof depends on referenced struct")
+    @Test
+    fun test08() = bumped("""
+        struct X {};
+        int f() {
+            return sizeof(struct X);
+        }
+    """.trimIndent()) { ast, unit ->
+        val f = ast.functions.find { it.ident == "f" } .assertOK()
+        val deps = unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)].assertOK()
+
+        assertEquals(1, deps.size)
+    }
 }
