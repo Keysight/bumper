@@ -21,13 +21,15 @@ data class Link<E, S>(
 
 data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
 
+    val nodes get() = dependencies.keys
+
     fun union(other: DependencyGraph) = with (graphMonoid) { combine(other) }
 
     /**
      * Performs a reachability analysis on the dependency graph,
-     * returning the set of symbols that are reachale from the roots.
+     * returning the subgraph of reachable nodes.
      */
-    fun reachable(roots: Set<Symbol>): Set<Symbol> {
+    fun reachable(roots: Set<Symbol>): DependencyGraph {
         // we start with the given set of symbols to keep
         val worklist     = roots.toMutableList()
         val reachable    = mutableSetOf<Symbol>()
@@ -43,7 +45,7 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
             worklist.addAll(dependencies.getOrDefault(focus, listOf()))
         }
 
-        return reachable
+        return copy(dependencies = dependencies.filter { (k, _) -> reachable.contains(k) })
     }
 
     companion object {

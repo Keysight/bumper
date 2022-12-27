@@ -25,7 +25,12 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         unit.declarations
             .map { d -> ofDecl(d).map { deps -> Pair(d.mkSymbol(unit.tuid), deps) }}
             .sequence()
-            .map { DependencyGraph(it.toMap()) }
+            .map { entries ->
+                // We may have entries with clashing keys,
+                // due to different declarations/definitions belonging to the same symbol.
+                // Hence, we need to take care to merge entries, rather than bluntly using .toMap()
+                DependencyGraph.union(entries.map { (k, deps) -> DependencyGraph(mapOf(k to deps))})
+            }
 
     fun ofExp(exp: Exp): Result
     fun ofStmt(stmt: Stmt): Result
