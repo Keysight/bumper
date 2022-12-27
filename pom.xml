@@ -7,7 +7,7 @@
     <artifactId>riscure-bumper-shadow</artifactId>
     <name>Riscure C Frontend</name>
     <version>0.1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
     <parent>
         <groupId>com.riscure</groupId>
         <artifactId>riscure-truecode-parent</artifactId>
@@ -39,7 +39,10 @@
                                 <phase>test</phase>
                                 <configuration>
                                     <executable>./gradlew.bat</executable>
-                                    <arguments>test</arguments>
+                                    <arguments>
+                                        <argument>test</argument>
+                                        <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
+                                    </arguments>
                                 </configuration>
                             </execution>
                         </executions>
@@ -49,6 +52,20 @@
         </profile>
     </profiles>
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>default-install</id>
+                            <phase>none</phase>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -102,6 +119,7 @@
                                 <argument>build</argument>
                                 <argument>-x</argument>
                                 <argument>test</argument>
+                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
                             </arguments>
                         </configuration>
                     </execution>
@@ -115,6 +133,7 @@
                             <executable>./gradlew.bat</executable>
                             <arguments>
                                 <argument>test</argument>
+                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
                             </arguments>
                         </configuration>
                     </execution>
