@@ -17,12 +17,13 @@ object Deadcode {
     fun <E, S> eliminate(dependencies: DependencyGraph, units: Collection<UnitState<E, S>>, alive: Set<Symbol>)
     : Either<Throwable, Collection<TranslationUnit<E, S>>> = Either.catch {
         val reachable = dependencies.reachable(alive)
+        val reachableSymbols = reachable.nodes
 
         units
             .map { unit ->
                 unit.ast.copy(
                     declarations = unit.ast.declarations
-                        .filter { decl -> decl.mkSymbol(unit.tuid) in reachable }
+                        .filter { decl -> decl.mkSymbol(unit.tuid) in reachableSymbols }
                 )
             }
     }
