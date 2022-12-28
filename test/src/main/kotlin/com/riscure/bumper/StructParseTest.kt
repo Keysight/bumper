@@ -265,7 +265,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
     @DisplayName("Recursive struct through pointer is complete")
     fun test46() = parsedAndRoundtrip("""
         struct A { struct A *a; };
-    """.trimIndent()) {}
+    """.trimIndent()) { _ -> }
 
     // Extracted unit tests
     // ====================
@@ -301,7 +301,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
           unsigned int __wrefs;
           unsigned int __g_signals[2];
         };
-   """.trimIndent()) {}
+   """.trimIndent()) { _ -> }
 
     @Test
     @DisplayName("anonymous nested struct")

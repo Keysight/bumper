@@ -91,10 +91,14 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         parsed(file, whenOk)
     }
 
-    fun parsedAndRoundtrip(program: String, whenOk: (ast: TranslationUnit<*, *>) -> Unit) =
-        parsed(program, whenOk).let {
+    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>) -> Unit) =
+        parsedAndRoundtrip(program, opts) { ast, _ -> whenOk(ast) }
+
+    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit) =
+        bumped(program, opts) { ast, unit ->
             // TODO improve, now we parse thrice.
-            roundtrip(program)
+            roundtrip(program, opts)
+            whenOk(ast, unit)
         }
 
     fun parsed(test: File, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
