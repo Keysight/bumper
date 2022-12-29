@@ -160,4 +160,22 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typedef  = assertIs<Declaration.Typedef>(ast.typedefs.find { it.ident == "mytype"})
         assertEquals(Type.int, typedef.underlyingType)
     }
+
+    @Test
+    @DisplayName("typedef inline enum")
+    fun test14() = parsedAndRoundtrip("""
+        typedef enum {
+          TEE_MODE_ENCRYPT = 0,
+          TEE_MODE_DECRYPT = 1,
+          TEE_MODE_SIGN = 2,
+          TEE_MODE_VERIFY = 3,
+          TEE_MODE_MAC = 4,
+          TEE_MODE_DIGEST = 5,
+          TEE_MODE_DERIVE = 6
+        } TEE_OperationMode;
+    """.trimIndent()) { ast ->
+        val enum = ast.enums[0].assertOK()
+        val typOpMode = ast.typedefs[0].assertOK()
+        assertEquals(7, enum.enumerators.assertOK().size)
+    }
 }

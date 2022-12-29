@@ -71,8 +71,8 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Typedeffed         -> setOf(type.ref).right()
         is Type.Struct             -> setOf(type.ref).right()
         is Type.Union              -> setOf(type.ref).right()
+        is Type.Enum               -> setOf(type.ref).right()
         is Type.Int                -> nil
-        is Type.Enum               -> nil
         is Type.Float              -> nil
         is Type.Void               -> nil
         is Type.Atomic             -> ofType(type.elementType)
