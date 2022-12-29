@@ -69,4 +69,16 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
           };
         }
     """.trimIndent())
+
+    @Test
+    @DisplayName("Vararg function")
+    fun test04() = parsedAndRoundtrip("""
+        void f(int x, ...) {
+          return;
+        }
+    """.trimIndent()) { ast ->
+        val f = ast.functions.find { it.ident == "f" }.assertOK()
+        assertEquals(1, f.params.size)
+        assertTrue(f.vararg)
+    }
 }
