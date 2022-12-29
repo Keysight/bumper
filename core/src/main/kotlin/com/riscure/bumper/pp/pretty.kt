@@ -81,7 +81,9 @@ object Pretty {
 
     fun prototype(thefun: Declaration.Fun<*>): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
-        return declaration("${thefun.ident}(${formals(thefun.params)})", thefun.returnType)
+
+        val vararg = if (thefun.vararg) ", ..." else ""
+        return declaration("${thefun.ident}(${formals(thefun.params)}$vararg)", thefun.returnType)
     }
 
     fun typedef(typedef: Declaration.Typedef): String =

@@ -202,6 +202,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 val f2 = assertIs<Declaration.Fun<*>>(d2)
                 eq(f1.returnType, f2.returnType)
                 assertEquals(f1.params.size, f2.params.size)
+                assertEquals(f1.vararg, f2.vararg)
                 f1.params.zip(f2.params) { l, r -> eq(l, r) }
             }
             is Declaration.Typedef   -> {
