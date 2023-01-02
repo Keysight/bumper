@@ -213,10 +213,7 @@ sealed class Type: FieldType {
      * Reference to a top-level typedef.
      */
     @Serializable
-    data class Typedeffed (
-        val ref: Symbol, // elaborated
-        override val attrs: Attrs = listOf()
-    ): Type() {
+    data class Typedeffed (val ref: Symbol, override val attrs: Attrs = listOf()): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -224,10 +221,7 @@ sealed class Type: FieldType {
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct (
-        val ref: Symbol, // elaborated
-        override val attrs: Attrs = listOf()
-    ): Type() {
+    data class Struct (val ref: Symbol, override val attrs: Attrs = listOf()): Type() {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 

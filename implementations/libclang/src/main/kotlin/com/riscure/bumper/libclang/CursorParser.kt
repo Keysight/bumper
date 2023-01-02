@@ -158,10 +158,7 @@ open class CursorParser(
 
     fun CXCursor.asDeclaration(): Result<ClangDeclaration> {
         val decl = when (kind()) {
-            CXCursor_FunctionDecl ->
-                if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
-                    asFunctionDef()
-                else asFunctionDecl()
+            CXCursor_FunctionDecl -> this.asFunction()
             CXCursor_StructDecl   -> this.asStruct()
             CXCursor_UnionDecl    -> this.elaborateUnion()
             CXCursor_VarDecl      -> this.asVariable()
@@ -178,6 +175,11 @@ open class CursorParser(
                     .withStorage(getStorage())
             }
     }
+
+    private fun CXCursor.asFunction(): Result<Declaration.Fun<CXCursor>> =
+        if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
+            asFunctionDef()
+        else asFunctionDecl()
 
     /**
      * Check if this is a valid C identifier. Empty string is accepted.
