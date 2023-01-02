@@ -1,47 +1,54 @@
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
-import org.gradle.api.tasks.testing.logging.TestLogEvent.*
-
-description = "Riscure True Code C Frontend"
-
 plugins {
-    id("com.riscure.java-conventions")
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.serialization") version "1.7.20" apply false
 }
 
-dependencies {
-    // FIXME
-    implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
+val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
 
-    implementation("org.slf4j:slf4j-api:1.7.25")
-    implementation("io.arrow-kt:arrow-core:1.0.1")
-    implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
+fun systemProperty(key: String): String? = System.getProperty(key)
 
-    implementation(project(":tc-codeanalysis"))
-    implementation(project(":dobby"))
+val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
-    testImplementation(kotlin("test"))
-}
-
-tasks.named<Test>("test") {
-  useJUnitPlatform()
-  testLogging {
-    events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
-    exceptionFormat = FULL
-  }
-}
-
-tasks.compileKotlin {
-    kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs += "-Xcontext-receivers"
+repositories {
+    maven {
+        url = uri(bambooLocal)
+        name = "localBamboo"
     }
-}
 
-tasks.compileTestKotlin {
-    kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs += "-Xcontext-receivers"
+    maven {
+        url = uri("https://repo.maven.apache.org/maven2/")
     }
+
+    maven {
+        url = releases
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = snapshots
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/3rdparty")
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/3rdparty-snapshots")
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/p2-proxy")
+        isAllowInsecureProtocol = true
+    }
+
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/npmjs-org-proxy")
+        isAllowInsecureProtocol = true
+    }
+
+    mavenLocal()
 }
