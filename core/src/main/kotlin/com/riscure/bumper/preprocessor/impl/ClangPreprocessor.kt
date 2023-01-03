@@ -34,12 +34,11 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
                 .plus(Arg(Spec.clang11["O0"]))
                 .plus(Arg(Spec.clang11["E"]))
 
-        log.info("Exec: $clang ${cmd.toShellArguments().joinToString(separator = " ")}")
+        log.info("Exec: $clang ${cmd.toPOSIXArguments().joinToString(separator = " ")}")
 
         // Preprocess the input, writing to the output
-        // FIXME do we need to worry about input/output encodings?
         val res = process(
-            clang.toString(), *cmd.toArguments().toTypedArray(),
+            clang.toString(), *cmd.toExecArguments().toTypedArray(),
 
             // Both streams will be captured,
             // preserving their orders but mixing them in the given output.
