@@ -39,6 +39,8 @@ dependencies {
 
     implementation(project(":shell-parser"))
 
+    implementation("org.apache.commons:commons-lang3:3.12.0")
+
     // resources
     runtimeOnly(files("./src/main/resources/clang.options.json"))
 

@@ -2,6 +2,7 @@ package com.riscure.dobby.clang
 
 import arrow.core.*
 import com.riscure.dobby.shell.Val
+import org.apache.commons.lang3.SystemUtils
 import com.riscure.dobby.shell.Arg as ShellArg
 
 typealias Options = List<Arg>
@@ -63,18 +64,44 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
      */
     operator fun plus(positional: String) = this.copy(positionalArgs = positionalArgs + positional)
 
+    /**
+     * Produces the arguments 'raw', without any escaping of the arguments.
+     * This is suitable for passing the arguments directly to a native library, for example.
+     */
     fun toArguments(): List<String> =
         optArgs
             .map { it.toString() }
             .plus(positionalArgs)
 
-    fun toShellArguments(): List<String> =
+    /**
+     * Produces the arguments for passing it to Runtime.exec(String[]) on the host platform.
+     *
+     * The ouput of this function is really only suitable for exec'ing it now.
+     * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
+     */
+    fun toExecArguments(): List<String> = when {
+        SystemUtils.IS_OS_WINDOWS -> toWinExecArguments()
+        else                      -> toArguments()
+    }
+
+    /**
+     * Produces the arguments for passing it to Runtime.exec(String[]) on windows.
+     *
+     * The ouput of this function is really only suitable for exec'ing it now.
+     * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
+     */
+    fun toWinExecArguments(): List<String> =
+        toArguments()
+            .map { it.replace("\"", "\"\"\"") } // TODO, this is definitely not right/complete
+
+    /**
+     * This escapes the arguments for a POSIX shell.
+     */
+    fun toPOSIXArguments(): List<String> =
         optArgs
             .flatMap { it.shellify() }
             .plus(positionalArgs.map { ShellArg.quote(it) })
             .map { it.toString() }
-
-    fun toShell(): String = toShellArguments().joinToString(separator = " ")
 
     companion object : arrow.typeclasses.Monoid<Command> {
         @JvmStatic
