@@ -129,7 +129,7 @@ object ClangParser {
                 Partial(Arg(spec, listOf(input)), 1).right()
             OptionType.JoinedOrSeparate ->
                 if (input.isBlank()) Partial(Arg(spec), 1).right()
-                else Whole(Arg(spec, listOf(input))).right()
+                else Whole(Arg(spec, listOf(input.trimStart()))).right()
             OptionType.Separate ->
                 if (input.isBlank()) Partial(Arg(spec), 1).right()
                 else "Unexpected joined value $input for option with separate argument ${spec.name}".left()
