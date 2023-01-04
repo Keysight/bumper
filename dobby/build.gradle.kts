@@ -1,61 +1,16 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    kotlin("jvm") version "1.7.10"
-    kotlin("plugin.serialization") version "1.7.10"
+    kotlin("jvm") version "1.7.20" apply false
+    kotlin("plugin.serialization") version "1.7.20" apply false
 
-    antlr
+    // for packaging build scripts writting in the kotlin dsl
+    // such as our java conventions plugin.
+    `kotlin-dsl`
 }
-
-group = "com.riscure"
-version = "1.0-SNAPSHOT"
 
 repositories {
-    mavenCentral()
-}
-
-dependencies {
-    // Align versions of all Kotlin components
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("org.jetbrains.kotlinx:kotlinx-cli-jvm:0.3.5")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
-
-    // third party
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("com.github.pgreze:kotlin-process:1.4")
-
-    // resources
-    runtimeOnly(files("./src/main/resources/clang.options.json"))
-
-    // test deps
-    testImplementation(kotlin("test"))
-
-    // Use Antlr 4 for the parser generation
-    antlr("org.antlr:antlr4:4.11.1")
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
-tasks.withType<KotlinCompile> {
-    dependsOn(tasks.generateGrammarSource)
-
-    kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs = listOf("-Xcontext-receivers")
+    maven {
+        url = uri("http://nexus3.riscure.com:8081/repository/gradle-central-plugins/")
+        isAllowInsecureProtocol = true
     }
 }
 
-// ANTLR plugin configuration.
-// This plugin really behaves meh.
-
-tasks.generateGrammarSource {
-    arguments   = arguments + listOf(
-        "-lib", "./src/main/antlr/com/riscure/lang/shell/",
-        "-no-visitor",
-        "-no-listener"
-    )
-}

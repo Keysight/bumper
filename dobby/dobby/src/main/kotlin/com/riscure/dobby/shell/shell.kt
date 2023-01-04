@@ -33,8 +33,47 @@ data class Line(val args: List<Arg>) {
     fun eval(): List<String> = args.map { it.eval() }
 }
 /* Model of the syntax of a Clang compilation argument */
-data class Arg(val parts: List<Val>) {
+data class Arg(val parts: List<Val> = listOf()) {
+    constructor(vararg parts: Val): this(parts.toList())
+
     fun eval(): String = parts.joinToString(separator="") { it.eval() }
+
+    override fun toString() = parts.joinToString(separator = "") { it.toString() }
+
+    operator fun plus(other: Arg) = Arg(this.parts + other.parts)
+
+    companion object {
+        /**
+         * This is the partial inverse of eval, adding quoting to the parts
+         * to obtain the ast of a shell argument.
+         */
+        fun quote(parts: List<String>): Arg =
+            parts
+                .map { quote(it) }
+                .fold(Arg()) { acc, e -> acc + e }
+
+        fun quote(vararg parts: String): Arg = quote(parts.toList())
+
+        /**
+         * Quote the string into a single logical shell argument
+         */
+        fun quote(str: String): Arg {
+            val parts = str
+                .split(Regex("[']"))
+                .map { Val.SingleQuoted(it.map { c -> Symbol(c.toString()) }) }
+
+            return if (parts.isEmpty()) {
+                Arg(listOf())
+            } else {
+                val result = mutableListOf<Val>(parts.first())
+                for (part in parts.tail()) {
+                    result.add(Val.Unquoted(listOf(Symbol.escapedSingle)))
+                    result.add(part)
+                }
+                Arg(result)
+            }
+        }
+    }
 }
 
 /* Model of the syntax of a shell 'value' */
@@ -42,10 +81,25 @@ sealed class Val {
     abstract val content: List<Symbol>
     fun eval(): String = content.joinToString(separator="") { it.eval() }
 
-    data class DoubleQuoted(override val content: List<Symbol>) : Val()
-    data class SingleQuoted(override val content: List<Symbol>) : Val()
+    data class DoubleQuoted(override val content: List<Symbol>) : Val() {
 
-    data class Unquoted(override val content: List<Symbol>) : Val()
+        override fun toString() = """"${content.joinToString(separator = "") { it.value }}""""
+    }
+    data class SingleQuoted(override val content: List<Symbol>) : Val() {
+        override fun toString() = "'${content.joinToString(separator = "") { it.value }}'"
+    }
+
+    data class Unquoted(override val content: List<Symbol>) : Val() {
+        override fun toString() = content.joinToString(separator = "") { it.value }
+    }
+
+    companion object {
+        /**
+         * Turn the string into an unquoted value, interpreting each of its characters
+         * as a symbol, without escaping anything.
+         */
+        fun raw(str: String) = Unquoted(str.map { Symbol(it.toString()) })
+    }
 }
 
 /**
@@ -76,15 +130,13 @@ object Shell {
     }
 
     /**
-     * Parse a single argument from the string, and return the result
-     * and the unparsed remainder.
+     * Parse a single argument from the string, may leave some remainder unparsed.
      */
-    fun arg(line: String): Result<Pair<Arg, String>> {
+    fun arg(line: String): Result<Arg> {
         val s = CharStreams.fromString(line)
         return Either
             .catch { mkParser(s).arg() }
             .map { it.ast() }
-            .map { Pair(it, s.unwind().trim()) }
     }
 
     private fun ShellParser.LineContext.ast(): Line =

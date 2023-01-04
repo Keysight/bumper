@@ -19,8 +19,10 @@ import stdlibpp.*
  */
 
 private typealias Result<T> = Either<String,T>
+private typealias RecoverCallback = (surprise: String) -> Boolean
 
-object Parser {
+object ClangParser {
+
     /**
      * This is the trie built from the parsed clang spec.
      */
@@ -30,6 +32,91 @@ object Parser {
             is Either.Right -> trie.value
         }
     }
+
+    /**
+     * Try to parse exactly one option with its specified values.
+     * Fails on positional arguments and unrecognized options.
+     */
+    @JvmStatic
+    fun parseOption(head: String, vararg tail: String): Result<Arg> =
+        parseClangArgument(head).flatMap { arg -> when (arg) {
+            is Whole -> arg.arg.right()
+            is Partial ->
+                if (tail.size == arg.expectValues) {
+                    "Expected exactly ${arg.expectValues} more arguments".left()
+                } else {
+                    arg.arg.copy(values = arg.arg.values.plus(tail)).right()
+                }
+            is Positional -> "Expected clang option, got $head".left()
+        }}
+
+    /**
+     * Parse a list of options, as specified by the compilation database reference but without the
+     * executable as the first argument and fail if there are any positional arguments.
+     *
+     * @param options   As per the specification, arguments are not shell-quoted.
+     *                  If you have a shell-quoted line instead, you first have to parse it and evaluate
+     *                  the quotes/escapes using com.riscure.dobby.shell.
+     * @param recover   The function calls back when it encounters a string that looks like an option
+     *                  but it is not in the spec. The boolean returned should indicate if we can just drop it.
+     */
+    @JvmStatic
+    fun parseOptions(options: List<String>, recover: RecoverCallback = { false }): Result<Options> =
+        parseArguments(options, recover)
+            .flatMap { cmd ->
+                if (cmd.positionalArgs.isNotEmpty())
+                    "Expected only options, but found positional arguments: ${cmd.positionalArgs}".left()
+                else
+                    cmd.optArgs.right()
+            }
+
+    /**
+     * Parse a list of arguments, as specified by the compilation database reference but without the
+     * executable as the first argument.
+     *
+     * @param arguments As per the specification, arguments are not shell-quoted.
+     *                  If you have a shell-quoted line instead, you first have to parse it and evaluate
+     *                  the quotes/escapes using com.riscure.dobby.shell.
+     * @param recover   The function calls back when it encounters a string that looks like an option
+     *                  but it is not in the spec. The boolean returned should indicate if we can just drop it.
+     */
+    @JvmStatic
+    fun parseArguments(arguments: List<String>, recover: RecoverCallback = { false }): Result<Command> =
+        when (arguments.size) {
+            0    -> Command.empty().right()
+            else -> {
+                // parse the head
+                val other  = arguments.drop(1)
+                val parsed = parseClangArgument(arguments[0])
+
+                when (parsed) {
+                    // Report the surprising argument and see if the caller wants us to continue
+                    is Either.Left  -> if (recover(arguments[0])) parseArguments(other) else parsed
+                    is Either.Right -> parsed.value.let { arg ->
+                        when (arg) {
+                            // depending on what we parse,
+                            // we parse the tail differently
+                            is Positional ->
+                                parseArguments(other, recover)
+                                    .map { tail -> tail.copy(positionalArgs = listOf(arg.value).plus(tail.positionalArgs)) }
+                            is Whole      ->
+                                parseArguments(other, recover)
+                                    .map { tail -> tail.copy(optArgs = listOf(arg.arg).plus(tail.optArgs)) }
+                            is Partial    ->
+                                if (other.size < arg.expectValues) {
+                                    ( "Expected at least ${arg.expectValues} more arguments " +
+                                      "for option ${arg.arg.opt.appearance()}"
+                                    ).left()
+                                } else {
+                                    val a = arg.arg.copy(values = arg.arg.values.plus(other.take(arg.expectValues)))
+                                    parseArguments(other.drop(arg.expectValues), recover)
+                                        .map { tail -> tail.copy(optArgs = listOf(a).plus(tail.optArgs)) }
+                                }
+                        }
+                    }
+                }
+            }
+        }
 
     private fun parseOptionArguments(input: String, spec: OptionSpec): Result<PartialArg> =
         when (spec.type) {
@@ -42,7 +129,7 @@ object Parser {
                 Partial(Arg(spec, listOf(input)), 1).right()
             OptionType.JoinedOrSeparate ->
                 if (input.isBlank()) Partial(Arg(spec), 1).right()
-                else Whole(Arg(spec, listOf(input))).right()
+                else Whole(Arg(spec, listOf(input.trimStart()))).right()
             OptionType.Separate ->
                 if (input.isBlank()) Partial(Arg(spec), 1).right()
                 else "Unexpected joined value $input for option with separate argument ${spec.name}".left()
@@ -93,43 +180,6 @@ object Parser {
         else Positional(input).right()
 
     /**
-     * Parse a list of arguments, as specified by the compilation database reference, but
-     * without the name of the executable at the head position.
-     *
-     * As per the specification, arguments are not shell-quoted.
-     * If you have a shell-quoted line instead, you first have to parse it and evaluate
-     * the quotes/escapes using com.riscure.dobby.shell.
-     */
-    fun parseClangArguments(arguments: List<String>): Result<Command> = when (arguments.size) {
-        0    -> Command.empty().right()
-        else -> {
-            // parse the head
-            val other = arguments.drop(1)
-            parseClangArgument(arguments[0])
-                .flatMap { arg ->
-                    when (arg) {
-                        // depending on what we parse,
-                        // we parse the tail differently
-                        is Positional ->
-                            parseClangArguments(other)
-                                .map { tail -> tail.copy(positionalArgs = listOf(arg.value).plus(tail.positionalArgs)) }
-                        is Whole ->
-                            parseClangArguments(other)
-                                .map { tail -> tail.copy(optArgs = listOf(arg.arg).plus(tail.optArgs)) }
-                        is Partial ->
-                            if (other.size < arg.expectValues) {
-                                "Expected at least ${arg.expectValues} more arguments".left()
-                            } else {
-                                val a = arg.arg.copy(values = arg.arg.values.plus(other.take(arg.expectValues)))
-                                parseClangArguments(other.drop(arg.expectValues))
-                                    .map { tail -> tail.copy(optArgs = listOf(a).plus(tail.optArgs)) }
-                            }
-                    }
-                }
-        }
-    }
-
-    /**
      * Try to get a (possibly unstable) choice from the set of matching
      * options from a given prefix that should at least contain the option name.
      *
@@ -165,7 +215,16 @@ private class Trie(
 ) {
     companion object {
         fun create(opts: Iterable<OptionSpec>): Result<Trie> =
-            opts.foldM(Trie()) { acc, opt -> acc.insert(opt) }
+            Trie().let { result ->
+                for (opt in opts) {
+                    when (val r = result.insert(opt)) {
+                        is Either.Left  -> return r
+                        is Either.Right -> continue
+                    }
+                }
+
+                return result.right()
+            }
     }
 
     fun longestPrefix(input: String, longestSoFar: Matches = setOf()): Matches {
