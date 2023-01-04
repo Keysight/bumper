@@ -76,10 +76,7 @@
                         </goals>
                         <configuration>
                             <file>shell-parser/build/libs/shell-parser-0.1.0-SNAPSHOT.jar</file>
-                            <groupId>com.riscure</groupId>
-                            <artifactId>riscure-shell-parser</artifactId>
-                            <version>${project.version}</version>
-                            <packaging>jar</packaging>
+                            <pomFile>shell-parser/build/publications/maven/pom-default.xml</pomFile>
                         </configuration>
                     </execution>
                     <execution>
@@ -90,10 +87,7 @@
                         </goals>
                         <configuration>
                             <file>dobby/build/libs/dobby-0.1.0-SNAPSHOT.jar</file>
-                            <groupId>com.riscure</groupId>
-                            <artifactId>riscure-dobby</artifactId>
-                            <version>${project.version}</version>
-                            <packaging>jar</packaging>
+                            <pomFile>dobby/build/publications/maven/pom-default.xml</pomFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -113,6 +107,23 @@
                             <arguments>
                                 <argument>--info</argument>
                                 <argument>build</argument>
+                                <argument>-x</argument>
+                                <argument>test</argument>
+                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>build-dobby-pom</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>
+                                <argument>--info</argument>
+                                <argument>generatePomFileForMavenPublication</argument>
                                 <argument>-x</argument>
                                 <argument>test</argument>
                                 <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
