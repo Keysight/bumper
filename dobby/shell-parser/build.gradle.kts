@@ -3,26 +3,6 @@ plugins {
     antlr
 }
 
-fun systemProperty(key: String): String? = System.getProperty(key)
-
-val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
-
-group   = "com.riscure"
-version = "0.1.0-SNAPSHOT"
-
-repositories {
-    maven {
-        url = uri(bambooLocal)
-        name = "localBamboo"
-        isAllowInsecureProtocol = true
-    }
-
-    maven {
-        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
-        isAllowInsecureProtocol = true
-    }
-}
-
 dependencies {
     // Use Antlr 4 for the parser generation
     antlr("org.antlr:antlr4:4.11.1")
@@ -45,7 +25,6 @@ tasks.generateGrammarSource {
     )
 }
 
-// Publishing
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -59,14 +38,6 @@ publishing {
                 name.set(rootProject.name)
                 description.set("Riscure' shell parser")
             }
-        }
-    }
-
-    repositories {
-        maven {
-            url = uri(bambooLocal)
-            name = "localBamboo"
-            isAllowInsecureProtocol = true
         }
     }
 }

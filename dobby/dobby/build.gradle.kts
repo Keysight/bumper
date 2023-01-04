@@ -9,37 +9,16 @@ plugins {
     kotlin("plugin.serialization")
 }
 
-fun systemProperty(key: String): String? = System.getProperty(key)
-
-val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
-
-group   = "com.riscure"
-version = "0.1.0-SNAPSHOT"
-
-repositories {
-    maven {
-        url = uri(bambooLocal)
-        name = "localBamboo"
-        isAllowInsecureProtocol = true
-    }
-
-    maven {
-        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
-        isAllowInsecureProtocol = true
-    }
-}
-
 dependencies {
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    implementation(kotlinx.json)
 
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("org.antlr:antlr4-runtime:4.11.1")
+    implementation(libs.arrow.core)
+    implementation(libs.antlr.runtime)
+    implementation(libs.apache.commons)
 
     implementation(project(":shell-parser"))
-
-    implementation("org.apache.commons:commons-lang3:3.8.1")
 
     // resources
     runtimeOnly(files("./src/main/resources/clang.options.json"))
@@ -63,7 +42,6 @@ tasks.withType<KotlinCompile> {
     }
 }
 
-// Publishing
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -77,14 +55,6 @@ publishing {
                 name.set(rootProject.name)
                 description.set("The friendly compilation database elf")
             }
-        }
-    }
-
-    repositories {
-        maven {
-            url = uri(bambooLocal)
-            name = "localBamboo"
-            isAllowInsecureProtocol = true
         }
     }
 }
