@@ -80,10 +80,7 @@
                         </goals>
                         <configuration>
                             <file>core/build/libs/bumper-core-0.1.0-SNAPSHOT.jar</file>
-                            <groupId>com.riscure</groupId>
-                            <artifactId>riscure-bumper-core</artifactId>
-                            <version>${project.version}</version>
-                            <packaging>jar</packaging>
+                            <pomFile>core/build/publications/maven/pom-default.xml</pomFile>
                         </configuration>
                     </execution>
                     <execution>
@@ -94,10 +91,7 @@
                         </goals>
                         <configuration>
                             <file>implementations/libclang/build/libs/bumper-libclang-0.1.0-SNAPSHOT.jar</file>
-                            <groupId>com.riscure</groupId>
-                            <artifactId>riscure-bumper-libclang</artifactId>
-                            <version>${project.version}</version>
-                            <packaging>jar</packaging>
+                            <pomFile>implementations/libclang/build/publications/maven/pom-default.xml</pomFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -117,6 +111,23 @@
                             <arguments>
                                 <argument>--info</argument>
                                 <argument>build</argument>
+                                <argument>-x</argument>
+                                <argument>test</argument>
+                                <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>build-bumper-pom</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>./gradlew.bat</executable>
+                            <arguments>
+                                <argument>--info</argument>
+                                <argument>generatePomFileForMavenPublication</argument>
                                 <argument>-x</argument>
                                 <argument>test</argument>
                                 <argument>-DbambooMavenLocalRepo=${maven.repo.fullPath}</argument>
