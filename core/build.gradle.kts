@@ -11,46 +11,17 @@ plugins {
     `maven-publish`
 }
 
-fun systemProperty(key: String): String? = System.getProperty(key)
-
-val bambooLocal = systemProperty("bambooMavenLocalRepo") ?: "../../../.repo/"
-
-group   = "com.riscure"
-version = "0.1.0-SNAPSHOT"
-
-val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
-val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
-
-repositories {
-    maven { url = releases ; isAllowInsecureProtocol = true }
-    maven { url = snapshots; isAllowInsecureProtocol = true }
-
-    maven {
-        url = uri(bambooLocal)
-        name = "localBamboo"
-        isAllowInsecureProtocol = true
-    }
-
-    // Maven central is proxied through nexus
-    maven {
-        url = uri("http://nexus3.riscure.com:8081/repository/maven-central/")
-        isAllowInsecureProtocol = true
-    }
-
-    mavenLocal()
-}
-
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.4.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.4.1")
+    implementation(kotlinx.coroutines.core)
+    implementation(kotlinx.serialization.core)
+    implementation(kotlinx.serialization.protobuf)
 
-    implementation("org.slf4j:slf4j-api:1.7.25")
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation(libs.slf4j)
+    implementation(libs.arrow.core)
+    implementation(libs.process)
+    implementation(libs.dobby)
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
+    testImplementation(libs.junit)
     testImplementation(kotlin("test"))
 }
 
@@ -76,7 +47,14 @@ tasks.compileTestKotlin {
     }
 }
 
-// Publishing
+fun env(key: String): String? = System.getenv(key)
+
+val nexusUsername = env("NEXUS_USERNAME")
+val nexusPassword = env("NEXUS_PASSWORD")
+
+val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
+val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -95,8 +73,12 @@ publishing {
 
     repositories {
         maven {
-            url = uri(bambooLocal)
-            name = "localBamboo"
+            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            isAllowInsecureProtocol = true
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
+            }
         }
     }
 }

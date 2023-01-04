@@ -5,7 +5,7 @@ plugins {
 }
 
 group   = "com.riscure"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
 val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
@@ -25,7 +25,7 @@ repositories {
 
 dependencies {
     implementation(project(":bumper-core"))
-    implementation("com.riscure:riscure-dobby:0.1.0-SNAPSHOT")
+    implementation("com.riscure:riscure-dobby:0.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     implementation("io.arrow-kt:arrow-core:1.1.2")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
