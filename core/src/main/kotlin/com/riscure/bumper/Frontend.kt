@@ -43,15 +43,11 @@ class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
     fun process(main: File, command: Options): Result<S> =
         // compute the location of the preprocessed input.
         preprocessedAt(main, command).flatMap { cpped ->
-            // If it doesn't exist yet, preprocess the input file
-            // otherwise just use it as is.
-            // TODO validation to avoid reusing invalid output
-            val cppResult = if (!cpped.exists()) {
-                preprocess(main, command, cpped)
-            } else {
-                log.info("Found cached preprocesser output for '$main' at '$cpped'")
-                Unit.right()
-            }
+            // Preprocess the file.
+            // We cannot use the file as is when it exists,
+            // because the #include's are not part of the cache key.
+            // Hence changing the content of an included header won't bust the cache.
+            val cppResult = preprocess(main, command, cpped)
 
             cppResult.flatMap {
                 // Call the parser with the preprocessed source.
