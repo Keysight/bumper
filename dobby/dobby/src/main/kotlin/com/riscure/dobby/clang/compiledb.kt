@@ -8,8 +8,10 @@ import com.riscure.dobby.shell.Shell
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToJsonElement
 import java.io.File
 import java.io.InputStream
+import java.io.Writer
 
 fun interface OnUnrecognizedOption {
     fun callback(entry: String, surpriseArgument: String): Boolean
@@ -67,6 +69,17 @@ data class CompilationDb(val entries: List<Entry>) {
                 it -> mapping(it.mainSource)
             }
         )
+
+    fun toJSON() =
+        entries
+            .map { entry ->
+                PlainCompilationDb.Entry(
+                    entry.workingDirectory.toString(),
+                    entry.mainSource.toString(),
+                    entry.command.toArguments()
+                )
+            }
+            .let { Json { prettyPrint = true } .encodeToString(it) }
 
     data class Entry(
         /**
