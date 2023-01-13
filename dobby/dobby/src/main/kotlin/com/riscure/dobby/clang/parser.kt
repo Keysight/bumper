@@ -149,7 +149,11 @@ object ClangParser {
     data class Whole(val arg: Arg): PartialArg()
     data class Partial(val arg: Arg, val expectValues: Int): PartialArg()
 
-    private fun parseClangArgument(arg: String): Result<PartialArg> {
+    /**
+     * Longest prefix parser for options.
+     * This is primarily for internal use. You probably don't want to use this function.
+     */
+    fun parseClangArgument(arg: String): Result<PartialArg> {
         // The longest prefix parser finds all possible options
         // that match the input.
         val opts = clang11Trie.longestPrefix(arg)

@@ -20,6 +20,16 @@ sealed class OptionType {
     object JoinedAndSeparate : OptionType()
     /* -opt <arg1> <arg2> .. <argn> */
     data class MultiArg(val num: Int): OptionType()
+
+    fun describe() = when (this) {
+        CommaJoined       -> "comma-separated: -x<arg>,<arg>"
+        Joined            -> "joined: -x<arg>"
+        JoinedAndSeparate -> "joined and separate: -opt<arg> <arg>"
+        JoinedOrSeparate  -> "joined or separate: -opt<arg> or -opt <arg>"
+        Separate          -> "separate: -x <arg>"
+        Toggle            -> "toggle: -x"
+        is MultiArg       -> "$num separate: -x ${(0..this.num).joinToString(separator = " ") { "<arg$it" }}"
+    }
 }
 
 /**
@@ -73,22 +83,10 @@ data class Spec(val optionsByKey: Map<String, OptionSpec>) {
 
     fun options() = optionsByKey.values
 
-    private val aliasing: Map<String, AliasSet> by lazy {
-        // compute the nodes
-        val alis:Map<String, AliasSet> = optionsByKey
-            .mapValues { (_, o) -> AliasSet(o) }
+    /** Maximally path-compressed equivalence closure */
+    private val aliasing: Aliasing = Aliasing.build(this, optionsByKey)
 
-        // add the edges
-        alis.forEach { (key, set) ->
-            set.opt.aliasFor.tap { alias ->
-                val canonical = alis.getOrElse(alias.forKey) { throw InvalidKey(alias.forKey) }
-
-                set.alias(canonical)
-            }
-        }
-
-        alis
-    }
+    fun aliases(opt: OptionSpec) = aliasing.aliases(opt)
 
     /**
      * Test if two options are equal modulo aliasing.
@@ -96,9 +94,7 @@ data class Spec(val optionsByKey: Map<String, OptionSpec>) {
      *
      * For example: equal(mv5, mcpu) is true
      **/
-    fun equal(o1: OptionSpec, o2: OptionSpec) =
-        aliasing.getOrElse(o1.key) { throw InvalidKey(o1.key) }.representative() ==
-        aliasing.getOrElse(o2.key) { throw InvalidKey(o2.key) }.representative()
+    fun equal(o1: OptionSpec, o2: OptionSpec) = aliasing.areAliasing(o1, o2)
 
     companion object {
         private val specURL: URL = Spec::class
