@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     // Use Antlr 4 for the parser generation
-    antlr("org.antlr:antlr4:4.11.1")
+    antlr(libs.antlr.generator)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -25,6 +25,14 @@ tasks.generateGrammarSource {
     )
 }
 
+fun env(key: String): String? = System.getenv(key)
+
+val nexusUsername = env("NEXUS_USERNAME")
+val nexusPassword = env("NEXUS_PASSWORD")
+
+val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
+val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -37,6 +45,17 @@ publishing {
             pom {
                 name.set(rootProject.name)
                 description.set("Riscure' shell parser")
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            isAllowInsecureProtocol = true
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
             }
         }
     }

@@ -7,6 +7,12 @@ plugins {
 
     kotlin("jvm")
     kotlin("plugin.serialization")
+
+    application
+}
+
+application {
+    mainClass.set("com.riscure.dobby.DobbyCmdKt")
 }
 
 dependencies {
@@ -17,6 +23,9 @@ dependencies {
     implementation(libs.arrow.core)
     implementation(libs.antlr.runtime)
     implementation(libs.apache.commons)
+
+    implementation(libs.picocli)
+    implementation(libs.jansi)
 
     implementation(project(":shell-parser"))
 
@@ -42,6 +51,14 @@ tasks.withType<KotlinCompile> {
     }
 }
 
+fun env(key: String): String? = System.getenv(key)
+
+val nexusUsername = env("NEXUS_USERNAME")
+val nexusPassword = env("NEXUS_PASSWORD")
+
+val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
+val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")
+
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -54,6 +71,17 @@ publishing {
             pom {
                 name.set(rootProject.name)
                 description.set("The friendly compilation database elf")
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(if (version.toString().endsWith("SNAPSHOT")) snapshots else releases)
+            isAllowInsecureProtocol = true
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
             }
         }
     }
