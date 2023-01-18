@@ -187,5 +187,11 @@ class AstWriters<Exp, Stmt>(
             return AstWriters(::rangePrinter, ::rangePrinter)
         }
 
+        /**
+         * An instance of AstWriters for translation units whose expressions and statements
+         * are represented by pretty-printed strings already.
+         */
+        fun usingStrings(): AstWriters<String, String> = AstWriters({ it.right() }, { it.right() })
+
     }
 }
