@@ -35,6 +35,8 @@ data class Location(
      */
     operator fun compareTo(other: Location): Int =
         Pair(row, col).compareTo(Pair(other.row, other.col))
+
+    override fun toString(): String = "$sourceFile ($row:$col)"
 }
 
 /** A source range with a begin and end location. */
