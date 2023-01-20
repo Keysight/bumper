@@ -35,6 +35,8 @@ data class Location(
      */
     operator fun compareTo(other: Location): Int =
         Pair(row, col).compareTo(Pair(other.row, other.col))
+
+    override fun toString(): String = "$sourceFile ($row:$col)"
 }
 
 /** A source range with a begin and end location. */
@@ -155,7 +157,9 @@ sealed interface FieldType {
 @Serializable
 sealed class Type: FieldType {
     abstract override fun withAttrs(attrs: Attrs): Type // refine the return type.
+    @JvmName("isConst")
     fun const() = withAttrs(attrs + Attr.Constant)
+    @JvmName("isRestricted")
     fun restrict() = withAttrs(attrs + Attr.Restrict)
     fun ptr() = Ptr(this)
 
@@ -275,6 +279,7 @@ sealed class Type: FieldType {
     companion object {
         // smart constructors
 
+        @JvmStatic val void = Void()
         @JvmStatic val char = Int(IKind.IChar)
         @JvmStatic val uint = Int(IKind.IUInt)
         @JvmStatic val int = Int(IKind.IInt)
@@ -286,6 +291,7 @@ sealed class Type: FieldType {
         @JvmStatic fun array(el: Type, size: Option<Long>) = Array(el, size)
         @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
             Fun(returns, params.toList(), variadic)
+        @JvmStatic fun typedef(tuid: TUID, ident: String) = Typedeffed(Symbol.typedef(tuid, ident))
 
     }
 }

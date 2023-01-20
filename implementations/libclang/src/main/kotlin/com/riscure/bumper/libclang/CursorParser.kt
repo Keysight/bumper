@@ -527,10 +527,21 @@ open class CursorParser(
                     }
             }
 
+            // Array whose size could be determined statically
             CXType_ConstantArray   ->
                 clang_getArrayElementType(this)
                     .asType()
                     .map { Type.Array(it, clang_getArraySize(this).some()) }
+
+            // Array whose size is given by an expression that has
+            // no value at compile-time.
+            CXType_VariableArray   ->
+                clang_getArrayElementType(this)
+                    .asType()
+                    .map { Type.Array(it) }
+
+            // CXType_DependentSizedArray is C++ only afaik
+            // see https://github.com/llvm-mirror/clang/blob/master/include/clang/AST/Type.h
 
             CXType_IncompleteArray ->
                 clang_getArrayElementType(this)
