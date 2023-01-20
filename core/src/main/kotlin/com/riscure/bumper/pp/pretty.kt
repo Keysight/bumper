@@ -181,6 +181,7 @@ class AstWriters<Exp, Stmt>(
          * are represented by source ranges. We can use the code extractor to print such
          * ASTs.
          */
+        @JvmStatic
         fun usingExtraction(tuid: TUID): AstWriters<SourceRange, SourceRange> {
             val extractor = Extractor(tuid.main.toFile())
             fun rangePrinter(it: SourceRange) = extractor.extract(it)
@@ -191,6 +192,7 @@ class AstWriters<Exp, Stmt>(
          * An instance of AstWriters for translation units whose expressions and statements
          * are represented by pretty-printed strings already.
          */
+        @JvmStatic
         fun usingStrings(): AstWriters<String, String> = AstWriters({ it.right() }, { it.right() })
 
     }
