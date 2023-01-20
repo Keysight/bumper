@@ -13,6 +13,8 @@ import java.io.File
 import java.io.InputStream
 import java.io.Writer
 
+private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+
 fun interface OnUnrecognizedOption {
     fun callback(entry: String, surpriseArgument: String): Boolean
 
@@ -79,7 +81,7 @@ data class CompilationDb(val entries: List<Entry>) {
                     entry.command.toArguments()
                 )
             }
-            .let { Json { prettyPrint = true } .encodeToString(it) }
+            .let { json.encodeToString(it) }
 
     data class Entry(
         /**
@@ -116,7 +118,7 @@ data class CompilationDb(val entries: List<Entry>) {
         @JvmStatic
         fun read(reader: InputStream, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> {
             val entries = try {
-                Json.decodeFromStream<List<PlainCompilationDb.Entry>>(reader).right()
+                json.decodeFromStream<List<PlainCompilationDb.Entry>>(reader).right()
             } catch (e: Throwable) {
                 e.left()
             }
