@@ -1,10 +1,12 @@
 package com.riscure.dobby
 
+import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrHandle
 import com.riscure.dobby.clang.ClangParser
 import com.riscure.dobby.clang.CompilationDb
 import com.riscure.dobby.clang.OptionSpec
+import com.riscure.dobby.clang.dropDuplicates
 import picocli.CommandLine
 import picocli.CommandLine.*
 import java.nio.file.Path
@@ -40,6 +42,14 @@ private fun printSpec(arg: OptionSpec) {
 )
 class DobbyCmd: Callable<Int> {
     override fun call(): Int = 0
+
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) {
+            AnsiConsole.systemInstall()
+            exitProcess(CommandLine(DobbyCmd()).execute(*args))
+        }
+    }
 }
 
 @Command(name = "info", description = [ "Display the specification for a (partial) option" ])
@@ -81,13 +91,25 @@ class DoValidate: Callable<Int> {
     @Parameters(arity = "1", description = [ "The compilation database json file to validate" ])
     val cdb: Optional<Path> = Optional.empty()
 
+    fun warning(msg: String) {
+        msg
+            .lines()
+            .let { if (it.isEmpty()) listOf("") else it }
+            .let { lines ->
+                System.err.println("${ansi().fg(RED).a("<!> warning:").reset()} ${lines[0]}")
+                if (lines.drop(1).isNotEmpty()) {
+                    System.err.println(lines.joinToString("\n").prependIndent("  | "))
+                }
+            }
+    }
+
     override fun call(): Int {
         val path = cdb.orElseGet { error("No compilation database given.") }
         val db = CompilationDb
             .read(path.toFile()) { entry, surprise ->
-                System.err.println("""
-                    > ${ansi().fg(RED).a("Failed").reset()} to parse option '${ansi().bold().a(surprise).reset()}'
-                      in entry for file '$entry'. Ignoring option.
+                warning("""
+                    Failed to parse option '${ansi().bold().a(surprise).reset()}'
+                    in entry for file '$entry'. Ignoring option.
                 """.trimIndent())
 
                 // recover
@@ -95,15 +117,16 @@ class DoValidate: Callable<Int> {
             }
             .getOrHandle { exc -> error(exc.message!!) }
 
-        println(db.toJSON())
+        val validated = db.dropDuplicates()
+
+        // output warnings
+        for (err in validated.messages) {
+            warning(err)
+        }
+
+        // output validated result
+        println(validated.value.toJSON())
 
         return 0
     }
-}
-
-fun main(args: Array<String>) {
-    // initialize Jansi
-    AnsiConsole.systemInstall()
-
-    exitProcess(CommandLine(DobbyCmd()).execute(*args))
 }
