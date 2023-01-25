@@ -4,6 +4,7 @@ package com.riscure.dobby.clang
 
 import java.nio.file.Path
 import arrow.core.*
+import arrow.core.Validated
 import com.riscure.dobby.shell.Shell
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
@@ -12,6 +13,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import java.io.File
 import java.io.InputStream
 import java.io.Writer
+import java.lang.IllegalArgumentException
 
 private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
@@ -114,54 +116,72 @@ data class CompilationDb(val entries: List<Entry>) {
 
         /**
          * Read a compilation database from an input stream
+         *
+         * @throws IOException when inputstream cannot be read
          */
         @JvmStatic
-        fun read(reader: InputStream, recover: OnUnrecognizedOption): Either<Throwable,CompilationDb> {
-            val entries = try {
+        fun read(reader: InputStream, recover: OnUnrecognizedOption): Either<SerializationException,CompilationDb> {
+            val decoded = try {
                 json.decodeFromStream<List<PlainCompilationDb.Entry>>(reader).right()
-            } catch (e: Throwable) {
-                e.left()
             }
+            catch (e: SerializationException)   { e.left() }
+            catch (e: IllegalArgumentException) { InvalidCdb(e).left() }
 
-            return entries.flatMap { es ->
-                es.map { entry ->
-                    // first we try to get the arguments array
-                    val args = when (val args = entry.arguments.toOption()) {
-                        is Some -> args.value.right()
-                        // if that is missing, we parse the shell command into arguments.
-                        None ->
-                            when (val plaincmd = entry.command.toOption()) {
-                                is Some -> Shell.line(plaincmd.value).map { it.eval() }
-                                None ->
-                                    // neither command nor arguments is specified
-                                    // this is illegal according to the clang compilation database reference.
-                                    IllegalArgumentException("Compilation database entry missing both command and arguments").left()
-                            }
-                    }
+            return decoded.flatMap { entries -> analyzePlain(PlainCompilationDb(entries), recover) }
+        }
 
-                    args
-                        .map { it.drop(1) } // drop executable name
-                        .flatMap { it ->
-                            ClangParser
-                                .parseArguments(it) { unrecognizedOption ->
-                                    recover.callback(entry.file, unrecognizedOption)
-                                }
-                                .mapLeft {
-                                    // give some context to the exception.
-                                    IllegalArgumentException(
-                                        "failed to parse compile command for main '" + entry.file + "': $it"
-                                    )
-                                }
-                        }
-                        .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
-
-                }
+        @JvmStatic
+        fun analyzePlain(
+            cdb: PlainCompilationDb,
+            recover: OnUnrecognizedOption
+        ): Either<InvalidCdbEntry, CompilationDb> =
+            cdb.entries
+                .map { es -> readEntry(es, recover) }
                 .sequence()
                 .map { CompilationDb(it) }
-            }
-        }
 
         @JvmStatic fun read(reader: InputStream) = read(reader, OnUnrecognizedOption.strict)
         @JvmStatic fun read(file: File) = read(file, OnUnrecognizedOption.strict)
+
+        @JvmStatic
+        fun readEntry(entry: PlainCompilationDb.Entry, recover: OnUnrecognizedOption): Either<InvalidCdbEntry, Entry> =
+            // first we try to get the arguments array
+            when (val args = entry.arguments.toOption()) {
+                is Some -> args.value.right()
+                // if that is missing, we parse the shell command into arguments.
+                None ->
+                    when (val plaincmd = entry.command.toOption()) {
+                        is Some -> Shell
+                            .line(plaincmd.value)
+                            .map { it.eval() }
+                            .mapLeft { InvalidCdbEntry(entry, "failed to parse shell command '$plaincmd'") }
+                        None ->
+                            // neither command nor arguments is specified
+                            // this is illegal according to the clang compilation database reference.
+                            InvalidCdbEntry(entry, "missing both command and arguments").left()
+                    }
+            }
+            .map { it.drop(1) } // drop executable name
+            .flatMap { it ->
+                ClangParser
+                    .parseArguments(it) { unrecognizedOption -> recover.callback(entry.file, unrecognizedOption) }
+                    .mapLeft {
+                        // give some context to the exception.
+                        InvalidCdbEntry(entry,
+                            "failed to parse compile command '$it'"
+                        )
+                    }
+            }
+            .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
     }
+}
+
+class InvalidCdb(cause: IllegalArgumentException): SerializationException(cause) {
+    override val message: String
+        get() = "Failed to deserialize compilation database from JSON"
+}
+
+data class InvalidCdbEntry(val entry: PlainCompilationDb.Entry, val reason: String): SerializationException() {
+    override val message: String
+        get() = "Invalid compilation db entry for '${entry.file}: $reason."
 }
