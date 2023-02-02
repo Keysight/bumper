@@ -35,24 +35,24 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
     fun ofExp(exp: Exp): Result
     fun ofStmt(stmt: Stmt): Result
 
-    fun ofDecl(decl: Declaration<Exp, Stmt>): Result = when (decl) {
-        is Declaration.Var       ->
+    fun ofDecl(decl: UnitDeclaration<Exp, Stmt>): Result = when (decl) {
+        is UnitDeclaration.Var       ->
             decl.rhs
                 .map { ofExp(it) }
                 .getOrElse { nil }
                 .union(ofType(decl.type))
-        is Declaration.Composite ->
+        is UnitDeclaration.Composite ->
             decl.fields
                 .map(::ofFields)
                 .getOrElse { nil }
-        is Declaration.Enum      -> nil
-        is Declaration.Fun       ->
+        is UnitDeclaration.Enum      -> nil
+        is UnitDeclaration.Fun       ->
             decl.body
                 .map { ofStmt(it) }
                 .getOrElse { nil } // if no body, no dependencies
                 .union(ofType(decl.returnType))
                 .union(ofParams(decl.params))
-        is Declaration.Typedef   ->
+        is UnitDeclaration.Typedef   ->
             ofType(decl.underlyingType)
     }
 

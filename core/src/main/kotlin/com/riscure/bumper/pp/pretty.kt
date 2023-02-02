@@ -79,14 +79,14 @@ object Pretty {
         is FieldType.AnonComposite -> with (type) { composite(structOrUnion, "", fields) }
     }
 
-    fun prototype(thefun: Declaration.Fun<*>): String {
+    fun prototype(thefun: UnitDeclaration.Fun<*>): String {
         assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
 
         val vararg = if (thefun.vararg) ", ..." else ""
         return declaration("${thefun.ident}(${formals(thefun.params)}$vararg)", thefun.returnType)
     }
 
-    fun typedef(typedef: Declaration.Typedef): String =
+    fun typedef(typedef: UnitDeclaration.Typedef): String =
         "typedef ${declaration(typedef.ident, typedef.underlyingType)}"
 
     fun composite(structOrUnion: StructOrUnion, id: Ident, fields: Option<FieldDecls>) = when (structOrUnion) {
@@ -102,14 +102,14 @@ object Pretty {
         Storage.Register -> "register"
     }
 
-    fun lhs(toplevel: Declaration<*, *>): String = when (toplevel) {
-        is Declaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
-        is Declaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
-        is Declaration.Typedef   -> typedef(toplevel)
-        is Declaration.Composite -> with(toplevel) {
+    fun lhs(toplevel: UnitDeclaration<*, *>): String = when (toplevel) {
+        is UnitDeclaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
+        is UnitDeclaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
+        is UnitDeclaration.Typedef   -> typedef(toplevel)
+        is UnitDeclaration.Composite -> with(toplevel) {
             composite(structOrUnion, ident, fields)
         }
-        is Declaration.Enum      -> with(toplevel) {
+        is UnitDeclaration.Enum      -> with(toplevel) {
             "enum ${maybeName(ident)}${maybeEnumerators(enumerators)}"
         }
     }
@@ -119,7 +119,7 @@ object Pretty {
         is Some -> " { ${enums.value.joinToString(separator=", ") { enumerator(it) }} }"
     }
 
-    private fun enumerator(enum: Enumerator) = "${enum.name} = ${enum.key}"
+    private fun enumerator(enum: Enumerator) = "${enum.ident} = ${enum.key}"
 
     private fun maybeFields(fields: Option<List<Field>>) = when (fields) {
         is None -> ""
@@ -155,23 +155,23 @@ class AstWriters<Exp, Stmt>(
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: Declaration<Exp, Stmt>): Either<String, Writer> =
+    fun print(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> =
         rhs(toplevel).map { rhs -> text(Pretty.lhs(toplevel)) andThen rhs }
 
-    fun rhs(toplevel: Declaration<Exp, Stmt>): Either<String, Writer> = when (toplevel) {
-        is Declaration.Var       -> when (val exp = toplevel.rhs) {
+    fun rhs(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> = when (toplevel) {
+        is UnitDeclaration.Var       -> when (val exp = toplevel.rhs) {
             is Some -> expWriter(exp.value).map { text(" = $it;") }
             is None -> semicolon.right()
         }
 
-        is Declaration.Fun       -> when (val stmt = toplevel.body) {
+        is UnitDeclaration.Fun       -> when (val stmt = toplevel.body) {
             is Some -> stmtWriter(stmt.value).map { text(it) }
             is None -> semicolon.right()
         }
 
-        is Declaration.Typedef   -> semicolon.right()
-        is Declaration.Composite -> semicolon.right()
-        is Declaration.Enum      -> semicolon.right()
+        is UnitDeclaration.Typedef   -> semicolon.right()
+        is UnitDeclaration.Composite -> semicolon.right()
+        is UnitDeclaration.Enum      -> semicolon.right()
     }
 
     companion object {

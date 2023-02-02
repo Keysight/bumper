@@ -5,7 +5,6 @@ import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.analyses.Result
 import com.riscure.bumper.analyses.union
 import com.riscure.bumper.ast.*
-import com.riscure.bumper.index.TUID
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
 
@@ -13,9 +12,11 @@ import org.bytedeco.llvm.global.clang.*
  * An implementation of the dependency analysis interface using Libclang.
  */
 class ClangDependencyAnalysis(
-    private val tuid: TUID,
-    private val elaboratedCursors: Map<CursorHash, ClangDeclaration>
+    private val ast: ClangTranslationUnit,
+    private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
 ) : UnitDependencyAnalysis<CXCursor, CXCursor> {
+
+    private val tuid get() = ast.tuid
 
     private fun typeOf(cursor: CXCursor): Either<String, Type> =
         with (CursorParser(tuid)) {
@@ -25,15 +26,26 @@ class ClangDependencyAnalysis(
     private fun CXCursor.refDependencies(): Result {
         // let libclang resolve the reference
         val def = clang_getCursorReferenced(this)
-
         // Check whether we elaborated a declaration from the defining cursor.
-        // If not, we are dealing with a (reference to) a local declaration,
-        // and we don't include those.
         return when (val decl = elaboratedCursors.getOrNone(def.hash())) {
-            is Some -> setOf(decl.value.mkSymbol(tuid)).right()
-            // otherwise we assume it is a local declaration
-            // which results in no additional dependencies.
-            is None -> nil
+            is Some<ClangDeclaration> -> {
+                // We elaborated a declaration from the defining cursor.
+                setOf(decl.value.mkSymbol(tuid)).right()
+            }
+            is None -> {
+                // This is a CXCursor_DeclRefExpr, maybe it's an enum value?
+                if (def.kind() == CXCursor_EnumConstantDecl) {
+                    // Get the enumerator in the ast.
+                    // Note that this means we have a dependency on the enclosing enum (for all the other currently
+                    // written cases we consider the dependency to be what is at the cursor itself).
+                    ast.resolve(def.spelling())
+                        .filterIsInstance<Enumerator>()
+                        .toEither { "expected ${def.spelling()} to resolve to an enumerator, but got ${def.kindName()}" }
+                        .map { enumerator -> setOf(enumerator.enum) }
+                } else {
+                    nil
+                }
+            }
         }
     }
 
@@ -51,10 +63,9 @@ class ClangDependencyAnalysis(
                         refDependencies()
 //                    CXCursor_MemberRef   ->
 //                        TODO()
-                    else                 -> nil
-                }
-            )
-        }
+            else -> nil
+        })
+    }
 
     override fun ofExp(exp: CXCursor): Result = cursorDependencies(exp)
     override fun ofStmt(stmt: CXCursor): Result = cursorDependencies(stmt)

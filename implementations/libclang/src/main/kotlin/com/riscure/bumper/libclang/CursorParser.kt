@@ -116,13 +116,13 @@ open class CursorParser(
     fun CXCursor.asTranslationUnit(): Result<UnitWithCursorData> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
             // We parse the top-level declarations
-            val toplevelDecls = children()
+            val topLevelDeclarations = children()
                 // somehow e.g. an empty ';' results in top-level UnexposedDecls
                 .filter { cursor -> (cursor.kind() != CXCursor_UnexposedDecl) }
                 .map    { cursor -> cursor.asDeclaration().map { d -> Pair(cursor, d) }}
                 .sequence() // propagate errors
 
-            toplevelDecls.flatMap { tlds ->
+            topLevelDeclarations.flatMap { tlds ->
                 // In addition, we elaborate some definitions that we encountered but perhaps did not yet
                 // parse while parsing types.
                 val done = tlds.map { it.first.hash() }.toMutableSet()
@@ -156,7 +156,7 @@ open class CursorParser(
             // parse statements and expressions at the moment, so we cannot perform renaming there.
         }
 
-    fun CXCursor.asDeclaration(): Result<ClangDeclaration> {
+    private fun CXCursor.asDeclaration(): Result<ClangDeclaration> {
         val decl = when (kind()) {
             CXCursor_FunctionDecl -> this.asFunction()
             CXCursor_StructDecl   -> this.asStruct()
@@ -176,7 +176,7 @@ open class CursorParser(
             }
     }
 
-    private fun CXCursor.asFunction(): Result<Declaration.Fun<CXCursor>> =
+    private fun CXCursor.asFunction(): Result<UnitDeclaration.Fun<CXCursor>> =
         if (children().any { child -> child.kind() == CXCursor_CompoundStmt })
             asFunctionDef()
         else asFunctionDecl()
@@ -229,37 +229,37 @@ open class CursorParser(
         )
     }
 
-    fun CXCursor.asTypedef(): Result<Declaration.Typedef> =
+    fun CXCursor.asTypedef(): Result<UnitDeclaration.Typedef> =
         ifKind(CXCursor_TypedefDecl, "typedef") {
             clang_getTypedefDeclUnderlyingType(this)
                 .asType()
                 .flatMap { type ->
-                    getIdentifier().map { id -> Declaration.Typedef(id, type) }
+                    getIdentifier().map { id -> UnitDeclaration.Typedef(id, type) }
                 }
         }
 
-    fun CXCursor.asEnum(): Result<Declaration.Enum> =
+    fun CXCursor.asEnum(): Result<UnitDeclaration.Enum> =
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             if (clang_isCursorDefinition(this).toBool()) {
-                children()
-                    .map { it.asEnumerator() }
-                    .sequence()
-                    .flatMap { enumerators ->
-                        getIdentifier().map { id -> Declaration.Enum(id, enumerators.some()) }
-                    }
+                getSymbol().flatMap { symbol ->
+                    children()
+                        .map { it.asEnumerator(symbol) }
+                        .sequence()
+                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators.some()) }
+                }
             } else {
-                getIdentifier().map { id -> Declaration.Enum(id, None)}
+                getSymbol().map { symbol -> UnitDeclaration.Enum(symbol.name, None)}
             }
         }
 
-    fun CXCursor.asEnumerator(): Result<Enumerator> =
+    fun CXCursor.asEnumerator(enum: Symbol): Result<Enumerator> =
         ifKind(CXCursor_EnumConstantDecl, "enumerator") {
             val name  = spelling()
             val const = clang_getEnumConstantDeclValue(this)
-            Enumerator(name, const).right()
+            Enumerator(name, const, enum).right()
         }
 
-    private fun CXCursor.asComposite(): Result<Declaration.Composite> {
+    private fun CXCursor.asComposite(): Result<UnitDeclaration.Composite> {
         // We check if this is the definition, because the field visitor
         // will just poke through the declaration into the related definition
         // and visit the fields there.
@@ -276,17 +276,17 @@ open class CursorParser(
 
         return fields
             .flatMap { fs ->
-                getIdentifier().map { id -> Declaration.Composite(id, StructOrUnion.Struct, fs) }
+                getIdentifier().map { id -> UnitDeclaration.Composite(id, StructOrUnion.Struct, fs) }
             }
     }
 
-    fun CXCursor.asStruct(): Result<Declaration.Composite> =
+    fun CXCursor.asStruct(): Result<UnitDeclaration.Composite> =
         ifKind(CXCursor_StructDecl, "struct declaration") {
             asComposite()
                 .map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
         }
 
-    fun CXCursor.elaborateUnion(): Result<Declaration.Composite> =
+    fun CXCursor.elaborateUnion(): Result<UnitDeclaration.Composite> =
         ifKind(CXCursor_UnionDecl, "union declaration") {
             asComposite()
                 .map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
@@ -326,7 +326,7 @@ open class CursorParser(
             }
     }
 
-    fun CXCursor.asVariable(): Result<Declaration.Var<CXCursor>> =
+    fun CXCursor.asVariable(): Result<UnitDeclaration.Var<CXCursor>> =
         ifKind(CXCursor_VarDecl, "variable declaration") {
             type()
                 .asType()
@@ -350,7 +350,7 @@ open class CursorParser(
 
                     rhs.sequenceEither()
                         .flatMap { def ->
-                            getIdentifier().map { id -> Declaration.Var(id, type, def) }
+                            getIdentifier().map { id -> UnitDeclaration.Var(id, type, def) }
                         }
                 }
         }
@@ -367,7 +367,7 @@ open class CursorParser(
             .sequence()
     }
 
-    fun CXCursor.asFunctionDef(): Result<Declaration.Fun<CXCursor>> =
+    fun CXCursor.asFunctionDef(): Result<UnitDeclaration.Fun<CXCursor>> =
         asFunctionDecl().flatMap { decl ->
             Either
                 .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
@@ -375,14 +375,14 @@ open class CursorParser(
                 .map { decl.copy(body = it.some()) }
         }
 
-    fun CXCursor.asFunctionDecl(): Result<Declaration.Fun<CXCursor>> =
+    fun CXCursor.asFunctionDecl(): Result<UnitDeclaration.Fun<CXCursor>> =
         ifKind(CXCursor_FunctionDecl, "function declaration") {
             getReturnType().flatMap { resultType ->
                 getParameters().flatMap { params ->
                     getIdentifier()
                         .filterOrOther({ it != "" }) { "Anonymous function declarations are not allowed." }
                         .map { id ->
-                            Declaration.Fun(
+                            UnitDeclaration.Fun(
                                 id,
                                 clang_Cursor_isFunctionInlined(this).toBool(),
                                 resultType,
@@ -469,7 +469,7 @@ open class CursorParser(
                         // sanity check
                         assert(d.ident == "")
                         when (d) {
-                            is Declaration.Composite -> FieldType.AnonComposite(d.structOrUnion, d.fields).right()
+                            is UnitDeclaration.Composite -> FieldType.AnonComposite(d.structOrUnion, d.fields).right()
                             else -> "Invariant violation: failed to parse anonymous field.".left()
                         }
                     }

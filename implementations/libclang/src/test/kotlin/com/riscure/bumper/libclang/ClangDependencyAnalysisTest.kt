@@ -149,4 +149,24 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         assertEquals(1, deps.size)
         assertContains(deps, enum.mkSymbol(ast.tuid))
     }
+
+    @Test
+    @DisplayName("implicit enum value usage in function body")
+    fun test10() = bumped("""
+        enum E { FirstVal = 1, SecondVal = 2 };
+
+        int f(int x) {
+            if (x == FirstVal) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    """.trimIndent()) { ast, unit ->
+        val enum = ast.enums[0].assertOK()
+        val f = ast.functions[0].assertOK()
+        val deps = unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)].assertOK()
+        assertEquals(1, deps.size)
+        assertContains(deps, enum.mkSymbol(ast.tuid))
+    }
 }

@@ -1,7 +1,6 @@
 package com.riscure.bumper.libclang
 
 import arrow.core.*
-import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitData
@@ -10,14 +9,13 @@ import com.riscure.bumper.pp.AstWriters
 import com.riscure.bumper.pp.Extractor
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
-import java.nio.file.Path
 
 /**
  * The Clang parser implementation now only analyzes upto expression/statements.
  * And then remembers the locations for those.
  */
 typealias ClangTranslationUnit = TranslationUnit<CXCursor, CXCursor>
-typealias ClangDeclaration     = Declaration<CXCursor, CXCursor>
+typealias ClangDeclaration     = UnitDeclaration<CXCursor, CXCursor>
 
 /**
  * The state of a parsed unit in context of the libclang state of the AST.
@@ -50,7 +48,7 @@ class ClangUnitState(
         }
 
     override val dependencies get() =
-        ClangDependencyAnalysis(tuid, elaboratedCursors).ofUnit(ast)
+        ClangDependencyAnalysis(ast, elaboratedCursors).ofUnit(ast)
 
     companion object {
         @JvmStatic

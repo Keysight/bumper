@@ -2,7 +2,6 @@ package com.riscure.bumper.pp
 
 import arrow.core.*
 import com.riscure.bumper.ast.SourceRange
-import com.riscure.bumper.ast.Declaration
 import java.io.File
 import java.nio.charset.Charset
 

@@ -18,7 +18,7 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
         assertEquals(1, ast.declarations.size)
 
         assertEquals(1, ast.declarations.size)
-        val function = assertIs<Declaration.Fun<*>>(ast.declarations[0])
+        val function = assertIs<UnitDeclaration.Fun<*>>(ast.declarations[0])
 
         assertEquals("main", function.ident)
         assertEquals(Storage.Default, function.storage)
