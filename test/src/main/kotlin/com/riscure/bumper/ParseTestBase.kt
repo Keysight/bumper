@@ -180,43 +180,55 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         }
     }
 
-    fun eq(d1: Declaration<*,*>, d2: Declaration<*,*>) {
+    fun eq(d1: UnitDeclaration<*,*>, d2: UnitDeclaration<*,*>) {
         assertEquals(d1.tlid, d2.tlid)
         assertEquals(d1.isDefinition, d2.isDefinition)
         assertEquals(d1.storage, d2.storage)
 
         when (d1) {
-            is Declaration.Composite -> {
+            is UnitDeclaration.Composite -> {
                 val c1 = d1
-                val c2 = assertIs<Declaration.Composite>(d2)
+                val c2 = assertIs<UnitDeclaration.Composite>(d2)
                 assertEquals(c1.structOrUnion, c2.structOrUnion)
                 eq(c1.fields, c2.fields)
             }
-            is Declaration.Enum      -> {
+            is UnitDeclaration.Enum      -> {
                 val e1 = d1
-                val e2 = assertIs<Declaration.Enum>(d2)
-                assertEquals(e1.enumerators, e2.enumerators)
+                val e2 = assertIs<UnitDeclaration.Enum>(d2)
+                when (val enumerators1 = e1.enumerators) {
+                    is Some -> {
+                        val enumerators2 = assertIs<Some<Enumerators>>(e2.enumerators)
+                        enumerators1.value.zip(enumerators2.value) { l, r -> eq(l, r) }
+                    }
+                    is None -> assertIs<None>(e2)
+                }
             }
-            is Declaration.Fun       -> {
+            is UnitDeclaration.Fun       -> {
                 val f1 = d1
-                val f2 = assertIs<Declaration.Fun<*>>(d2)
+                val f2 = assertIs<UnitDeclaration.Fun<*>>(d2)
                 eq(f1.returnType, f2.returnType)
                 assertEquals(f1.params.size, f2.params.size)
                 assertEquals(f1.vararg, f2.vararg)
                 f1.params.zip(f2.params) { l, r -> eq(l, r) }
             }
-            is Declaration.Typedef   -> {
+            is UnitDeclaration.Typedef   -> {
                 val t1 = d1
-                val t2 = assertIs<Declaration.Typedef>(d2)
+                val t2 = assertIs<UnitDeclaration.Typedef>(d2)
                 eq(t1.underlyingType, t2.underlyingType)
             }
-            is Declaration.Var       -> {
+            is UnitDeclaration.Var       -> {
                 val v1 = d1
-                val v2 = assertIs<Declaration.Var<*>>(d2)
+                val v2 = assertIs<UnitDeclaration.Var<*>>(d2)
                 assertEquals(v1.ident, v2.ident)
                 eq(v1.type, v2.type)
             }
         }
+    }
+
+    fun eq(l: Enumerator, r: Enumerator) {
+        assertEquals(l.ident, r.ident)
+        assertEquals(l.key, r.key)
+        eq(l.enum, r.enum)
     }
 
     fun eq(f1: Field, f2: Field) {

@@ -171,5 +171,7 @@ fun CXCursor.getPresumedLocation(): Option<Location> {
     }
 }
 
-/** Uniquely identifies a cursor (hashCode() is not well-defined on CXCursor) */
+/**
+ * Uniquely identifies a cursor (hashCode() is not well-defined on CXCursor)
+ */
 fun CXCursor.hash() = clang_hashCursor(this)

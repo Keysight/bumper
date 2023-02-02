@@ -2,14 +2,13 @@ package com.riscure.bumper.analyses
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import arrow.typeclasses.Semigroup
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 
 data class DeclarationInUnit<E, S>(
     val unit: TUID,
-    val decl: Declaration.Valuelike<E,S>
+    val decl: UnitDeclaration.Valuelike<E,S>
 ) {
     val symbol: Symbol get() = decl.mkSymbol(unit)
 }
@@ -154,8 +153,8 @@ object LinkAnalysis {
     }
 
     data class UnitInterface<E, S>(
-        val imports: Set<Declaration.Valuelike<E,S>>,
-        val exports: Set<Declaration.Valuelike<E,S>>,
+        val imports: Set<UnitDeclaration.Valuelike<E,S>>,
+        val exports: Set<UnitDeclaration.Valuelike<E,S>>,
     )
 
     /**

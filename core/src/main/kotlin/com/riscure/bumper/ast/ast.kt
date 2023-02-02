@@ -316,10 +316,6 @@ data class Param(val name: Ident, val type: Type) {
 }
 typealias Params = List<Param>
 
-@Serializable
-data class Enumerator(val name: Ident, val key: Long)
-typealias Enumerators = List<Enumerator>
-
 /**
  * Metadata for the top-level elements.
  */
@@ -344,17 +340,39 @@ data class Meta(
 }
 
 /**
- * The type of declarations, parameterized by the type that represents statements.
+ * Encompassing any declaration that has a global name (so not including e.g. struct declarations in functions)
  */
-@Serializable
-sealed interface Declaration<out Exp, out Stmt> {
+sealed interface GlobalDeclaration {
     /**
      * Identifier (after elaboration).
      * This is promised to be non-empty to uniquely identify an entity
      * (but an entity can have more than one declaration in the unit).
      */
     val ident: Ident
-    fun withIdent(id: Ident): Declaration<Exp, Stmt>
+
+    fun withIdent(id: Ident): GlobalDeclaration
+}
+
+/**
+ * The type of an enum's value name
+ */
+@Serializable
+data class Enumerator(override val ident: Ident, val key: Long, val enum: Symbol) : GlobalDeclaration {
+    override fun withIdent(id: Ident): Enumerator = copy(ident=id)
+}
+
+typealias Enumerators = List<Enumerator>
+
+/**
+ * The type of declarations that can be defined at the top of a translation unit.
+ *
+ * @param Exp the type that represents expressions
+ * @param Stmt the type that represents statements
+ */
+@Serializable
+sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
+
+    override fun withIdent(id: Ident): UnitDeclaration<Exp, Stmt>
 
     /**
      * Whether this declaration is also a definition
@@ -366,13 +384,13 @@ sealed interface Declaration<out Exp, out Stmt> {
      * top-level entity.
      */
     val meta: Meta
-    fun withMeta(meta: Meta): Declaration<Exp, Stmt>
+    fun withMeta(meta: Meta): UnitDeclaration<Exp, Stmt>
 
     /**
      * Storage for the top-level entity (e.g., default or static).
      */
     val storage: Storage
-    fun withStorage(storage: Storage): Declaration<Exp, Stmt>
+    fun withStorage(storage: Storage): UnitDeclaration<Exp, Stmt>
 
     val tlid: TLID get() = TLID(ident, kind)
     val kind: EntityKind
@@ -384,10 +402,10 @@ sealed interface Declaration<out Exp, out Stmt> {
     sealed interface Typelike
 
     /** Everything that is visible to other translation units (non-types) */
-    sealed interface Valuelike<out Exp, out Stmt> : Declaration<Exp, Stmt>
+    sealed interface Valuelike<out Exp, out Stmt> : UnitDeclaration<Exp, Stmt>
 
     /** Everything that declares a new type: Struct, Union, Enum */
-    sealed interface TypeDeclaration: Declaration<Nothing, Nothing>, Typelike
+    sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing>, Typelike
 
     @Serializable
     data class Var<out Exp>(
@@ -444,7 +462,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val fields: Option<FieldDecls>      = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+    ): UnitDeclaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -465,7 +483,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike {
+    ): UnitDeclaration<Nothing, Nothing>, Typelike {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -484,7 +502,7 @@ sealed interface Declaration<out Exp, out Stmt> {
         val enumerators: Option<Enumerators> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Declaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+    ): UnitDeclaration<Nothing, Nothing>, Typelike, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -513,7 +531,7 @@ enum class EntityKind {
     Var;
 
     companion object {
-        fun <E,T> kindOf(toplevel: Declaration<E, T>) = toplevel.kind
+        fun <E,T> kindOf(toplevel: UnitDeclaration<E, T>) = toplevel.kind
     }
 }
 
@@ -544,12 +562,12 @@ data class TranslationUnit<out E, out T>(
     /**
      * All declarations in the unit.
      */
-    val declarations: List<Declaration<E, T>>,
+    val declarations: List<UnitDeclaration<E, T>>,
 ) {
     val isEmpty get() = declarations.isEmpty()
 
-    val byIdentifier: Map<TLID, List<Declaration<E, T>>> by lazy {
-        val mapping = mutableMapOf<TLID, MutableList<Declaration<E,T>>>()
+    val byIdentifier: Map<TLID, List<UnitDeclaration<E, T>>> by lazy {
+        val mapping = mutableMapOf<TLID, MutableList<UnitDeclaration<E,T>>>()
         for (d  in declarations) {
             val ds = mapping.getOrDefault(d.tlid, mutableListOf())
             ds.add(d)
@@ -559,32 +577,47 @@ data class TranslationUnit<out E, out T>(
         mapping
     }
 
-    val variables: List<Declaration.Var<E>>  get() = declarations.variables
-    val functions: List<Declaration.Fun<T>>  get() = declarations.functions
-    val structs: List<Declaration.Composite> get() = declarations.structs
-    val unions: List<Declaration.Composite>  get() = declarations.unions
-    val typedefs: List<Declaration.Typedef>  get() = declarations.typedefs
-    val enums: List<Declaration.Enum>        get() = declarations.enums
-    val typlikeDeclarations  : List<Declaration.Typelike>        get() = declarations.typelikeDeclarations
-    val valuelikeDeclarations: List<Declaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
+    private val nameToEnumerator: Map<Ident, Enumerator> by lazy {
+        enums
+            .flatMap { enum -> enum.enumerators
+                .getOrElse { listOf() }
+                .map { enumerator -> Pair(enumerator.ident, enumerator) } }
+            .toMap()
+    }
 
-    fun filter(predicate: (d: Declaration<E, T>) -> Boolean) =
+    /**
+     * Resolves a global [ident] to a global declaration.
+     */
+    fun resolve(ident: Ident): Option<GlobalDeclaration> = nameToEnumerator[ident]
+        .toOption()
+        .orElse { declarations.find { it.ident == ident }.toOption() }
+
+    val variables: List<UnitDeclaration.Var<E>>  get() = declarations.variables
+    val functions: List<UnitDeclaration.Fun<T>>  get() = declarations.functions
+    val structs: List<UnitDeclaration.Composite> get() = declarations.structs
+    val unions: List<UnitDeclaration.Composite>  get() = declarations.unions
+    val typedefs: List<UnitDeclaration.Typedef>  get() = declarations.typedefs
+    val enums: List<UnitDeclaration.Enum>        get() = declarations.enums
+    val typlikeDeclarations  : List<UnitDeclaration.Typelike>        get() = declarations.typelikeDeclarations
+    val valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
+
+    fun filter(predicate: (d: UnitDeclaration<E, T>) -> Boolean) =
         copy(declarations = declarations.filter(predicate))
 
     /** Map locations to top-level declarations */
-    fun getAtLocation(loc: Location): Option<Declaration<E, T>> =
+    fun getAtLocation(loc: Location): Option<UnitDeclaration<E, T>> =
         declarations
             .find { decl -> decl.meta.location.exists { it.begin == loc }}
             .toOption()
 
     /** Map locations to top-level declarations */
-    fun getEnclosing(range: SourceRange): Option<Declaration<E, T>> =
+    fun getEnclosing(range: SourceRange): Option<UnitDeclaration<E, T>> =
         declarations
             .find { decl -> decl.meta.location.exists { it.encloses(range) }}
             .toOption()
 
     /** Map locations to top-level declarations */
-    fun getEnclosing(loc: Location): Option<Declaration<E, T>> =
+    fun getEnclosing(loc: Location): Option<UnitDeclaration<E, T>> =
         declarations
             .find { decl -> decl.meta.location.exists { it.encloses(loc) }}
             .toOption()
@@ -593,17 +626,17 @@ data class TranslationUnit<out E, out T>(
      * Find declarations in this translation unit with a given [TLID] [id],
      * in the order that they appear.
      */
-    fun declarationsForTLID(id: TLID): List<Declaration<E, T>> = byIdentifier.getOrDefault(id, listOf())
+    fun declarationsForTLID(id: TLID): List<UnitDeclaration<E, T>> = byIdentifier.getOrDefault(id, listOf())
 
     /**
      * Find declarations in this translation unit with a given [Symbol] [sym],
      * in the order that they appear.
      */
-    fun declarationsForSymbol(sym: Symbol): List<Declaration<E, T>> =
+    fun declarationsForSymbol(sym: Symbol): List<UnitDeclaration<E, T>> =
         if (sym.unit == tuid) byIdentifier.getOrDefault(sym.tlid, listOf())
         else listOf()
 
-    fun definitionFor(id: TLID): Option<Declaration<E,T>> =
+    fun definitionFor(id: TLID): Option<UnitDeclaration<E,T>> =
         byIdentifier[id]
             ?.find { it.isDefinition }
             .toOption()
@@ -679,10 +712,10 @@ data class TranslationUnit<out E, out T>(
     */
 }
 
-typealias AnyDeclaration     = Declaration<Any?, Any?>
+typealias AnyDeclaration     = UnitDeclaration<Any?, Any?>
 typealias AnyTranslationUnit = TranslationUnit<Any?, Any?>
 
-typealias ErasedDeclaration     = Declaration<Unit, Unit>
+typealias ErasedDeclaration     = UnitDeclaration<Unit, Unit>
 typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>
 
 /**
@@ -694,14 +727,14 @@ fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit =
 /**
  * Forget the expressions/statements on the RHS of definitions.
  */
-fun <E,T> Declaration<E,T>.erase(): ErasedDeclaration = when (this) {
-    is Declaration.Composite -> this
-    is Declaration.Enum      -> this
-    is Declaration.Typedef   -> this
-    is Declaration.Fun       -> Declaration.Fun(
+fun <E,T> UnitDeclaration<E,T>.erase(): ErasedDeclaration = when (this) {
+    is UnitDeclaration.Composite -> this
+    is UnitDeclaration.Enum      -> this
+    is UnitDeclaration.Typedef   -> this
+    is UnitDeclaration.Fun       -> UnitDeclaration.Fun(
         ident, inline, returnType, params, vararg, body.map { Unit }, storage, meta
     )
-    is Declaration.Var       -> Declaration.Var(ident, type, rhs.map { Unit }, storage, meta)
+    is UnitDeclaration.Var       -> UnitDeclaration.Var(ident, type, rhs.map { Unit }, storage, meta)
 }
 
 /**
@@ -714,11 +747,11 @@ fun <E1, E2, S1, S2> TranslationUnit<E1, S1>.map(
     declarations
         .map { d ->
             when (d) {
-                is Declaration.Composite -> d
-                is Declaration.Enum      -> d
-                is Declaration.Typedef   -> d
-                is Declaration.Fun       -> d.mapBody(onStmt)
-                is Declaration.Var       -> d.mapRhs(onExp)
+                is UnitDeclaration.Composite -> d
+                is UnitDeclaration.Enum      -> d
+                is UnitDeclaration.Typedef   -> d
+                is UnitDeclaration.Fun       -> d.mapBody(onStmt)
+                is UnitDeclaration.Var       -> d.mapRhs(onExp)
             }
         }
         .let { decls -> TranslationUnit(tuid, decls) }
@@ -726,42 +759,42 @@ fun <E1, E2, S1, S2> TranslationUnit<E1, S1>.map(
 /**
  * Update all declarations with the given TLID.
  */
-fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: Declaration<E, T>) -> Declaration<E, T>) =
+fun <E,T> TranslationUnit<E,T>.update(id: TLID, f: (decl: UnitDeclaration<E, T>) -> UnitDeclaration<E, T>) =
     copy(declarations = declarations.map { if (it.tlid == id) f(it) else it })
 
-fun <E,T> TranslationUnit<E,T>.collect(transform: (d: Declaration<E, T>) -> Option<Declaration<E, T>>) =
+fun <E,T> TranslationUnit<E,T>.collect(transform: (d: UnitDeclaration<E, T>) -> Option<UnitDeclaration<E, T>>) =
     copy(declarations = declarations.flatMap { d -> transform(d).toList() })
 
 // Some convenience extension methods: filters for lists of declarations
 
-val <E, T> List<Declaration<E, T>>.variables: List<Declaration.Var<E>> get() =
-    filterIsInstance<Declaration.Var<E>>()
+val <E, T> List<UnitDeclaration<E, T>>.variables: List<UnitDeclaration.Var<E>> get() =
+    filterIsInstance<UnitDeclaration.Var<E>>()
 
-val <E, T> List<Declaration<E, T>>.functions: List<Declaration.Fun<T>> get() =
-    filterIsInstance<Declaration.Fun<T>>()
+val <E, T> List<UnitDeclaration<E, T>>.functions: List<UnitDeclaration.Fun<T>> get() =
+    filterIsInstance<UnitDeclaration.Fun<T>>()
 
-val <E, T> List<Declaration<E, T>>.typedefs: List<Declaration.Typedef> get() =
-    filterIsInstance<Declaration.Typedef>()
+val <E, T> List<UnitDeclaration<E, T>>.typedefs: List<UnitDeclaration.Typedef> get() =
+    filterIsInstance<UnitDeclaration.Typedef>()
 
-val <E, T> List<Declaration<E, T>>.enums: List<Declaration.Enum> get() =
-    filterIsInstance<Declaration.Enum>()
+val <E, T> List<UnitDeclaration<E, T>>.enums: List<UnitDeclaration.Enum> get() =
+    filterIsInstance<UnitDeclaration.Enum>()
 
-val <E,T> List<Declaration<E, T>>.structs: List<Declaration.Composite> get() =
-    filterIsInstance<Declaration.Composite>()
+val <E,T> List<UnitDeclaration<E, T>>.structs: List<UnitDeclaration.Composite> get() =
+    filterIsInstance<UnitDeclaration.Composite>()
         .filter { it.structOrUnion == StructOrUnion.Struct }
 
-val <E,T> List<Declaration<E, T>>.unions: List<Declaration.Composite> get() =
-    filterIsInstance<Declaration.Composite>()
+val <E,T> List<UnitDeclaration<E, T>>.unions: List<UnitDeclaration.Composite> get() =
+    filterIsInstance<UnitDeclaration.Composite>()
         .filter { it.structOrUnion == StructOrUnion.Union }
 
-val <T> List<Declaration.Fun<T>>.definitions: List<Declaration.Fun<T>> get() =
+val <T> List<UnitDeclaration.Fun<T>>.definitions: List<UnitDeclaration.Fun<T>> get() =
     filter { it.isDefinition }
 
-val <T> List<Declaration.Fun<T>>.declarations: List<Declaration.Fun<T>> get() =
+val <T> List<UnitDeclaration.Fun<T>>.declarations: List<UnitDeclaration.Fun<T>> get() =
     filter { !it.isDefinition }
 
-val <E, T> List<Declaration<E, T>>.typelikeDeclarations: List<Declaration.Typelike> get() =
-    filterIsInstance<Declaration.Typelike>()
+val <E, T> List<UnitDeclaration<E, T>>.typelikeDeclarations: List<UnitDeclaration.Typelike> get() =
+    filterIsInstance<UnitDeclaration.Typelike>()
 
-val <E, T> List<Declaration<E, T>>.valuelikeDeclarations: List<Declaration.Valuelike<E, T>> get() =
-    filterIsInstance<Declaration.Valuelike<E,T>>()
+val <E, T> List<UnitDeclaration<E, T>>.valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() =
+    filterIsInstance<UnitDeclaration.Valuelike<E,T>>()
