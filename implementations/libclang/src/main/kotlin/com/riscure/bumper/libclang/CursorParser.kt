@@ -224,7 +224,7 @@ open class CursorParser(
 
         return Meta(
             location = getRange(),
-            presumedLocation = getPresumedLocation(),
+            presumedLocation = getLocation().flatMap { it.asPresumedLocation() },
             doc = comment
         )
     }

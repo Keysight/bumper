@@ -137,6 +137,8 @@ object Pretty {
         "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
 
     fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
+
+    fun line(loc: Location) = "#line ${loc.row} ${loc.sourceFile}"
 }
 
 /**
@@ -156,7 +158,31 @@ class AstWriters<Exp, Stmt>(
             .map { writers -> sequence(writers, separator = text("\n")) }
 
     fun print(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> =
-        rhs(toplevel).map { rhs -> text(Pretty.lhs(toplevel)) andThen rhs }
+        rhs(toplevel).map { rhs ->
+            text(Pretty.lhs(toplevel))
+                .andThen(rhs)
+
+            /*
+            Ideally we also (optionally) output line directives here
+            to refer to the "most" original location that is known.
+            This also requires us to then reset the line directive for declarations
+            that have no location data attached.
+            Unfortunately, the C preprocessor has no directive however
+            to reset the line info like that.
+            Hence, we would have to somehow keep track of the 'current line' that we are outputting.
+            This is doable, but requires some refactoring to wire that state data through the writer.
+
+            toplevel.meta
+                .presumedLocation
+                .or(toplevel.meta.location.map { it.begin })
+                .let { maybeLocation ->
+                    maybeLocation.fold(
+                        { empty },
+                        { l -> text(Pretty.line(l)) }
+                    )
+                }
+             */
+        }
 
     fun rhs(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> = when (toplevel) {
         is UnitDeclaration.Var       -> when (val exp = toplevel.rhs) {

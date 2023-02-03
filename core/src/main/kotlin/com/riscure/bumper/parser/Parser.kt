@@ -21,16 +21,23 @@ enum class Severity {
 data class Diagnostic(
     val severity: Severity,
     val loc: Location,
+    val presumedLoc: Option<Location>,
     val cause: String
 ) {
     val headline get() = cause.lines().firstOrNone().getOrElse { "" }
+
     val details get()  =
         cause.lines().some()
             .filter { it.isEmpty() }
             .map { it.drop(1).joinToString { "\n" }}
+
     fun format(): String {
+        val presumed = presumedLoc
+            .map { "\n              originally at $it" } // indent is trimmed
+            .getOrElse { "" }
         return """
-            - $severity at $loc
+            - $severity
+              at $loc$presumed
               because: $headline
         """.trimIndent() + (details.map { "\n\n$${it.prependIndent("  ")}" } .getOrElse { "" })
     }

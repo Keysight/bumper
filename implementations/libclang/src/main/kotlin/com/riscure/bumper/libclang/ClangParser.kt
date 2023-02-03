@@ -24,14 +24,20 @@ private fun Int.asSeverity(): Option<Severity> =
     } else {
         none()
     }
+
 private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
     val msg = clang_getDiagnosticSpelling(this).string
     return clang_getDiagnosticLocation(this)
-        .asLocation()
-        .flatMap { loc ->
-            clang_getDiagnosticSeverity(this)
-                .asSeverity()
-                .map { sev -> Diagnostic(sev, loc, msg) }
+        .let { cxloc ->
+            cxloc
+                .asLocation()
+                .flatMap { loc ->
+                    clang_getDiagnosticSeverity(this)
+                        .asSeverity()
+                        .map { sev ->
+                            Diagnostic(sev, loc, cxloc.asPresumedLocation(), msg)
+                        }
+                }
         }
 }
 
