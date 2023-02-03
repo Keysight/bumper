@@ -1,3 +1,7 @@
+# 0.1.3
+
+- Now modeling (and reporting) presumed locations on Diagnostics
+
 # 0.1.2
 
 - AST for enumerators now contains symbol referencing enclosing enum.
