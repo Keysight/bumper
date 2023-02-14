@@ -40,8 +40,12 @@ class ClangDependencyAnalysis(
                     // written cases we consider the dependency to be what is at the cursor itself).
                     ast.resolve(def.spelling())
                         .filterIsInstance<Enumerator>()
-                        .toEither { "expected ${def.spelling()} to resolve to an enumerator, but got ${def.kindName()}" }
-                        .map { enumerator -> setOf(enumerator.enum) }
+                        // the mention of the enumerator induces a dependency on the surrounding enum
+                        .map { setOf(it.enum)}
+                        // if resolve did not return an Enumerator,
+                        // it may have been a local declaration, and no global dependencies are induced.
+                        .getOrElse { setOf() }
+                        .right()
                 } else {
                     nil
                 }
