@@ -72,13 +72,13 @@ data class CompilationDb(val entries: List<Entry>) {
             }
         )
 
-    fun toJSON() =
+    fun toJSON(defaultCompilerExe: String) =
         entries
             .map { entry ->
                 PlainCompilationDb.Entry(
                     entry.workingDirectory.toString(),
                     entry.mainSource.toString(),
-                    entry.command.toArguments()
+                    listOf(entry.executable.getOrElse { defaultCompilerExe }) + entry.command.toArguments()
                 )
             }
             .let { json.encodeToString(it) }
@@ -97,8 +97,19 @@ data class CompilationDb(val entries: List<Entry>) {
          * Use with caution!
          */
         val mainSource: Path,
-        val command: Command
+        val command: Command,
+
+        /** The compiler executable */
+        val executable: Option<String>
     ) {
+        // We define this using overloading to make it also accessible from Java
+        constructor(workingDirectory: Path, mainSource: Path, command: Command) : this(
+            workingDirectory,
+            mainSource,
+            command,
+            none()
+        )
+
         val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource).normalize()
     }
 
@@ -163,5 +174,40 @@ data class CompilationDb(val entries: List<Entry>) {
 
         @JvmStatic fun read(reader: InputStream) = read(reader, OnUnrecognizedOption.strict)
         @JvmStatic fun read(file: File) = read(file, OnUnrecognizedOption.strict)
+<<<<<<< Updated upstream
+=======
+
+        @JvmStatic
+        fun readEntry(entry: PlainCompilationDb.Entry, recover: OnUnrecognizedOption): Either<InvalidCdbEntry, Entry> =
+            // first we try to get the arguments array
+            when (val args = entry.arguments.toOption()) {
+                is Some -> args.value.right()
+                // if that is missing, we parse the shell command into arguments.
+                None ->
+                    when (val plaincmd = entry.command.toOption()) {
+                        is Some -> Shell
+                            .line(plaincmd.value)
+                            .map { it.eval() }
+                            .mapLeft { InvalidCdbEntry(entry, "failed to parse shell command '$plaincmd'") }
+                        None ->
+                            // neither command nor arguments is specified
+                            // this is illegal according to the clang compilation database reference.
+                            InvalidCdbEntry(entry, "missing both command and arguments").left()
+                    }
+            }
+            .flatMap { args ->
+                val exe  = args.firstOrNone().getOrElse { "clang" }
+                val opts = args.drop(1)
+                ClangParser
+                    .parseArguments(opts) { unrecognizedOption ->
+                        recover.callback(entry.file, unrecognizedOption)
+                    }
+                    .mapLeft {
+                        // give some context to the exception.
+                        InvalidCdbEntry(entry, "failed to parse compile command '$it'")
+                    }
+                    .map { cmd -> Entry(Path.of(entry.directory), Path.of(entry.file), cmd, exe.some()) }
+            }
+>>>>>>> Stashed changes
     }
 }
