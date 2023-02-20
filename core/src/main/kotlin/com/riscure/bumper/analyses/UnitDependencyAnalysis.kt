@@ -4,9 +4,10 @@ import arrow.core.*
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 
-typealias Result = Either<String, Set<Symbol>>
+typealias Result<T> = Either<String, Set<T>>
 
-fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + right }}
+fun <T> nil(): Result<T> = setOf<T>().right()
+fun <T> Result<T>.union(that: Result<T>) = flatMap { left -> that.map { right -> left + right }}
 
 /**
  * Implements a dependency analysis for C translation units.
@@ -19,7 +20,6 @@ fun Result.union(that: Result) = flatMap { left -> that.map { right -> left + ri
  * This can be extended to a dependency graph across translation units using the [LinkAnalysis].
  */
 interface UnitDependencyAnalysis<Exp, Stmt> {
-    val nil: Result get() = setOf<Symbol>().right()
 
     fun ofUnit(unit: TranslationUnit<Exp, Stmt>): Either<String, DependencyGraph> =
         unit.declarations
@@ -29,27 +29,29 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
                 // We may have entries with clashing keys,
                 // due to different declarations/definitions belonging to the same symbol.
                 // Hence, we need to take care to merge entries, rather than bluntly using .toMap()
-                DependencyGraph.union(entries.map { (k, deps) -> DependencyGraph(mapOf(k to deps))})
+                DependencyGraph.union(entries.map { (k, deps) ->
+                    DependencyGraph(mapOf(k to deps.map { it.symbol(unit.tuid) }.toSet()))
+                })
             }
 
-    fun ofExp(exp: Exp): Result
-    fun ofStmt(stmt: Stmt): Result
+    fun ofExp(exp: Exp): Result<TLID>
+    fun ofStmt(stmt: Stmt): Result<TLID>
 
-    fun ofDecl(decl: UnitDeclaration<Exp, Stmt>): Result = when (decl) {
+    fun ofDecl(decl: UnitDeclaration<Exp, Stmt>): Result<TLID> = when (decl) {
         is UnitDeclaration.Var       ->
             decl.rhs
                 .map { ofExp(it) }
-                .getOrElse { nil }
+                .getOrElse { nil() }
                 .union(ofType(decl.type))
         is UnitDeclaration.Composite ->
             decl.fields
                 .map(::ofFields)
-                .getOrElse { nil }
-        is UnitDeclaration.Enum      -> nil
+                .getOrElse { nil() }
+        is UnitDeclaration.Enum      -> nil()
         is UnitDeclaration.Fun       ->
             decl.body
                 .map { ofStmt(it) }
-                .getOrElse { nil } // if no body, no dependencies
+                .getOrElse { nil() }
                 .union(ofType(decl.returnType))
                 .union(ofParams(decl.params))
         is UnitDeclaration.Typedef   ->
@@ -62,7 +64,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
             .sequence()
             .map { it.flatten().toSet() }
 
-    fun ofType(type: FieldType): Result = when (type) {
+    fun ofType(type: FieldType): Result<TLID> = when (type) {
         is Type.Fun                ->
             ofType(type.returnType)
                 .union(ofParams(type.params))
@@ -72,16 +74,16 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Struct             -> setOf(type.ref).right()
         is Type.Union              -> setOf(type.ref).right()
         is Type.Enum               -> setOf(type.ref).right()
-        is Type.Int                -> nil
-        is Type.Float              -> nil
-        is Type.Void               -> nil
+        is Type.Int                -> nil()
+        is Type.Float              -> nil()
+        is Type.Void               -> nil()
         is Type.Atomic             -> ofType(type.elementType)
-        is Type.Complex            -> nil
-        is Type.VaList             -> nil
+        is Type.Complex            -> nil()
+        is Type.VaList             -> nil()
         is FieldType.AnonComposite -> ofFields(type.fields.getOrElse { listOf() })
     }
 
-    private fun ofParams(params: List<Param>): Result =
+    private fun ofParams(params: List<Param>): Result<TLID> =
         params
             .map { ofType(it.type) }
             .sequence()

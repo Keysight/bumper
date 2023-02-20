@@ -3,6 +3,7 @@ package com.riscure.bumper.libclang
 import arrow.core.*
 import com.riscure.bumper.analyses.UnitDependencyAnalysis
 import com.riscure.bumper.analyses.Result
+import com.riscure.bumper.analyses.nil
 import com.riscure.bumper.analyses.union
 import com.riscure.bumper.ast.*
 import org.bytedeco.llvm.clang.CXCursor
@@ -23,14 +24,14 @@ class ClangDependencyAnalysis(
             cursor.type().asType()
         }
 
-    private fun CXCursor.refDependencies(): Result {
+    private fun CXCursor.refDependencies(): Result<TLID> {
         // let libclang resolve the reference
         val def = clang_getCursorReferenced(this)
         // Check whether we elaborated a declaration from the defining cursor.
         return when (val decl = elaboratedCursors.getOrNone(def.hash())) {
             is Some<ClangDeclaration> -> {
                 // We elaborated a declaration from the defining cursor.
-                setOf(decl.value.mkSymbol(tuid)).right()
+                setOf(decl.value.tlid).right()
             }
             is None -> {
                 // This is a CXCursor_DeclRefExpr, maybe it's an enum value?
@@ -41,20 +42,20 @@ class ClangDependencyAnalysis(
                     ast.resolve(def.spelling())
                         .filterIsInstance<Enumerator>()
                         // the mention of the enumerator induces a dependency on the surrounding enum
-                        .map { setOf(it.enum)}
+                        .map { setOf(it.enum.tlid) }
                         // if resolve did not return an Enumerator,
                         // it may have been a local declaration, and no global dependencies are induced.
                         .getOrElse { setOf() }
                         .right()
                 } else {
-                    nil
+                    nil()
                 }
             }
         }
     }
 
-    private fun cursorDependencies(cursor: CXCursor): Result =
-        cursor.fold(nil, true) { acc: Result ->
+    private fun cursorDependencies(cursor: CXCursor): Result<TLID> =
+        cursor.fold(nil(), true) { acc: Result<TLID> ->
             acc.union(
                 when (kind()) {
                     CXCursor_TypeRef     ->
@@ -65,12 +66,10 @@ class ClangDependencyAnalysis(
                             .flatMap { ofType(it) }
                     CXCursor_DeclRefExpr ->
                         refDependencies()
-//                    CXCursor_MemberRef   ->
-//                        TODO()
-            else -> nil
+            else -> nil()
         })
     }
 
-    override fun ofExp(exp: CXCursor): Result = cursorDependencies(exp)
-    override fun ofStmt(stmt: CXCursor): Result = cursorDependencies(stmt)
+    override fun ofExp(exp: CXCursor)   = cursorDependencies(exp)
+    override fun ofStmt(stmt: CXCursor) = cursorDependencies(stmt)
 }
