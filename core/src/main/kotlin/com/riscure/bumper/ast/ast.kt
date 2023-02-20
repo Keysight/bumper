@@ -169,6 +169,10 @@ sealed class Type: FieldType {
     fun restrict() = withAttrs(attrs + Attr.Restrict)
     fun ptr() = Ptr(this)
 
+    sealed interface Defined {
+        val ref: TypeRef
+    }
+
     @Serializable
     data class Void (
         override val attrs: Attrs = listOf()
@@ -223,7 +227,7 @@ sealed class Type: FieldType {
      * Reference to a top-level typedef.
      */
     @Serializable
-    data class Typedeffed (val ref: TypeRef, override val attrs: Attrs = listOf()): Type() {
+    data class Typedeffed (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -231,7 +235,7 @@ sealed class Type: FieldType {
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct (val ref: TypeRef, override val attrs: Attrs = listOf()): Type() {
+    data class Struct (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -240,9 +244,9 @@ sealed class Type: FieldType {
      */
     @Serializable
     data class Union (
-        val ref: TypeRef, // elaborated
+        override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type() {
+    ): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     /**
@@ -250,9 +254,9 @@ sealed class Type: FieldType {
      */
     @Serializable
     data class Enum (
-        val ref: TypeRef, // elaborated
+        override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type() {
+    ): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -343,6 +347,7 @@ data class Meta(
     val fromMain: Boolean = true
 ) {
     companion object {
+        @JvmStatic
         val default = Meta(None, None, None, true)
     }
 }
@@ -411,13 +416,14 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
 
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
-        val type get() = when (this) {
+        val type: Type get() = when (this) {
             is Composite ->
                 when (this.structOrUnion) {
                     StructOrUnion.Struct -> Type.Struct(this.tlid)
                     StructOrUnion.Union  -> Type.Union(this.tlid)
                 }
-            is Enum -> Type.Enum(this.tlid)
+            is Enum      -> Type.Enum(this.tlid)
+            is Typedef   -> Type.Typedeffed(this.tlid)
         }
     }
 
@@ -497,7 +503,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): UnitDeclaration<Nothing, Nothing> {
+    ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
