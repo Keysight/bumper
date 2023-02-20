@@ -5,12 +5,9 @@ import arrow.core.getOrElse
 import arrow.core.some
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
-import com.riscure.bumper.index.Symbol
-import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
 import kotlin.test.*
 
 interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
@@ -21,7 +18,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.declarations[0])
+        val struct = ast.structs[0]
 
         assertEquals(Storage.Default, struct.storage)
         assertEquals(EntityKind.Struct, struct.kind)
@@ -41,7 +38,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct A;
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.declarations[0])
+        val struct = ast.structs[0]
 
         assertEquals("A", struct.ident)
         assertEquals(Storage.Default, struct.storage)
@@ -56,7 +53,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct A {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.declarations[0])
+        val struct = ast.structs[0]
 
         assertEquals("A", struct.ident)
         assertEquals(Storage.Default, struct.storage)
@@ -71,7 +68,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct A { int i; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.declarations[0])
+        val struct = ast.structs[0]
 
         assertEquals(listOf(Field("i", Type.int)).some(), struct.fields)
     }
@@ -82,7 +79,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         struct A { int i; double j; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.declarations[0])
+        val struct = ast.structs[0]
 
         assertEquals(listOf(
             Field("i", Type.int),
@@ -146,7 +143,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
-        val struct = assertIs<UnitDeclaration.Composite>(ast.structs[0])
+        val struct = ast.structs[0]
         val fields = struct.fields.assertOK()
         assertEquals(1, fields.size)
         assertEquals("x", fields[0].name)
@@ -165,7 +162,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field = assertNotNull(fields[0])
-        val union = assertIs<FieldType.AnonComposite>(field.type)
+        val union = assertIs<FieldType.AnonCompound>(field.type)
 
         assertEquals(StructOrUnion.Union, union.structOrUnion)
         val fs = union.fields.getOrElse { fail("Expected fields") }
@@ -188,7 +185,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field  = assertNotNull(fields[0])
-        val struct = assertIs<FieldType.AnonComposite>(field.type)
+        val struct = assertIs<FieldType.AnonCompound>(field.type)
         assertEquals(StructOrUnion.Struct, struct.structOrUnion)
 
         val fs = struct.fields.getOrElse { fail("Expected fields") }

@@ -150,14 +150,16 @@ sealed interface FieldType {
     abstract val attrs: Attrs
     abstract fun withAttrs(attrs: Attrs): FieldType
 
-    data class AnonComposite(
+    data class AnonCompound(
         val structOrUnion: StructOrUnion,
         val fields: Option<FieldDecls> = None,
         override val attrs: Attrs = listOf()
     ) : FieldType {
-        override fun withAttrs(attrs: Attrs): AnonComposite = copy(attrs = attrs)
+        override fun withAttrs(attrs: Attrs): AnonCompound = copy(attrs = attrs)
     }
 }
+
+enum class StructOrUnion { Struct, Union }
 
 /* Types */
 @Serializable
@@ -318,8 +320,6 @@ data class Field(
     val isAnonymous: Boolean get() = name.isEmpty()
 }
 
-enum class StructOrUnion { Struct, Union }
-
 typealias FieldDecls  = List<Field>
 
 @Serializable
@@ -417,14 +417,18 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
         val type: Type get() = when (this) {
-            is Composite ->
-                when (this.structOrUnion) {
-                    StructOrUnion.Struct -> Type.Struct(this.tlid)
-                    StructOrUnion.Union  -> Type.Union(this.tlid)
-                }
-            is Enum      -> Type.Enum(this.tlid)
-            is Typedef   -> Type.Typedeffed(this.tlid)
+            is Struct  -> Type.Struct(this.tlid)
+            is Union   -> Type.Union(this.tlid)
+            is Enum    -> Type.Enum(this.tlid)
+            is Typedef -> Type.Typedeffed(this.tlid)
         }
+    }
+
+    /** Structs or Unions */
+    sealed interface Compound: TypeDeclaration {
+        val fields: Option<FieldDecls>
+
+        override val isDefinition get() = fields.isDefined()
     }
 
     @Serializable
@@ -472,29 +476,31 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
             Fun(ident, inline, returnType, params, vararg, body.map(f), storage, meta)
     }
 
-    /**
-     * Struct or Union declaration or definition.
-     */
     @Serializable
-    data class Composite(
+    data class Struct(
         override val ident: Ident,
-        val structOrUnion: StructOrUnion,
-        val fields: Option<FieldDecls>      = None,
+        override val fields: Option<FieldDecls> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
+    ): Compound {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        override val kind = EntityKind.Struct
+    }
 
+    @Serializable
+    data class Union(
+        override val ident: Ident,
+        override val fields: Option<FieldDecls> = none(),
+        override val storage: Storage = Storage.Default,
+        override val meta: Meta = Meta.default
+    ): Compound {
+        override fun withIdent(id: Ident) = this.copy(ident = id)
+        override fun withMeta(meta: Meta) = this.copy(meta = meta)
+        override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val isDefinition: Boolean = fields.isDefined()
-
-        override val kind: EntityKind
-            get() =
-            when (structOrUnion) {
-                StructOrUnion.Union  -> EntityKind.Union
-                StructOrUnion.Struct -> EntityKind.Struct
-            }
+        override val kind = EntityKind.Union
     }
 
     @Serializable
@@ -535,8 +541,8 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     fun ofKind(kind: EntityKind): Boolean = when (kind) {
         EntityKind.Fun     -> this is Fun
         EntityKind.Enum    -> this is Enum
-        EntityKind.Struct  -> this is Composite && structOrUnion == StructOrUnion.Struct
-        EntityKind.Union   -> this is Composite && structOrUnion == StructOrUnion.Union
+        EntityKind.Struct  -> this is Struct
+        EntityKind.Union   -> this is Union
         EntityKind.Typedef -> this is Typedef
         EntityKind.Var     -> this is Var
     }
@@ -616,8 +622,8 @@ data class TranslationUnit<out E, out T>(
 
     val variables: List<UnitDeclaration.Var<E>>  get() = declarations.variables
     val functions: List<UnitDeclaration.Fun<T>>  get() = declarations.functions
-    val structs: List<UnitDeclaration.Composite> get() = declarations.structs
-    val unions: List<UnitDeclaration.Composite>  get() = declarations.unions
+    val structs: List<UnitDeclaration.Struct>    get() = declarations.structs
+    val unions: List<UnitDeclaration.Union>      get() = declarations.unions
     val typedefs: List<UnitDeclaration.Typedef>  get() = declarations.typedefs
     val enums: List<UnitDeclaration.Enum>        get() = declarations.enums
     val typeDeclarations  : List<UnitDeclaration.TypeDeclaration> get() = declarations.typeDeclarations
@@ -750,9 +756,7 @@ fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit =
  * Forget the expressions/statements on the RHS of definitions.
  */
 fun <E,T> UnitDeclaration<E,T>.erase(): ErasedDeclaration = when (this) {
-    is UnitDeclaration.Composite -> this
-    is UnitDeclaration.Enum      -> this
-    is UnitDeclaration.Typedef   -> this
+    is UnitDeclaration.TypeDeclaration -> this
     is UnitDeclaration.Fun       -> UnitDeclaration.Fun(
         ident, inline, returnType, params, vararg, body.map { Unit }, storage, meta
     )
@@ -769,9 +773,7 @@ fun <E1, E2, S1, S2> TranslationUnit<E1, S1>.map(
     declarations
         .map { d ->
             when (d) {
-                is UnitDeclaration.Composite -> d
-                is UnitDeclaration.Enum      -> d
-                is UnitDeclaration.Typedef   -> d
+                is UnitDeclaration.TypeDeclaration -> d
                 is UnitDeclaration.Fun       -> d.mapBody(onStmt)
                 is UnitDeclaration.Var       -> d.mapRhs(onExp)
             }
@@ -801,13 +803,11 @@ val <E, T> List<UnitDeclaration<E, T>>.typedefs: List<UnitDeclaration.Typedef> g
 val <E, T> List<UnitDeclaration<E, T>>.enums: List<UnitDeclaration.Enum> get() =
     filterIsInstance<UnitDeclaration.Enum>()
 
-val <E,T> List<UnitDeclaration<E, T>>.structs: List<UnitDeclaration.Composite> get() =
-    filterIsInstance<UnitDeclaration.Composite>()
-        .filter { it.structOrUnion == StructOrUnion.Struct }
+val <E,T> List<UnitDeclaration<E, T>>.structs: List<UnitDeclaration.Struct> get() =
+    filterIsInstance<UnitDeclaration.Struct>()
 
-val <E,T> List<UnitDeclaration<E, T>>.unions: List<UnitDeclaration.Composite> get() =
-    filterIsInstance<UnitDeclaration.Composite>()
-        .filter { it.structOrUnion == StructOrUnion.Union }
+val <E,T> List<UnitDeclaration<E, T>>.unions: List<UnitDeclaration.Union> get() =
+    filterIsInstance<UnitDeclaration.Union>()
 
 val <T> List<UnitDeclaration.Fun<T>>.definitions: List<UnitDeclaration.Fun<T>> get() =
     filter { it.isDefinition }

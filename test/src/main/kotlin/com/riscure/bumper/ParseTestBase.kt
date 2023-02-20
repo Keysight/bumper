@@ -186,10 +186,14 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         assertEquals(d1.storage, d2.storage)
 
         when (d1) {
-            is UnitDeclaration.Composite -> {
+            is UnitDeclaration.Union -> {
                 val c1 = d1
-                val c2 = assertIs<UnitDeclaration.Composite>(d2)
-                assertEquals(c1.structOrUnion, c2.structOrUnion)
+                val c2 = assertIs<UnitDeclaration.Union>(d2)
+                eq(c1.fields, c2.fields)
+            }
+            is UnitDeclaration.Struct -> {
+                val c1 = d1
+                val c2 = assertIs<UnitDeclaration.Struct>(d2)
                 eq(c1.fields, c2.fields)
             }
             is UnitDeclaration.Enum      -> {
@@ -283,8 +287,8 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 val u2 = assertIs<Type.Union>(t2)
                 assertEquals(t1.ref, u2.ref)
             }
-            is FieldType.AnonComposite -> {
-                val c2 = assertIs<FieldType.AnonComposite>(t2)
+            is FieldType.AnonCompound -> {
+                val c2 = assertIs<FieldType.AnonCompound>(t2)
                 assertEquals(t1.structOrUnion, c2.structOrUnion)
                 eq(t1.fields, c2.fields)
             }

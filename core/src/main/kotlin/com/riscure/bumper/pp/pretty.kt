@@ -81,7 +81,7 @@ object Pretty {
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
         is Type.VaList            -> "__builtin_va_list"
 
-        is FieldType.AnonComposite -> with (type) { composite(structOrUnion, "", fields) }
+        is FieldType.AnonCompound -> with (type) { composite(structOrUnion, "", fields) }
     }
 
     @JvmStatic
@@ -123,11 +123,18 @@ object Pretty {
     }
 
     @JvmStatic
+    fun struct(struct: UnitDeclaration.Struct) =
+        "struct ${maybeName(struct.ident)}${maybeFields(struct.fields)}"
+
+    @JvmStatic
+    fun union(union: UnitDeclaration.Union) =
+        "union ${maybeName(union.ident)}${maybeFields(union.fields)}"
+
+    @JvmStatic
     fun typedecl(typeDecl: UnitDeclaration.TypeDeclaration) = when (typeDecl) {
         is UnitDeclaration.Typedef   -> typedef(typeDecl)
-        is UnitDeclaration.Composite -> with(typeDecl) {
-            composite(structOrUnion, ident, fields)
-        }
+        is UnitDeclaration.Struct    -> struct(typeDecl)
+        is UnitDeclaration.Union     -> union(typeDecl)
         is UnitDeclaration.Enum      -> with(typeDecl) {
             "enum ${maybeName(ident)}${maybeEnumerators(enumerators)}"
         }
@@ -170,10 +177,42 @@ object Pretty {
     fun line(loc: Location) = "#line ${loc.row} ${loc.sourceFile}"
 
     @JvmStatic
-    fun stmt(stmt: Stmt) = "TODO;"
+    fun stmt(stmt: Stmt) = when (stmt) {
+        is Stmt.Block -> TODO()
+        is Stmt.Break -> "break;"
+        is Stmt.Conditional -> TODO()
+        is Stmt.Continue -> "continue;"
+        is Stmt.Decl -> TODO()
+        is Stmt.Do -> TODO()
+        is Stmt.DoWhile -> TODO()
+        is Stmt.For -> TODO()
+        is Stmt.Goto -> TODO()
+        is Stmt.Labeled -> TODO()
+        is Stmt.Return -> when (val exp = stmt.value) {
+            is Some -> "return ${exp(exp.value)};"
+            is None -> "return;"
+        }
+        is Stmt.Seq -> TODO()
+        is Stmt.Switch -> TODO()
+        is Stmt.While -> TODO()
+        Stmt.Skip -> ""
+    }
 
     @JvmStatic
-    fun exp(exp: Exp) = "0x00"
+    fun exp(exp: Exp): String = when (exp) {
+        is Exp.Alignof -> TODO()
+        is Exp.Call -> {
+            // TODO need parens?
+            val args = exp.args.joinToString(separator = ", ") { exp(it) };
+            "(${exp(exp.funRef)})($args)"
+        }
+        is Exp.Cast -> TODO()
+        is Exp.Compound -> TODO()
+        is Exp.Conditional -> TODO()
+        is Exp.Const -> TODO()
+        is Exp.Sizeof -> TODO()
+        is Exp.Var -> exp.name
+    }
 
     @JvmStatic
     fun unitDeclaration(decl: UnitDeclaration<Exp, Stmt>): String =
@@ -240,9 +279,7 @@ class AstWriters<Exp, Stmt>(
             is None -> semicolon.right()
         }
 
-        is UnitDeclaration.Typedef   -> semicolon.right()
-        is UnitDeclaration.Composite -> semicolon.right()
-        is UnitDeclaration.Enum      -> semicolon.right()
+        is UnitDeclaration.TypeDeclaration -> semicolon.right()
     }
 
     companion object {

@@ -160,7 +160,7 @@ open class CursorParser(
         val decl = when (kind()) {
             CXCursor_FunctionDecl -> this.asFunction()
             CXCursor_StructDecl   -> this.asStruct()
-            CXCursor_UnionDecl    -> this.elaborateUnion()
+            CXCursor_UnionDecl    -> this.asUnion()
             CXCursor_VarDecl      -> this.asVariable()
             CXCursor_TypedefDecl  -> this.asTypedef()
             CXCursor_EnumDecl     -> this.asEnum()
@@ -259,11 +259,8 @@ open class CursorParser(
             Enumerator(name, const, enum).right()
         }
 
-    private fun CXCursor.asComposite(): Result<UnitDeclaration.Composite> {
-        // We check if this is the definition, because the field visitor
-        // will just poke through the declaration into the related definition
-        // and visit the fields there.
-        val fields = if (clang_isCursorDefinition(this).toBool()) {
+    private fun CXCursor.getCompoundFields() =
+        if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
                 .mapIndexed { i, it -> it.asField() }
@@ -274,22 +271,26 @@ open class CursorParser(
             None.right()
         }
 
-        return fields
-            .flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Composite(id, StructOrUnion.Struct, fs) }
-            }
-    }
-
-    fun CXCursor.asStruct(): Result<UnitDeclaration.Composite> =
+    fun CXCursor.asStruct(): Result<UnitDeclaration.Struct> =
         ifKind(CXCursor_StructDecl, "struct declaration") {
-            asComposite()
-                .map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
+            // We check if this is the definition, because the field visitor
+            // will just poke through the declaration into the related definition
+            // and visit the fields there.
+
+            getCompoundFields().flatMap { fs ->
+                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs) }
+            }
         }
 
-    fun CXCursor.elaborateUnion(): Result<UnitDeclaration.Composite> =
+    fun CXCursor.asUnion(): Result<UnitDeclaration.Union> =
         ifKind(CXCursor_UnionDecl, "union declaration") {
-            asComposite()
-                .map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
+            // We check if this is the definition, because the field visitor
+            // will just poke through the declaration into the related definition
+            // and visit the fields there.
+
+            getCompoundFields().flatMap { fs ->
+                getIdentifier().map { id -> UnitDeclaration.Union(id, fs) }
+            }
         }
 
     fun CXType.fields(): List<CXCursor> {
@@ -469,7 +470,8 @@ open class CursorParser(
                         // sanity check
                         assert(d.ident == "")
                         when (d) {
-                            is UnitDeclaration.Composite -> FieldType.AnonComposite(d.structOrUnion, d.fields).right()
+                            is UnitDeclaration.Struct -> FieldType.AnonCompound(StructOrUnion.Struct, d.fields).right()
+                            is UnitDeclaration.Union  -> FieldType.AnonCompound(StructOrUnion.Union , d.fields).right()
                             else -> "Invariant violation: failed to parse anonymous field.".left()
                         }
                     }

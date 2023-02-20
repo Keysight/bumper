@@ -2,7 +2,6 @@ package com.riscure.bumper.analyses
 
 import arrow.core.*
 import com.riscure.bumper.ast.*
-import com.riscure.bumper.index.Symbol
 
 typealias Result<T> = Either<String, Set<T>>
 
@@ -43,7 +42,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
                 .map { ofExp(it) }
                 .getOrElse { nil() }
                 .union(ofType(decl.type))
-        is UnitDeclaration.Composite ->
+        is UnitDeclaration.Compound ->
             decl.fields
                 .map(::ofFields)
                 .getOrElse { nil() }
@@ -80,7 +79,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Atomic             -> ofType(type.elementType)
         is Type.Complex            -> nil()
         is Type.VaList             -> nil()
-        is FieldType.AnonComposite -> ofFields(type.fields.getOrElse { listOf() })
+        is FieldType.AnonCompound -> ofFields(type.fields.getOrElse { listOf() })
     }
 
     private fun ofParams(params: List<Param>): Result<TLID> =

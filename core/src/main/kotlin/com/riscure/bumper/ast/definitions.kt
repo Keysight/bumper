@@ -14,11 +14,9 @@ sealed interface Constant {
     // data class CEnum (val value: Pair<Ref, Int>): Constant()
 }
 
-/* Type-annotated expression */
-data class TypedExp(val exp: Exp, val type: Type)
-
 typealias FieldInitializer = Pair<Ident, Initializer>
 
+/* expression */
 sealed class Exp {
     data class Const(val constant: Constant): Exp()
     data class Compound(val type: Type, val initializer: Initializer): Exp()
