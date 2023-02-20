@@ -118,7 +118,7 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         assertEquals(2, ast.declarations.size)
         val enumTypedef = assertIs<UnitDeclaration.Typedef>(ast.typedefs.find { it.ident == "DPI" })
         val enum = assertIs<UnitDeclaration.Enum>(ast.enums.find {
-            it.tlid == assertIs<Type.Enum>(enumTypedef.underlyingType).ref.tlid
+            it.tlid == assertIs<Type.Enum>(enumTypedef.underlyingType).ref
         })
         assertEquals(Storage.Default, enum.storage)
         assertEquals(EntityKind.Enum, enum.kind)

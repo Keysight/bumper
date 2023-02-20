@@ -20,7 +20,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
         val struct = assertIs<UnitDeclaration.Composite>(ast.structs[0])
         val typref = assertIs<Type.Struct>(typedef.underlyingType)
-        assertEquals(struct.mkSymbol(ast.tuid), typref.ref)
+        assertEquals(struct.tlid, typref.ref)
     }
 
     @Test
@@ -43,7 +43,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typedef = assertIs<UnitDeclaration.Typedef>(ast.typedefs[0])
         val enum    = assertIs<UnitDeclaration.Enum>(ast.enums[0])
         val enumRef = assertIs<Type.Enum>(typedef.underlyingType)
-        assertEquals(enum.mkSymbol(ast.tuid), enumRef.ref)
+        assertEquals(enum.tlid, enumRef.ref)
     }
 
     @Test
@@ -93,7 +93,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typedef = assertIs<UnitDeclaration.Typedef>(ast.typedefs[0])
         val typeref = assertIs<Type.Struct>(typedef.underlyingType)
         val struct  = assertIs<UnitDeclaration.Composite>(ast.structs[0])
-        assertEquals(struct.mkSymbol(ast.tuid), typeref.ref)
+        assertEquals(struct.tlid, typeref.ref)
     }
 
     @Test
@@ -118,7 +118,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
         assertEquals(structDecl.mkSymbol(ast.tuid), structDef.mkSymbol(ast.tuid))
         val structRef  = assertIs<Type.Struct>(typedef.underlyingType)
-        assertEquals(structDecl.mkSymbol(ast.tuid), structRef.ref)
+        assertEquals(structDecl.tlid, structRef.ref)
     }
 
     @Test
@@ -134,7 +134,7 @@ interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val typeref    = assertIs<Type.Struct>(typedef.underlyingType)
 
         assertEquals(structDecl.mkSymbol(ast.tuid), structDef.mkSymbol(ast.tuid))
-        assertEquals(structDecl.mkSymbol(ast.tuid), typeref.ref)
+        assertEquals(structDecl.tlid, typeref.ref)
     }
 
     @Test

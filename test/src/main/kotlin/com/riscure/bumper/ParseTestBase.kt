@@ -269,19 +269,19 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             }
             is Type.Typedeffed        -> {
                 val d2 = assertIs<Type.Typedeffed>(t2)
-                eq(t1.ref, d2.ref)
+                assertEquals(t1.ref, d2.ref)
             }
             is Type.Enum              -> {
                 val d2 = assertIs<Type.Enum>(t2)
-                eq(t1.ref, d2.ref)
+                assertEquals(t1.ref, d2.ref)
             }
             is Type.Struct -> {
                 val d2 = assertIs<Type.Struct>(t2)
-                eq(t1.ref, d2.ref)
+                assertEquals(t1.ref, d2.ref)
             }
             is Type.Union             -> {
                 val u2 = assertIs<Type.Union>(t2)
-                eq(t1.ref, u2.ref)
+                assertEquals(t1.ref, u2.ref)
             }
             is FieldType.AnonComposite -> {
                 val c2 = assertIs<FieldType.AnonComposite>(t2)

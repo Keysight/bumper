@@ -298,6 +298,8 @@ sealed class Type: FieldType {
         @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
             Fun(returns, params.toList(), variadic)
         @JvmStatic fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
+        @JvmStatic fun struct(ident: String) = Struct(TLID.struct(ident))
+        @JvmStatic fun union(ident: String) = Union(TLID.union(ident))
 
     }
 }
