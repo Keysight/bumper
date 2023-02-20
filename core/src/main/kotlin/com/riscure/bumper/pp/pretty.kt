@@ -8,6 +8,7 @@ import com.riscure.bumper.index.TUID
  * Total pretty printing functions, mainly for C types.
  */
 object Pretty {
+    @JvmStatic
     fun integerKind(kind: IKind): String = when (kind) {
         IKind.IBoolean   -> "_Bool"
         IKind.IChar      -> "char"
@@ -22,17 +23,21 @@ object Pretty {
         IKind.ILongLong  -> "long long"
         IKind.IULongLong -> "unsigned long long"
     }
+
+    @JvmStatic
     fun floatKind(kind: FKind): String = when (kind) {
         FKind.FFloat      -> "float"
         FKind.FDouble     -> "double"
         FKind.FLongDouble -> "long double"
     }
 
+    @JvmStatic
     fun declaration(ident: Ident, type: FieldType): String {
         val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
 
+    @JvmStatic
     private fun typeAttrs(attrs: Attrs) =
         attrs.joinToString(separator=" ") { when (it) {
             is Attr.AlignAs   -> "__attribute__ ((aligned(${it.alignment})))"
@@ -79,21 +84,33 @@ object Pretty {
         is FieldType.AnonComposite -> with (type) { composite(structOrUnion, "", fields) }
     }
 
-    fun prototype(thefun: UnitDeclaration.Fun<*>): String {
-        assert(thefun.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
+    @JvmStatic
+    fun signatureOf(function: UnitDeclaration.Fun<*>): String {
+        assert(function.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
 
-        val vararg = if (thefun.vararg) ", ..." else ""
-        return declaration("${thefun.ident}(${formals(thefun.params)}$vararg)", thefun.returnType)
+        return with(function) {
+            signature(ident, params, vararg, returnType)
+        }
     }
 
+    @JvmStatic
+    fun signature(ident: Ident, params: Params, vararg: Boolean, returns: Type): String {
+        assert(returns !is Type.Array) { "Invariant violation while pretty-printing type" }
+        val ppvararg = if (vararg) ", ..." else ""
+        return declaration("${ident}(${formals(params)}$ppvararg)", returns)
+    }
+
+    @JvmStatic
     fun typedef(typedef: UnitDeclaration.Typedef): String =
         "typedef ${declaration(typedef.ident, typedef.underlyingType)}"
 
+    @JvmStatic
     fun composite(structOrUnion: StructOrUnion, id: Ident, fields: Option<FieldDecls>) = when (structOrUnion) {
         StructOrUnion.Struct -> "struct ${maybeName(id)}${maybeFields(fields)}"
         StructOrUnion.Union  -> "union ${maybeName(id)}${maybeFields(fields)}"
     }
 
+    @JvmStatic
     fun storage(storage: Storage): String = when (storage) {
         Storage.Default  -> ""
         Storage.Extern   -> "extern"
@@ -102,9 +119,10 @@ object Pretty {
         Storage.Register -> "register"
     }
 
+    @JvmStatic
     fun lhs(toplevel: UnitDeclaration<*, *>): String = when (toplevel) {
         is UnitDeclaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
-        is UnitDeclaration.Fun       -> with(toplevel) { "${storage(storage)} ${prototype(toplevel)}" }
+        is UnitDeclaration.Fun       -> with(toplevel) { "${storage(storage)} ${signatureOf(toplevel)}" }
         is UnitDeclaration.Typedef   -> typedef(toplevel)
         is UnitDeclaration.Composite -> with(toplevel) {
             composite(structOrUnion, ident, fields)
@@ -133,11 +151,14 @@ object Pretty {
             .map { " : $it" }
             .getOrElse {"" }
 
+    @JvmStatic
     fun field(field: Field) =
         "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
 
+    @JvmStatic
     fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
 
+    @JvmStatic
     fun line(loc: Location) = "#line ${loc.row} ${loc.sourceFile}"
 }
 
