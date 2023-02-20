@@ -85,7 +85,7 @@ object Pretty {
     }
 
     @JvmStatic
-    fun signatureOf(function: UnitDeclaration.Fun<*>): String {
+    fun signature(function: UnitDeclaration.Fun<*>): String {
         assert(function.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
 
         return with(function) {
@@ -93,6 +93,9 @@ object Pretty {
         }
     }
 
+    /**
+     * Print the signature of a function, without trailing semi-colon.
+     */
     @JvmStatic
     fun signature(ident: Ident, params: Params, vararg: Boolean, returns: Type): String {
         assert(returns !is Type.Array) { "Invariant violation while pretty-printing type" }
@@ -120,16 +123,21 @@ object Pretty {
     }
 
     @JvmStatic
-    fun lhs(toplevel: UnitDeclaration<*, *>): String = when (toplevel) {
-        is UnitDeclaration.Var       -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
-        is UnitDeclaration.Fun       -> with(toplevel) { "${storage(storage)} ${signatureOf(toplevel)}" }
-        is UnitDeclaration.Typedef   -> typedef(toplevel)
-        is UnitDeclaration.Composite -> with(toplevel) {
+    fun typedecl(typeDecl: UnitDeclaration.TypeDeclaration) = when (typeDecl) {
+        is UnitDeclaration.Typedef   -> typedef(typeDecl)
+        is UnitDeclaration.Composite -> with(typeDecl) {
             composite(structOrUnion, ident, fields)
         }
-        is UnitDeclaration.Enum      -> with(toplevel) {
+        is UnitDeclaration.Enum      -> with(typeDecl) {
             "enum ${maybeName(ident)}${maybeEnumerators(enumerators)}"
         }
+    }
+
+    @JvmStatic
+    fun lhs(toplevel: UnitDeclaration<*, *>): String = when (toplevel) {
+        is UnitDeclaration.Var             -> with(toplevel) { "${storage(storage)} ${declaration(ident, type)}" }
+        is UnitDeclaration.Fun             -> with(toplevel) { "${storage(storage)} ${signature(toplevel)}" }
+        is UnitDeclaration.TypeDeclaration -> typedecl(toplevel)
     }
 
     private fun maybeEnumerators(enums: Option<Enumerators>) = when (enums) {
@@ -160,6 +168,22 @@ object Pretty {
 
     @JvmStatic
     fun line(loc: Location) = "#line ${loc.row} ${loc.sourceFile}"
+
+    @JvmStatic
+    fun stmt(stmt: Stmt) = "TODO;"
+
+    @JvmStatic
+    fun exp(exp: Exp) = "0x00"
+
+    @JvmStatic
+    fun unitDeclaration(decl: UnitDeclaration<Exp, Stmt>): String =
+        lhs(decl) + when (decl) {
+            is UnitDeclaration.TypeDeclaration -> ";"
+            is UnitDeclaration.Var -> decl.rhs .map { "= ${exp (it)};" }.getOrElse { ";" }
+            is UnitDeclaration.Fun -> decl.body.map { "{\n ${stmt(it)}\n}" }.getOrElse { ";" }
+        }
+
+
 }
 
 /**
