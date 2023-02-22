@@ -11,9 +11,9 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.test.*
 
-private val uint32 = Type.typedef("__uint32_t")
-private val uint64 = Type.typedef("__uint64_t")
-private val wchar_t = Type.typedef("wchar_t")
+private val uint32 = DeclType.typedef("__uint32_t")
+private val uint64 = DeclType.typedef("__uint64_t")
+private val wchar_t = DeclType.typedef("wchar_t")
 
 /**
  * In this test, we parse and pretty-print some standard headers.
@@ -58,55 +58,55 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         fun functions(): Stream<Arguments> = Stream.of(
                 Arguments.of(
                         "assert", "__assert_fail",
-                        Type.function(
-                                Type.Void(),
-                                Param("__assertion", Type.Ptr(Type.char.const())),
-                                Param("__file", Type.Ptr(Type.char.const())),
-                                Param("__line", Type.uint),
-                                Param("__function", Type.Ptr(Type.char.const())),
+                        DeclType.function(
+                                DeclType.Void(),
+                                Param("__assertion", DeclType.Ptr(DeclType.char.const())),
+                                Param("__file", DeclType.Ptr(DeclType.char.const())),
+                                Param("__line", DeclType.uint),
+                                Param("__function", DeclType.Ptr(DeclType.char.const())),
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "stdio", "printf",
-                        Type.function(
-                                Type.int,
-                                Param("__format", Type.Ptr(Type.char.const()).restrict()),
+                        DeclType.function(
+                                DeclType.int,
+                                Param("__format", DeclType.Ptr(DeclType.char.const()).restrict()),
                                 variadic = true
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "setjmp", "setjmp",
-                        Type.function(
-                                Type.int,
-                                Param("__env", Type.typedef("jmp_buf"))
+                        DeclType.function(
+                                DeclType.int,
+                                Param("__env", DeclType.typedef("jmp_buf"))
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "netdb", "gethostbyname",
-                        Type.function(
-                                Type.struct("hostent").ptr(),
+                        DeclType.function(
+                                DeclType.struct("hostent").ptr(),
                                 Param(
                                         "__name",
-                                        Type.char.const().ptr()
+                                        DeclType.char.const().ptr()
                                 )
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "printf", "register_printf_modifier",
-                        Type.function(
-                                Type.int,
+                        DeclType.function(
+                                DeclType.int,
                                 Param("__str", wchar_t.const().ptr())
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "printf", "register_printf_modifier",
-                        Type.function(
-                                Type.int,
+                        DeclType.function(
+                                DeclType.int,
                                 Param("__str", wchar_t.const().ptr())
                         ),
                     Storage.Extern
@@ -124,7 +124,7 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
                                 Field("extended_size", uint32),
                                 Field("xstate_bv", uint64),
                                 Field("xstate_size", uint32),
-                                Field("__glibc_reserved1", Type.array(uint32, 7L.some()))
+                                Field("__glibc_reserved1", DeclType.array(uint32, 7L.some()))
                         ),
                 )
         )
@@ -149,7 +149,7 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
     @ParameterizedTest(name = "{0}.h:{1} function type")
     @MethodSource("functions")
-    fun testStdFunction(header: String, ident: String, type: Type, storage: Storage) {
+    fun testStdFunction(header: String, ident: String, type: DeclType, storage: Storage) {
         val input = "#include <$header.h>"
         bumped(input, stdopts) { ast: TranslationUnit<E, S>, _: U ->
             val element = assertNotNull(ast.functions.find { it.ident == ident })

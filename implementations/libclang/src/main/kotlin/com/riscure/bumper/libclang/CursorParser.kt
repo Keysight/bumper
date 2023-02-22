@@ -243,7 +243,7 @@ open class CursorParser(
             if (clang_isCursorDefinition(this).toBool()) {
                 getSymbol().flatMap { symbol ->
                     children()
-                        .map { it.asEnumerator(symbol) }
+                        .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
                         .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators.some()) }
                 }
@@ -252,7 +252,7 @@ open class CursorParser(
             }
         }
 
-    fun CXCursor.asEnumerator(enum: Symbol): Result<Enumerator> =
+    fun CXCursor.asEnumerator(enum: TLID): Result<Enumerator> =
         ifKind(CXCursor_EnumConstantDecl, "enumerator") {
             val name  = spelling()
             val const = clang_getEnumConstantDeclValue(this)
@@ -356,7 +356,7 @@ open class CursorParser(
                 }
         }
 
-    fun CXCursor.getReturnType(): Result<Type> {
+    fun CXCursor.getReturnType(): Result<Type.Named> {
         val typ = clang_getCursorResultType(this)
         return typ.asType()
     }
@@ -460,7 +460,7 @@ open class CursorParser(
      * not to be elaborated. That would change the visibility of the
      * nested members.
      */
-    fun CXType.asFieldType(): Result<FieldType> =
+    fun CXType.asFieldType(): Result<Type> =
         when (kind()) {
             // anonymous union/struct field are treated differently
             CXType_Record -> {
@@ -470,8 +470,8 @@ open class CursorParser(
                         // sanity check
                         assert(d.ident == "")
                         when (d) {
-                            is UnitDeclaration.Struct -> FieldType.AnonCompound(StructOrUnion.Struct, d.fields).right()
-                            is UnitDeclaration.Union  -> FieldType.AnonCompound(StructOrUnion.Union , d.fields).right()
+                            is UnitDeclaration.Struct -> Type.Anonymous(StructOrUnion.Struct, d.fields).right()
+                            is UnitDeclaration.Union  -> Type.Anonymous(StructOrUnion.Union , d.fields).right()
                             else -> "Invariant violation: failed to parse anonymous field.".left()
                         }
                     }
@@ -479,7 +479,7 @@ open class CursorParser(
             else -> asType()
         }
 
-    fun CXType.asType(): Result<Type> =
+    fun CXType.asType(): Result<Type.Named> =
         when (kind()) {
             CXType_Void            -> Type.Void().right()
             CXType_Bool            -> Type.Int(IKind.IBoolean).right()

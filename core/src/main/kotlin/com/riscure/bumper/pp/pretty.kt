@@ -2,6 +2,8 @@ package com.riscure.bumper.pp
 
 import arrow.core.*
 import com.riscure.bumper.ast.*
+import com.riscure.bumper.ast.BinaryOp.*
+import com.riscure.bumper.ast.UnaryOp.*
 import com.riscure.bumper.index.TUID
 
 /**
@@ -32,7 +34,7 @@ object Pretty {
     }
 
     @JvmStatic
-    fun declaration(ident: Ident, type: FieldType): String {
+    fun declaration(ident: Ident, type: Type): String {
         val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
@@ -52,7 +54,7 @@ object Pretty {
 
     private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
 
-    private fun namePart(type: FieldType, name: String): Pair<FieldType, String> = when (type) {
+    private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
         is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrs)}${name}")
         is Type.Fun   -> {
             // this is strange, but true, I think
@@ -62,7 +64,7 @@ object Pretty {
         else          -> Pair(type, name)
     }
 
-    private fun typePrefix(type: FieldType): String = when (type) {
+    private fun typePrefix(type: Type): String = when (type) {
         // This part should have been printed by the name-part printer
         is Type.Array             -> throw RuntimeException("Failed to pretty-print ill-formed type.")
         is Type.Fun               -> throw RuntimeException("Failed to pretty-print ill-formed type.")
@@ -81,7 +83,7 @@ object Pretty {
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
         is Type.VaList            -> "__builtin_va_list"
 
-        is FieldType.AnonCompound -> with (type) { composite(structOrUnion, "", fields) }
+        is Type.Anonymous -> with (type) { composite(structOrUnion, "", fields) }
     }
 
     @JvmStatic
@@ -176,42 +178,127 @@ object Pretty {
     @JvmStatic
     fun line(loc: Location) = "#line ${loc.row} ${loc.sourceFile}"
 
+    private fun maybeInit(i: Option<Initializer>): String =
+        i.map { " = ${initializer(it)}" }.getOrElse { "" }
+
     @JvmStatic
-    fun stmt(stmt: Stmt) = when (stmt) {
-        is Stmt.Block -> TODO()
+    fun initializer(i: Initializer): String = when (i) {
+        is Initializer.InitArray  -> TODO()
+        is Initializer.InitStruct -> TODO()
+        is Initializer.InitUnion  -> TODO()
+        is Initializer.InitSingle -> exp(i.exp)
+    }
+
+    @JvmStatic
+    fun stmt(s: Stmt): String = when (s) {
+        is Stmt.Block -> "{\n${stmt(Stmt.seq(s.stmts))}}\n}"
         is Stmt.Break -> "break;"
         is Stmt.Conditional -> TODO()
         is Stmt.Continue -> "continue;"
-        is Stmt.Decl -> TODO()
-        is Stmt.Do -> TODO()
+        is Stmt.Decl -> with(s) {
+            "${storage(storage)} ${declaration(ident, type)}${maybeInit(init)};"
+        }
+        is Stmt.Do -> "${exp(s.todo)};"
         is Stmt.DoWhile -> TODO()
         is Stmt.For -> TODO()
         is Stmt.Goto -> TODO()
         is Stmt.Labeled -> TODO()
-        is Stmt.Return -> when (val exp = stmt.value) {
+        is Stmt.Return -> when (val exp = s.value) {
             is Some -> "return ${exp(exp.value)};"
             is None -> "return;"
         }
-        is Stmt.Seq -> TODO()
+        is Stmt.Seq -> "${stmt(s.first)}\n${stmt(s.second)}"
         is Stmt.Switch -> TODO()
         is Stmt.While -> TODO()
         Stmt.Skip -> ""
     }
 
     @JvmStatic
-    fun exp(exp: Exp): String = when (exp) {
-        is Exp.Alignof -> TODO()
-        is Exp.Call -> {
-            // TODO need parens?
-            val args = exp.args.joinToString(separator = ", ") { exp(it) };
-            "(${exp(exp.funRef)})($args)"
+    fun exp(e: Exp, atPrec: Int = 0): String {
+        // The precedence computation is complete magic.
+        // We did not invent this ourselves, but just reused CompCert's logic.
+        // see https://github.com/AbsInt/CompCert/blob/994c6c34182606385140e5695e33c90507ce59ee/cparser/Cprint.ml
+        // TODO We need to open source this component to satisfy CompCerts LGPL!
+        val prec = e.prec.prec
+        val (prec1, prec2) =
+            if (e.prec.assoc == Assoc.LR)
+                Pair(e.prec.prec, e.prec.prec + 1)
+            else
+                Pair(e.prec.prec + 1, e.prec.prec)
+
+        val ePrint = when (e) {
+            is Exp.Alignof -> TODO()
+            is Exp.Call -> {
+                val args = e.args.joinToString(separator = ", ") { exp(it, 2) };
+
+                when (e.funRef) {
+                    is Exp.Var -> "${exp(e.funRef, prec)}($args)"
+                    else       -> "(${exp(e.funRef, prec)})($args)"
+                }
+            }
+            is Exp.Cast -> TODO()
+            is Exp.Compound -> TODO()
+            is Exp.Conditional -> TODO()
+            is Exp.Const -> TODO()
+            is Exp.Sizeof -> TODO()
+            is Exp.Var -> e.name
+            is Exp.BinOp -> {
+                val l = exp(e.left, prec1)
+                val r = exp(e.right, prec2)
+                when (e.op) {
+                    OAdd -> "$l + $r"
+                    OSub -> "$l - $r"
+                    OMul -> "$l * $r"
+                    ODiv -> "$l / $r"
+                    OMod -> "$l % $r"
+                    OAnd -> "$l & $r"
+                    OLogAnd -> "$l && $r"
+                    OOr -> "$l | $r"
+                    OLogOr -> "$l || $r"
+                    OXor -> "$l ^ $r"
+                    OShl -> "$l << $r"
+                    OShr -> "$l >> $r"
+                    OEq -> "$l == $r"
+                    ONe -> "$l != $r"
+                    OLt -> "$l < $r"
+                    OGt -> "$l > $r"
+                    OLe -> "$l <= $r"
+                    OGe -> "$l >= $r"
+                    OIndex -> "$l[$r]"
+                    OAssign -> "$l = $r"
+                    OAddAssign -> "$l += $r"
+                    OSubAssign -> "$l -= $r"
+                    OMulAssign -> "$l *= $r"
+                    ODivAssign -> "$l /= $r"
+                    OModAssign -> "$l %= $r"
+                    OAndAssign -> "$l &= $r"
+                    OOrAssign -> "$l |= $r"
+                    OXorAssign -> "$l ^= $r"
+                    OShlAssign -> "$l <<= $r"
+                    OShrAssign -> "$l >>= $r"
+                    OComma -> "$l, $r"
+                }
+            }
+            is Exp.UnOp  -> {
+                val l = exp(e.exp, prec)
+                when (e.op) {
+                    is OArrow -> "$l->${e.op.member}"
+                    is ODot -> "$l.${e.op.member}"
+                    OAddrOf -> "&$l"
+                    ODeref -> "*$l"
+                    OLogNot -> "!$l"
+                    OMinus -> "-$l"
+                    ONot -> "~$l"
+                    OPlus -> "+$l"
+                    OPostDecr -> "$l--"
+                    OPostIncr -> "$l++"
+                    OPreDecr -> "--$l"
+                    OPreIncr -> "++$l"
+                }
+            }
         }
-        is Exp.Cast -> TODO()
-        is Exp.Compound -> TODO()
-        is Exp.Conditional -> TODO()
-        is Exp.Const -> TODO()
-        is Exp.Sizeof -> TODO()
-        is Exp.Var -> exp.name
+
+        return if (e.prec.prec < atPrec) "($ePrint)" else ePrint
     }
 
     @JvmStatic

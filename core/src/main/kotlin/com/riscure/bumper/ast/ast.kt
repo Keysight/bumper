@@ -143,123 +143,131 @@ sealed interface Storage {
 
 typealias Attrs = List<Attr>
 
-/**
- * A superset of types that can act as types of a field.
- */
-sealed interface FieldType {
-    abstract val attrs: Attrs
-    abstract fun withAttrs(attrs: Attrs): FieldType
-
-    data class AnonCompound(
-        val structOrUnion: StructOrUnion,
-        val fields: Option<FieldDecls> = None,
-        override val attrs: Attrs = listOf()
-    ) : FieldType {
-        override fun withAttrs(attrs: Attrs): AnonCompound = copy(attrs = attrs)
-    }
-}
 
 enum class StructOrUnion { Struct, Union }
 
-/* Types */
-@Serializable
-sealed class Type: FieldType {
-    abstract override fun withAttrs(attrs: Attrs): Type // refine the return type.
-    @JvmName("isConst")
-    fun const() = withAttrs(attrs + Attr.Constant)
-    @JvmName("isRestricted")
-    fun restrict() = withAttrs(attrs + Attr.Restrict)
-    fun ptr() = Ptr(this)
+sealed interface Type {
+    abstract val attrs: Attrs
+    abstract fun withAttrs(attrs: Attrs): Type
+
+    /**
+     * Fields can have anonymous compound types *that cannot be elaborated*.
+     * Those are represented by [Anonymous].
+     */
+    data class Anonymous(
+        val structOrUnion: StructOrUnion,
+        val fields: Option<FieldDecls> = None,
+        override val attrs: Attrs = listOf()
+    ) : Type {
+        override fun withAttrs(attrs: Attrs): Anonymous = copy(attrs = attrs)
+    }
+
+    /**
+     * In our elaborated AST, most types are [Named], either because they are primitive,
+     * or declared with a (elaboration generated) name.
+     */
+    @Serializable
+    sealed class Named : Type {
+        abstract override fun withAttrs(attrs: Attrs): Named // refine the return type.
+
+        @JvmName("isConst")
+        fun const() = withAttrs(attrs + Attr.Constant)
+
+        @JvmName("isRestricted")
+        fun restrict() = withAttrs(attrs + Attr.Restrict)
+        fun ptr() = Ptr(this)
+    }
 
     sealed interface Defined {
         val ref: TypeRef
     }
 
     @Serializable
-    data class Void (
+    data class Void(
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     @Serializable
-    data class Int (
+    data class Int(
         val kind: IKind,
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     @Serializable
-    data class Float (
+    data class Float(
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     @Serializable
-    data class Ptr (
-        val pointeeType: Type,
+    data class Ptr(
+        val pointeeType: Named,
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     @Serializable
     data class Array(
-        val elementType: Type,
+        val elementType: Named,
         val size: Option<Long> = None,
         override val attrs: Attrs = listOf()
-    ) : Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     @Serializable
     data class Fun(
-        val returnType: Type,
+        val returnType: Named,
         val params: List<Param>,
-        val vararg: Boolean       = false,
+        val vararg: Boolean = false,
         override val attrs: Attrs = listOf()
-    ) : Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /**
      * Reference to a top-level typedef.
      */
     @Serializable
-    data class Typedeffed (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    data class Typedeffed(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Named(), Defined {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /**
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Named(), Defined {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /**
      * Reference to a top-level union
      */
     @Serializable
-    data class Union (
+    data class Union(
         override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type(), Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named(), Defined {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
+
     /**
      * Reference to a top-level enum
      */
     @Serializable
-    data class Enum (
+    data class Enum(
         override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type(), Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named(), Defined {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /* _Complex */
@@ -267,25 +275,25 @@ sealed class Type: FieldType {
     data class Complex(
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /* _Atomic */
     @Serializable
     data class Atomic(
-        val elementType: Type,
+        val elementType: Named,
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     /* The builtin type __builtin_va_list */
     @Serializable
     data class VaList(
         override val attrs: Attrs = listOf()
-    ): Type() {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    ) : Named() {
+        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
     companion object {
@@ -293,19 +301,30 @@ sealed class Type: FieldType {
 
         @JvmStatic val void = Void()
         @JvmStatic val char = Int(IKind.IChar)
+        @JvmStatic val schar = Int(IKind.ISChar)
+        @JvmStatic val uchar = Int(IKind.IUChar)
+        @JvmStatic val short = Int(IKind.IShort)
+        @JvmStatic val ushort = Int(IKind.IUShort)
         @JvmStatic val uint = Int(IKind.IUInt)
         @JvmStatic val int = Int(IKind.IInt)
+        @JvmStatic val long = Int(IKind.ILong)
+        @JvmStatic val longlong = Int(IKind.ILongLong)
         @JvmStatic val ulong = Int(IKind.IULong)
         @JvmStatic val ulonglong = Int(IKind.IULongLong)
         @JvmStatic val double = Float(FKind.FDouble)
         @JvmStatic val longdouble = Float(FKind.FLongDouble)
         @JvmStatic val float = Float(FKind.FFloat)
-        @JvmStatic fun array(el: Type, size: Option<Long>) = Array(el, size)
-        @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
-            Fun(returns, params.toList(), variadic)
-        @JvmStatic fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
-        @JvmStatic fun struct(ident: String) = Struct(TLID.struct(ident))
-        @JvmStatic fun union(ident: String) = Union(TLID.union(ident))
+
+        @JvmStatic
+        fun array(el: Named, size: Option<Long>) = Array(el, size)
+        @JvmStatic
+        fun function(returns: Named, vararg params: Param) = Fun(returns, params.toList(), false)
+        @JvmStatic
+        fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
+        @JvmStatic
+        fun struct(ident: String) = Struct(TLID.struct(ident))
+        @JvmStatic
+        fun union(ident: String) = Union(TLID.union(ident))
 
     }
 }
@@ -314,7 +333,7 @@ sealed class Type: FieldType {
 @Serializable
 data class Field(
     val name: Ident,
-    val type: FieldType,
+    val type: Type,
     val bitfield: Option<Int> = none()
 ) {
     val isAnonymous: Boolean get() = name.isEmpty()
@@ -323,8 +342,10 @@ data class Field(
 typealias FieldDecls  = List<Field>
 
 @Serializable
-data class Param(val name: Ident, val type: Type) {
+data class Param(val name: Ident, val type: Type.Named) {
     val isAnonymous: Boolean get() = name.isEmpty()
+
+    val ref get() = Exp.Var(name, type)
 }
 typealias Params = List<Param>
 
@@ -370,7 +391,7 @@ sealed interface GlobalDeclaration {
  * The type of an enum's value name
  */
 @Serializable
-data class Enumerator(override val ident: Ident, val key: Long, val enum: Symbol) : GlobalDeclaration {
+data class Enumerator(override val ident: Ident, val key: Long, val enum: TypeRef) : GlobalDeclaration {
     override fun withIdent(id: Ident): Enumerator = copy(ident=id)
 }
 
@@ -416,7 +437,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
 
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
-        val type: Type get() = when (this) {
+        val type: Type.Named get() = when (this) {
             is Struct  -> Type.Struct(this.tlid)
             is Union   -> Type.Union(this.tlid)
             is Enum    -> Type.Enum(this.tlid)
@@ -434,7 +455,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     @Serializable
     data class Var<out Exp>(
         override val ident: Ident,
-        val type: Type,
+        val type: Type.Named,
         val rhs: Option<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
@@ -454,7 +475,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     data class Fun<out Stmt>(
         override val ident: Ident,
         val inline: Boolean,
-        val returnType: Type,
+        val returnType: Type.Named,
         val params: Params,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
@@ -465,7 +486,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
 
-        val type get(): Type = Type.Fun(returnType, params, vararg)
+        val type get(): Type.Named = Type.Fun(returnType, params, vararg)
 
         override val isDefinition: Boolean get() = body.isDefined()
 
@@ -506,7 +527,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     @Serializable
     data class Typedef(
         override val ident: Ident,
-        val underlyingType: Type,
+        val underlyingType: Type.Named,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {

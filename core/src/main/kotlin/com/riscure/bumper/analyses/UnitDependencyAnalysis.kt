@@ -63,23 +63,23 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
             .sequence()
             .map { it.flatten().toSet() }
 
-    fun ofType(type: FieldType): Result<TLID> = when (type) {
-        is Type.Fun                ->
+    fun ofType(type: Type): Result<TLID> = when (type) {
+        is Type.Fun       ->
             ofType(type.returnType)
                 .union(ofParams(type.params))
-        is Type.Array              -> ofType(type.elementType)
-        is Type.Ptr                -> ofType(type.pointeeType)
-        is Type.Typedeffed         -> setOf(type.ref).right()
-        is Type.Struct             -> setOf(type.ref).right()
-        is Type.Union              -> setOf(type.ref).right()
-        is Type.Enum               -> setOf(type.ref).right()
-        is Type.Int                -> nil()
-        is Type.Float              -> nil()
-        is Type.Void               -> nil()
-        is Type.Atomic             -> ofType(type.elementType)
-        is Type.Complex            -> nil()
-        is Type.VaList             -> nil()
-        is FieldType.AnonCompound -> ofFields(type.fields.getOrElse { listOf() })
+        is Type.Array     -> ofType(type.elementType)
+        is Type.Ptr       -> ofType(type.pointeeType)
+        is Type.Typedeffed-> setOf(type.ref).right()
+        is Type.Struct    -> setOf(type.ref).right()
+        is Type.Union     -> setOf(type.ref).right()
+        is Type.Enum      -> setOf(type.ref).right()
+        is Type.Int       -> nil()
+        is Type.Float     -> nil()
+        is Type.Void      -> nil()
+        is Type.Atomic    -> ofType(type.elementType)
+        is Type.Complex   -> nil()
+        is Type.VaList    -> nil()
+        is Type.Anonymous -> ofFields(type.fields.getOrElse { listOf() })
     }
 
     private fun ofParams(params: List<Param>): Result<TLID> =

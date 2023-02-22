@@ -42,7 +42,7 @@ class ClangDependencyAnalysis(
                     ast.resolve(def.spelling())
                         .filterIsInstance<Enumerator>()
                         // the mention of the enumerator induces a dependency on the surrounding enum
-                        .map { setOf(it.enum.tlid) }
+                        .map { setOf(it.enum) }
                         // if resolve did not return an Enumerator,
                         // it may have been a local declaration, and no global dependencies are induced.
                         .getOrElse { setOf() }

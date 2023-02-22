@@ -241,54 +241,54 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         eq(f1.type, f2.type)
     }
 
-    fun eq(t1: FieldType, t2: FieldType) {
+    fun eq(t1: Type, t2: Type) {
         assertEquals(t1.attrs, t2.attrs)
 
         when (t1) {
-            is Type.Int               -> assertEquals(t1, t2)
-            is Type.Float             -> assertEquals(t1, t2)
-            is Type.Void              -> assertEquals(t1, t2)
-            is Type.Complex           -> assertEquals(t1, t2)
-            is Type.VaList            -> assertIs<Type.VaList>(t2)
+            is DeclType.Int               -> assertEquals(t1, t2)
+            is DeclType.Float             -> assertEquals(t1, t2)
+            is DeclType.Void              -> assertEquals(t1, t2)
+            is DeclType.Complex           -> assertEquals(t1, t2)
+            is DeclType.VaList            -> assertIs<DeclType.VaList>(t2)
 
-            is Type.Array             -> {
-                val a2 = assertIs<Type.Array>(t2)
+            is DeclType.Array             -> {
+                val a2 = assertIs<DeclType.Array>(t2)
                 assertEquals(t1.size, a2.size)
                 eq(t1.elementType, a2.elementType)
             }
-            is Type.Atomic            -> {
-                val a2 = assertIs<Type.Atomic>(t2)
+            is DeclType.Atomic            -> {
+                val a2 = assertIs<DeclType.Atomic>(t2)
                 eq(t1.elementType, a2.elementType)
             }
-            is Type.Fun               -> {
-                val f2 = assertIs<Type.Fun>(t2)
+            is DeclType.Fun               -> {
+                val f2 = assertIs<DeclType.Fun>(t2)
                 eq(t1.returnType, f2.returnType)
                 assertEquals(t1.params.size, f2.params.size)
                 t1.params.zip(f2.params) { l, r -> eq(l, r) }
                 assertEquals(t1.vararg, t2.vararg)
             }
-            is Type.Ptr               -> {
-                val p2 = assertIs<Type.Ptr>(t2)
+            is DeclType.Ptr               -> {
+                val p2 = assertIs<DeclType.Ptr>(t2)
                 eq(t1.pointeeType, p2.pointeeType)
             }
-            is Type.Typedeffed        -> {
-                val d2 = assertIs<Type.Typedeffed>(t2)
+            is DeclType.Typedeffed        -> {
+                val d2 = assertIs<DeclType.Typedeffed>(t2)
                 assertEquals(t1.ref, d2.ref)
             }
-            is Type.Enum              -> {
-                val d2 = assertIs<Type.Enum>(t2)
+            is DeclType.Enum              -> {
+                val d2 = assertIs<DeclType.Enum>(t2)
                 assertEquals(t1.ref, d2.ref)
             }
-            is Type.Struct -> {
-                val d2 = assertIs<Type.Struct>(t2)
+            is DeclType.Struct -> {
+                val d2 = assertIs<DeclType.Struct>(t2)
                 assertEquals(t1.ref, d2.ref)
             }
-            is Type.Union             -> {
-                val u2 = assertIs<Type.Union>(t2)
+            is DeclType.Union             -> {
+                val u2 = assertIs<DeclType.Union>(t2)
                 assertEquals(t1.ref, u2.ref)
             }
-            is FieldType.AnonCompound -> {
-                val c2 = assertIs<FieldType.AnonCompound>(t2)
+            is Type.Anonymous -> {
+                val c2 = assertIs<Type.Anonymous>(t2)
                 assertEquals(t1.structOrUnion, c2.structOrUnion)
                 eq(t1.fields, c2.fields)
             }

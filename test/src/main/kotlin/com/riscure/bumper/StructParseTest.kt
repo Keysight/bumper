@@ -70,7 +70,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, ast.declarations.size)
         val struct = ast.structs[0]
 
-        assertEquals(listOf(Field("i", Type.int)).some(), struct.fields)
+        assertEquals(listOf(Field("i", DeclType.int)).some(), struct.fields)
     }
 
     @Test
@@ -82,8 +82,8 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         val struct = ast.structs[0]
 
         assertEquals(listOf(
-            Field("i", Type.int),
-            Field("j", Type.double),
+            Field("i", DeclType.int),
+            Field("j", DeclType.double),
         ).some(), struct.fields)
     }
 
@@ -162,15 +162,15 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field = assertNotNull(fields[0])
-        val union = assertIs<FieldType.AnonCompound>(field.type)
+        val union = assertIs<Type.Anonymous>(field.type)
 
         assertEquals(StructOrUnion.Union, union.structOrUnion)
         val fs = union.fields.getOrElse { fail("Expected fields") }
         assertEquals(2, fs.size)
         val alpha = assertNotNull(fs[0])
         val num   = assertNotNull(fs[1])
-        assertEquals(Type.char, alpha.type)
-        assertEquals(Type.int, num.type)
+        assertEquals(DeclType.char, alpha.type)
+        assertEquals(DeclType.int, num.type)
     }
 
     @Test
@@ -185,13 +185,13 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals(1, fields.size)
 
         val field  = assertNotNull(fields[0])
-        val struct = assertIs<FieldType.AnonCompound>(field.type)
+        val struct = assertIs<Type.Anonymous>(field.type)
         assertEquals(StructOrUnion.Struct, struct.structOrUnion)
 
         val fs = struct.fields.getOrElse { fail("Expected fields") }
         assertEquals(1, fs.size)
         val i = assertNotNull(fs[0])
-        assertEquals(Type.int, i.type)
+        assertEquals(DeclType.int, i.type)
         assertEquals("i", i.name)
     }
 
@@ -328,18 +328,18 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals("data", fields[0].name)
         assertEquals("more", fields[1].name)
 
-        val unionU = assertIs<Type.Union>(fields[0].type)
+        val unionU = assertIs<DeclType.Union>(fields[0].type)
         val unionUComposite = ast.declarations.unions.find { it.tlid == unionU.ref }
         assertNotNull(unionUComposite)
         assertEquals("x", unionUComposite.fields.assertOK()[0].name)
         assertEquals("y", unionUComposite.fields.assertOK()[1].name)
         assertEquals("z", unionUComposite.fields.assertOK()[2].name)
 
-        eq(Type.struct("X").ptr(), unionUComposite.fields.assertOK()[0].type)
-        eq(Type.ulonglong, unionUComposite.fields.assertOK()[1].type)
-        eq(Type.double, unionUComposite.fields.assertOK()[2].type)
+        eq(DeclType.struct("X").ptr(), unionUComposite.fields.assertOK()[0].type)
+        eq(DeclType.ulonglong, unionUComposite.fields.assertOK()[1].type)
+        eq(DeclType.double, unionUComposite.fields.assertOK()[2].type)
 
-        val unionV = assertIs<Type.Union>(fields[1].type)
+        val unionV = assertIs<DeclType.Union>(fields[1].type)
         val unionVComposite = ast.declarations.unions.find { it.tlid == unionV.ref }
         assertNotNull(unionVComposite)
         assertEquals("vec", unionVComposite.fields.assertOK()[0].name)
@@ -347,13 +347,13 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertEquals("d", unionVComposite.fields.assertOK()[2].name)
 
         val anonymousStruct = assertNotNull(ast.declarations.structs.find {
-            it.tlid == assertIs<Type.Struct>(unionVComposite.fields.assertOK()[0].type).ref
+            it.tlid == assertIs<DeclType.Struct>(unionVComposite.fields.assertOK()[0].type).ref
         })
 
         assertEquals("x", anonymousStruct.fields.assertOK()[0].name)
         assertEquals("y", anonymousStruct.fields.assertOK()[1].name)
-        assertEquals(Type.int, anonymousStruct.fields.assertOK()[0].type)
-        assertEquals(Type.int, anonymousStruct.fields.assertOK()[1].type)
+        assertEquals(DeclType.int, anonymousStruct.fields.assertOK()[0].type)
+        assertEquals(DeclType.int, anonymousStruct.fields.assertOK()[1].type)
     }
 
     @Test
@@ -378,15 +378,15 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
 
         val triangle = assertNotNull(ast.typedefs.find { it.ident == "Triangle" })
         val triangleStruct = assertNotNull(ast.structs.find {
-            it.tlid == assertIs<Type.Struct>(triangle.underlyingType).ref
+            it.tlid == assertIs<DeclType.Struct>(triangle.underlyingType).ref
         })
 
-        val point2DTypedef = assertIs<Type.Typedeffed>(
+        val point2DTypedef = assertIs<DeclType.Typedeffed>(
                 assertNotNull(triangleStruct.fields.assertOK().find { it.name == "a" }).type
         )
         val point2DTypedef2 = assertNotNull(ast.typedefs.find { it.tlid == point2DTypedef.ref })
         val point2DStruct = assertNotNull(ast.structs.find {
-            it.tlid == assertIs<Type.Struct>(point2DTypedef2.underlyingType).ref
+            it.tlid == assertIs<DeclType.Struct>(point2DTypedef2.underlyingType).ref
         })
         assertEquals("x", point2DStruct.fields.assertOK()[0].name)
         assertEquals("y", point2DStruct.fields.assertOK()[1].name)
@@ -395,7 +395,7 @@ interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         assertNotNull(triangleStruct.fields.assertOK().find { it.name == "c" })
 
         val meshTypedef = assertNotNull(ast.typedefs.find { it.ident == "Mesh" })
-        val ptr = assertIs<Type.Ptr>(meshTypedef.underlyingType)
-        assertEquals(triangle.tlid, assertIs<Type.Typedeffed>(ptr.pointeeType).ref)
+        val ptr = assertIs<DeclType.Ptr>(meshTypedef.underlyingType)
+        assertEquals(triangle.tlid, assertIs<DeclType.Typedeffed>(ptr.pointeeType).ref)
     }
 }
