@@ -176,12 +176,26 @@ sealed interface Exp {
     companion object {
         @JvmStatic
         fun dot(exp: Exp, field: Field) = UnOp(UnaryOp.ODot(field.name), exp, field.type)
+
+        @JvmStatic
+        fun arrow(exp: Exp, field: Field) = UnOp(UnaryOp.OArrow(field.name), exp, field.type)
+
+        @JvmStatic
+        fun addrOf(exp: Exp, ptrKind: IKind) = UnOp(UnaryOp.OAddrOf, exp, Type.Int(ptrKind))
+
+        @JvmStatic
+        fun sizeOf(typ: Type, sizeKind: IKind) = Sizeof(typ, Type.Int(sizeKind))
+
         @JvmStatic
         fun assign(lhs: Exp, rhs: Exp) = BinOp(BinaryOp.OAssign, lhs, rhs, lhs.etype, lhs.etype)
+
+        @JvmStatic
+        fun op(op: BinaryOp, lhs: Exp, rhs: Exp) = BinOp(op, lhs, rhs, lhs.etype, lhs.etype)
+
         @JvmStatic
         fun call(function: Exp, vararg args: Exp) = when (val typ = function.etype) {
             is Type.Fun -> Call(function, args.toList(), typ.returnType)
-            else -> throw RuntimeException("Expected expression with function type, got ${typ}")
+            else -> throw RuntimeException("Expected expression with function type, got $typ")
         }
 
     }

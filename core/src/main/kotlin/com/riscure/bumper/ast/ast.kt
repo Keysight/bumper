@@ -316,7 +316,9 @@ sealed interface Type {
         @JvmStatic val float = Float(FKind.FFloat)
 
         @JvmStatic
-        fun array(el: Named, size: Option<Long>) = Array(el, size)
+        fun array(el: Named, size: Long) = Array(el, size.some())
+        @JvmStatic
+        fun array(el: Named) = Array(el, none())
         @JvmStatic
         fun function(returns: Named, vararg params: Param) = Fun(returns, params.toList(), false)
         @JvmStatic
@@ -400,13 +402,13 @@ typealias Enumerators = List<Enumerator>
 /**
  * The type of declarations that can be defined at the top of a translation unit.
  *
- * @param Exp the type that represents expressions
- * @param Stmt the type that represents statements
+ * @param E the type that represents expressions
+ * @param S the type that represents statements
  */
 @Serializable
-sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
+sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
-    override fun withIdent(id: Ident): UnitDeclaration<Exp, Stmt>
+    override fun withIdent(id: Ident): UnitDeclaration<E, S>
 
     /**
      * Whether this declaration is also a definition
@@ -418,13 +420,13 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
      * top-level entity.
      */
     val meta: Meta
-    fun withMeta(meta: Meta): UnitDeclaration<Exp, Stmt>
+    fun withMeta(meta: Meta): UnitDeclaration<E, S>
 
     /**
      * Storage for the top-level entity (e.g., default or static).
      */
     val storage: Storage
-    fun withStorage(storage: Storage): UnitDeclaration<Exp, Stmt>
+    fun withStorage(storage: Storage): UnitDeclaration<E, S>
 
     val tlid: TLID get() = TLID(ident, kind)
     val kind: EntityKind
@@ -433,7 +435,10 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     /* Mixin */
 
     /** Everything that is visible to other translation units (non-types) */
-    sealed interface Valuelike<out Exp, out Stmt> : UnitDeclaration<Exp, Stmt>
+    sealed interface Valuelike<out E, out S> : UnitDeclaration<E, S> {
+        val type: Type
+        fun getRef() = Exp.Var(ident, type)
+    }
 
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
@@ -455,7 +460,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
     @Serializable
     data class Var<out Exp>(
         override val ident: Ident,
-        val type: Type.Named,
+        override val type: Type.Named,
         val rhs: Option<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
@@ -463,6 +468,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
 
         override val isDefinition: Boolean get() = rhs.isDefined()
         override val kind: EntityKind get() = EntityKind.Var
@@ -482,11 +488,17 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): Valuelike<Nothing, Stmt> {
+        constructor(id: Ident, typ: Type.Fun):
+                this(id, false, typ.returnType, typ.params, typ.vararg)
+        constructor(id: Ident, typ: Type.Fun, body: Stmt):
+                this(id, false, typ.returnType, typ.params, typ.vararg, body.some())
+
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
+        fun withDefinition(stmt: @UnsafeVariance Stmt) = this.copy(body = stmt.some())
 
-        val type get(): Type.Named = Type.Fun(returnType, params, vararg)
+        override val type get(): Type.Named = Type.Fun(returnType, params, vararg)
 
         override val isDefinition: Boolean get() = body.isDefined()
 

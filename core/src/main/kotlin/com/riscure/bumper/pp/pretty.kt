@@ -7,7 +7,7 @@ import com.riscure.bumper.ast.UnaryOp.*
 import com.riscure.bumper.index.TUID
 
 /**
- * Total pretty printing functions, mainly for C types.
+ * Total pretty printing functions.
  */
 object Pretty {
     @JvmStatic
@@ -38,6 +38,9 @@ object Pretty {
         val (remainingType, decl) = namePart(type, ident)
         return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
     }
+
+    @JvmStatic
+    fun type(t: Type) = declaration("", t)
 
     @JvmStatic
     private fun typeAttrs(attrs: Attrs) =
@@ -240,7 +243,7 @@ object Pretty {
             is Exp.Compound -> TODO()
             is Exp.Conditional -> TODO()
             is Exp.Const -> TODO()
-            is Exp.Sizeof -> TODO()
+            is Exp.Sizeof -> "sizeof(${type(e.type)})"
             is Exp.Var -> e.name
             is Exp.BinOp -> {
                 val l = exp(e.left, prec1)
