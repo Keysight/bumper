@@ -39,8 +39,8 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
         val a1 = assertNotNull(f.params[0])
         val a2 = assertNotNull(f.params[1])
 
-        val t1 = assertIs<DeclType.Struct>(a1.type)
-        val t2 = assertIs<DeclType.Struct>(a2.type)
+        val t1 = assertIs<Type.Struct>(a1.type)
+        val t2 = assertIs<Type.Struct>(a2.type)
 
         val struct = assertNotNull(ast.structs.find { it.ident == "A" })
         assertEquals(struct.tlid, t1.ref)

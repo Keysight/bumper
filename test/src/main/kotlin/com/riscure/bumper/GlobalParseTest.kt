@@ -16,7 +16,7 @@ interface GlobalParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         static const int xs[1] = { 42, };
     """.trimIndent()) { ast, unit ->
         val xs = ast.variables[0]
-        val arType = assertIs<DeclType.Array>(xs.type)
+        val arType = assertIs<Type.Array>(xs.type)
         assertEquals("{ 42, }", unit.printer.expWriter(xs.rhs.assertOK()).assertOK())
         assertEquals(1L.some(), arType.size)
     }
@@ -27,7 +27,7 @@ interface GlobalParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
         static const int xs[1][2] = { {42, 18}, };
     """.trimIndent(), ClangParser.parseOptions(listOf("-Werror=excess-initializers")).assertOK()) { ast, unit ->
         val xs = ast.variables[0]
-        val arType = assertIs<DeclType.Array>(xs.type)
+        val arType = assertIs<Type.Array>(xs.type)
 
         assertEquals("{ {42, 18}, }", unit.printer.expWriter(xs.rhs.assertOK()).assertOK())
         assertEquals(1L.some(), arType.size)

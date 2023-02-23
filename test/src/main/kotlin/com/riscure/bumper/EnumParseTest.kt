@@ -24,9 +24,9 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
-        assertEquals(Enumerator("X", 0L, enum.mkSymbol(ast.tuid)), enums[0])
-        assertEquals(Enumerator("Y", 1L, enum.mkSymbol(ast.tuid)), enums[1])
-        assertEquals(Enumerator("Z", 2L, enum.mkSymbol(ast.tuid)), enums[2])
+        assertEquals(Enumerator("X", 0L, enum.tlid), enums[0])
+        assertEquals(Enumerator("Y", 1L, enum.tlid), enums[1])
+        assertEquals(Enumerator("Z", 2L, enum.tlid), enums[2])
     }
 
     @Test
@@ -44,9 +44,9 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
-        assertEquals(Enumerator("X", 0L, enum.mkSymbol(ast.tuid)), enums[0])
-        assertEquals(Enumerator("Y", 99L, enum.mkSymbol(ast.tuid)), enums[1])
-        assertEquals(Enumerator("Z", 100L, enum.mkSymbol(ast.tuid)), enums[2])
+        assertEquals(Enumerator("X", 0L, enum.tlid), enums[0])
+        assertEquals(Enumerator("Y", 99L, enum.tlid), enums[1])
+        assertEquals(Enumerator("Z", 100L, enum.tlid), enums[2])
     }
 
 
@@ -65,9 +65,9 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
-        assertEquals(Enumerator("X", 0L, enum.mkSymbol(ast.tuid)), enums[0])
-        assertEquals(Enumerator("Y", 42L, enum.mkSymbol(ast.tuid)), enums[1])
-        assertEquals(Enumerator("Z", 43L, enum.mkSymbol(ast.tuid)), enums[2])
+        assertEquals(Enumerator("X", 0L, enum.tlid), enums[0])
+        assertEquals(Enumerator("Y", 42L, enum.tlid), enums[1])
+        assertEquals(Enumerator("Z", 43L, enum.tlid), enums[2])
     }
 
     @Test
@@ -105,9 +105,9 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
-        assertEquals(Enumerator("X", 1L, enum.mkSymbol(ast.tuid)), enums[0])
-        assertEquals(Enumerator("Y", 42L, enum.mkSymbol(ast.tuid)), enums[1])
-        assertEquals(Enumerator("Z", 16L, enum.mkSymbol(ast.tuid)), enums[2])
+        assertEquals(Enumerator("X", 1L, enum.tlid), enums[0])
+        assertEquals(Enumerator("Y", 42L, enum.tlid), enums[1])
+        assertEquals(Enumerator("Z", 16L, enum.tlid), enums[2])
     }
 
     @Test
@@ -118,7 +118,7 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
         assertEquals(2, ast.declarations.size)
         val enumTypedef = assertIs<UnitDeclaration.Typedef>(ast.typedefs.find { it.ident == "DPI" })
         val enum = assertIs<UnitDeclaration.Enum>(ast.enums.find {
-            it.tlid == assertIs<DeclType.Enum>(enumTypedef.underlyingType).ref
+            it.tlid == assertIs<Type.Enum>(enumTypedef.underlyingType).ref
         })
         assertEquals(Storage.Default, enum.storage)
         assertEquals(EntityKind.Enum, enum.kind)
@@ -126,8 +126,8 @@ interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
 
         val enums = enum.enumerators.assertOK()
         assertEquals(3, enums.size)
-        assertEquals(Enumerator("eMediumDPI", 0L, enum.mkSymbol(ast.tuid)), enums[0])
-        assertEquals(Enumerator("eHighDPI", 1L, enum.mkSymbol(ast.tuid)), enums[1])
-        assertEquals(Enumerator("eRetina", 2L, enum.mkSymbol(ast.tuid)), enums[2])
+        assertEquals(Enumerator("eMediumDPI", 0L, enum.tlid), enums[0])
+        assertEquals(Enumerator("eHighDPI", 1L, enum.tlid), enums[1])
+        assertEquals(Enumerator("eRetina", 2L, enum.tlid), enums[2])
     }
 }

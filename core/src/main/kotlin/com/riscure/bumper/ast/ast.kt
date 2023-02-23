@@ -147,12 +147,8 @@ typealias Attrs = List<Attr>
 enum class StructOrUnion { Struct, Union }
 
 sealed interface Type {
-    abstract val attrs: Attrs
-    abstract fun withAttrs(attrs: Attrs): Type
-
-    fun const() = withAttrs(attrs + Attr.Constant)
-
-    fun restrict() = withAttrs(attrs + Attr.Restrict)
+    val attrs: Attrs
+    fun withAttrs(attrs: Attrs): Type
 
     /**
      * Fields can have anonymous compound types *that cannot be elaborated*.
@@ -172,6 +168,9 @@ sealed interface Type {
      */
     sealed interface Named : Type {
         abstract override fun withAttrs(attrs: Attrs): Named // refine the return type.
+
+        fun const() = withAttrs(attrs + Attr.Constant)
+        fun restrict() = withAttrs(attrs + Attr.Restrict)
         fun ptr() = Ptr(this)
     }
 
@@ -320,7 +319,9 @@ sealed interface Type {
         @JvmStatic
         fun array(el: Named) = Array(el, none())
         @JvmStatic
-        fun function(returns: Named, vararg params: Param) = Fun(returns, params.toList(), false)
+        fun function(returns: Named, vararg params: Param, variadic: Boolean) =
+            Fun(returns, params.toList(), variadic)
+        fun function(returns: Named, vararg params: Param): Fun = function(returns, *params, variadic = false)
         @JvmStatic
         fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
         @JvmStatic
