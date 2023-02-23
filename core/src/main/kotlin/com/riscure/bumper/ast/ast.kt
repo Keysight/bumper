@@ -299,6 +299,7 @@ sealed interface Type {
         // smart constructors
 
         @JvmStatic val void = Void()
+        @JvmStatic val bool = Int(IKind.IBoolean)
         @JvmStatic val char = Int(IKind.IChar)
         @JvmStatic val schar = Int(IKind.ISChar)
         @JvmStatic val uchar = Int(IKind.IUChar)
@@ -321,6 +322,7 @@ sealed interface Type {
         @JvmStatic
         fun function(returns: Named, vararg params: Param, variadic: Boolean) =
             Fun(returns, params.toList(), variadic)
+        @JvmStatic
         fun function(returns: Named, vararg params: Param): Fun = function(returns, *params, variadic = false)
         @JvmStatic
         fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))

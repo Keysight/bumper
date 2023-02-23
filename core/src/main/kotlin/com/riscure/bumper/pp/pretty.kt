@@ -196,7 +196,12 @@ object Pretty {
     fun stmt(s: Stmt): String = when (s) {
         is Stmt.Block -> "{\n${stmt(Stmt.seq(s.stmts))}}\n}"
         is Stmt.Break -> "break;"
-        is Stmt.Conditional -> TODO()
+        is Stmt.Conditional ->
+            """
+            if (${exp(s.condition)}) {
+                ${stmt(s.thenBranch)}
+            } ${if (s.elseBranch is Stmt.Skip) "" else stmt(s.elseBranch)}
+            """.trimIndent()
         is Stmt.Continue -> "continue;"
         is Stmt.Decl -> with(s) {
             "${storage(storage)} ${declaration(ident, type)}${maybeInit(init)};"
@@ -242,7 +247,11 @@ object Pretty {
             is Exp.Cast -> TODO()
             is Exp.Compound -> TODO()
             is Exp.Conditional -> TODO()
-            is Exp.Const -> TODO()
+            is Exp.Const -> when (val c = e.constant) {
+                is Constant.CInt   -> c.value.toString()
+                is Constant.CFloat -> TODO()
+                is Constant.CStr   -> TODO()
+            }
             is Exp.Sizeof -> "sizeof(${type(e.type)})"
             is Exp.Var -> e.name
             is Exp.BinOp -> {

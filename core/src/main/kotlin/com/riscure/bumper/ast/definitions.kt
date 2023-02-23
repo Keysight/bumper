@@ -175,6 +175,10 @@ sealed interface Exp {
 
     companion object {
         @JvmStatic
+        fun constant(i: Int, kind: IKind) = Const(Constant.CInt(i, kind), Type.Int(kind))
+        @JvmStatic
+        fun not(exp: Exp) = UnOp(UnaryOp.OLogNot, exp, Type.bool)
+        @JvmStatic
         fun dot(exp: Exp, field: Field) = UnOp(UnaryOp.ODot(field.name), exp, field.type)
 
         @JvmStatic
@@ -223,7 +227,6 @@ sealed class Stmt {
         val type: Type,
         val init: Option<Initializer> = none()
     ): Stmt()
-
     data class Block(val stmts: List<Stmt>): Stmt()
     data class Return(val value: Option<Exp> = none()): Stmt()
     object Skip: Stmt()
@@ -256,6 +259,10 @@ sealed class Stmt {
         fun seq(vararg stmts: Stmt) = seq(stmts.toList())
         @JvmStatic
         fun seq(stmts: List<Stmt>) = stmts.foldRight(Skip as Stmt) { stmt, acc -> Seq(stmt, acc) }
+        @JvmStatic
+        fun cond(condition: Exp, then: Stmt) = cond(condition, then, Skip)
+        @JvmStatic
+        fun cond(condition: Exp, then: Stmt, els: Stmt) = Conditional(condition, then, els)
     }
 }
 
