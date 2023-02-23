@@ -197,7 +197,6 @@ sealed interface Exp {
             is Type.Fun -> Call(function, args.toList(), typ.returnType)
             else -> throw RuntimeException("Expected expression with function type, got $typ")
         }
-
     }
 }
 

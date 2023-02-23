@@ -150,6 +150,10 @@ sealed interface Type {
     abstract val attrs: Attrs
     abstract fun withAttrs(attrs: Attrs): Type
 
+    fun const() = withAttrs(attrs + Attr.Constant)
+
+    fun restrict() = withAttrs(attrs + Attr.Restrict)
+
     /**
      * Fields can have anonymous compound types *that cannot be elaborated*.
      * Those are represented by [Anonymous].
@@ -166,26 +170,22 @@ sealed interface Type {
      * In our elaborated AST, most types are [Named], either because they are primitive,
      * or declared with a (elaboration generated) name.
      */
-    @Serializable
-    sealed class Named : Type {
+    sealed interface Named : Type {
         abstract override fun withAttrs(attrs: Attrs): Named // refine the return type.
-
-        @JvmName("isConst")
-        fun const() = withAttrs(attrs + Attr.Constant)
-
-        @JvmName("isRestricted")
-        fun restrict() = withAttrs(attrs + Attr.Restrict)
         fun ptr() = Ptr(this)
     }
 
-    sealed interface Defined {
+    /**
+     * A defined type is one that has a definition in the translation unit.
+     */
+    sealed interface Defined: Named {
         val ref: TypeRef
     }
 
     @Serializable
     data class Void(
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -193,7 +193,7 @@ sealed interface Type {
     data class Int(
         val kind: IKind,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -201,7 +201,7 @@ sealed interface Type {
     data class Float(
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -209,7 +209,7 @@ sealed interface Type {
     data class Ptr(
         val pointeeType: Named,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -218,7 +218,7 @@ sealed interface Type {
         val elementType: Named,
         val size: Option<Long> = None,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -228,7 +228,7 @@ sealed interface Type {
         val params: List<Param>,
         val vararg: Boolean = false,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -236,7 +236,7 @@ sealed interface Type {
      * Reference to a top-level typedef.
      */
     @Serializable
-    data class Typedeffed(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Named(), Defined {
+    data class Typedeffed(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Defined {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -244,7 +244,7 @@ sealed interface Type {
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Named(), Defined {
+    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Defined {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -255,7 +255,7 @@ sealed interface Type {
     data class Union(
         override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ) : Named(), Defined {
+    ) : Defined {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -266,7 +266,7 @@ sealed interface Type {
     data class Enum(
         override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ) : Named(), Defined {
+    ) : Defined {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -275,7 +275,7 @@ sealed interface Type {
     data class Complex(
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -284,7 +284,7 @@ sealed interface Type {
     data class Atomic(
         val elementType: Named,
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -292,7 +292,7 @@ sealed interface Type {
     @Serializable
     data class VaList(
         override val attrs: Attrs = listOf()
-    ) : Named() {
+    ) : Named {
         override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
     }
 
@@ -436,13 +436,13 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     /** Everything that is visible to other translation units (non-types) */
     sealed interface Valuelike<out E, out S> : UnitDeclaration<E, S> {
-        val type: Type
+        val type: Type.Named
         fun getRef() = Exp.Var(ident, type)
     }
 
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
-        val type: Type.Named get() = when (this) {
+        val type: Type.Defined get() = when (this) {
             is Struct  -> Type.Struct(this.tlid)
             is Union   -> Type.Union(this.tlid)
             is Enum    -> Type.Enum(this.tlid)
