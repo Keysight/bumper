@@ -456,6 +456,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     /** Structs or Unions */
     sealed interface Compound: TypeDeclaration {
         val fields: Option<FieldDecls>
+        val structOrUnion: StructOrUnion
 
         override val isDefinition get() = fields.isDefined()
     }
@@ -523,6 +524,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val kind = EntityKind.Struct
+        override val structOrUnion = StructOrUnion.Struct
     }
 
     @Serializable
@@ -537,6 +539,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val isDefinition: Boolean = fields.isDefined()
         override val kind = EntityKind.Union
+        override val structOrUnion = StructOrUnion.Union
     }
 
     @Serializable

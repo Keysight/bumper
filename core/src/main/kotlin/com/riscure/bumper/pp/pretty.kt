@@ -210,13 +210,23 @@ object Pretty {
         is Stmt.DoWhile -> TODO()
         is Stmt.For -> TODO()
         is Stmt.Goto -> TODO()
-        is Stmt.Labeled -> TODO()
+        is Stmt.Labeled ->
+            """
+            ${s.label}:
+                ${stmt(s.stmt)}
+            """.trimIndent()
+
         is Stmt.Return -> when (val exp = s.value) {
             is Some -> "return ${exp(exp.value)};"
             is None -> "return;"
         }
         is Stmt.Seq -> "${stmt(s.first)}\n${stmt(s.second)}"
-        is Stmt.Switch -> TODO()
+        is Stmt.Switch ->
+            """
+            switch (${exp(s.scrutinee)}) {
+                ${stmt(s.body)}
+            }
+            """.trimIndent()
         is Stmt.While -> TODO()
         Stmt.Skip -> ""
     }

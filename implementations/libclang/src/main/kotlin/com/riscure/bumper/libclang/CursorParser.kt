@@ -456,9 +456,14 @@ open class CursorParser(
 
     /**
      * Field types are treated a little different,
-     * because anonymouse inline struct/union type definitions need
-     * not to be elaborated. That would change the visibility of the
-     * nested members.
+     * because anonymous inline struct/union type definitions cannot be
+     * elaborated, because that would change the visibility of the nested members.
+     *
+     * For example:
+     * struct Scope { struct { int a; int b; }; }
+     * has no elaborated counterpart such that the inner struct has a separate declaration
+     * but that still enables direct access of the innermost fields `a` and `b` on a value
+     * of the outermost struct type.
      */
     fun CXType.asFieldType(): Result<Type> =
         when (kind()) {

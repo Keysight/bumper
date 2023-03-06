@@ -123,7 +123,6 @@ sealed interface Exp {
     // compound literals
     // - (Point) { .x = 1; .y = 2; }
     data class Compound(
-        val type: Type,
         val initializer: Initializer.Compound,
         override val etype: Type
     ): Exp {
@@ -201,6 +200,14 @@ sealed interface Exp {
             is Type.Fun -> Call(function, args.toList(), typ.returnType)
             else -> throw RuntimeException("Expected expression with function type, got $typ")
         }
+
+        @JvmStatic
+        fun struct(struct: TypeRef, initializers: Map<Ident, Initializer>) =
+            Compound(Initializer.InitStruct(struct, initializers), Type.Struct(struct))
+
+        @JvmStatic
+        fun union(union: TypeRef, initializers: Map<Ident, Initializer>) =
+            Compound(Initializer.InitUnion(union, initializers), Type.Struct(union))
     }
 }
 
@@ -209,15 +216,15 @@ sealed interface Initializer {
 
     sealed interface Compound: Initializer
     data class InitArray(val exps: List<Exp>): Compound
-    data class InitStruct(val struct: Ref, val initializers: Map<Ident, Initializer>): Compound
-    data class InitUnion(val union: Ref, val initializers: Map<Ident, Initializer>): Compound
+    data class InitStruct(val struct: TypeRef, val initializers: Map<Ident, Initializer>): Compound
+    data class InitUnion(val union: TypeRef, val initializers: Map<Ident, Initializer>): Compound
 }
 
 // data class AsmOperand(val wut: Option<String>, val wat: Exp)
 // typealias AsmOperands = List<AsmOperand>
 
 /* Statements */
-sealed class Stmt {
+sealed interface Stmt {
     // variable declarations:
     // - Point x;
     // - Point x = { .x = 1; .x = 2; };
@@ -226,21 +233,21 @@ sealed class Stmt {
         val ident: Ident,
         val type: Type,
         val init: Option<Initializer> = none()
-    ): Stmt()
-    data class Block(val stmts: List<Stmt>): Stmt()
-    data class Return(val value: Option<Exp> = none()): Stmt()
-    object Skip: Stmt()
-    data class Do(val todo: Exp): Stmt()
-    data class Seq(val first: Stmt, val second: Stmt): Stmt()
-    data class Conditional(val condition: Exp, val thenBranch: Stmt, val elseBranch: Stmt): Stmt()
-    data class While(val condition: Exp, val body: Stmt): Stmt()
-    data class DoWhile(val body: Stmt, val condition: Exp): Stmt()
-    data class For(val before: Stmt, val condition: Exp, val after: Stmt, val body: Stmt): Stmt()
-    class Break: Stmt()
-    class Continue: Stmt()
-    data class Switch(val scrutinee: Exp, val body: Stmt): Stmt()
-    data class Labeled(val label: StmtLabel, val stmt: Stmt): Stmt()
-    data class Goto(val label: StmtLabel.Label): Stmt()
+    ): Stmt
+    data class Block(val stmts: List<Stmt>): Stmt
+    data class Return(val value: Option<Exp> = none()): Stmt
+    object Skip: Stmt
+    data class Do(val todo: Exp): Stmt
+    data class Seq(val first: Stmt, val second: Stmt): Stmt
+    data class Conditional(val condition: Exp, val thenBranch: Stmt, val elseBranch: Stmt): Stmt
+    data class While(val condition: Exp, val body: Stmt): Stmt
+    data class DoWhile(val body: Stmt, val condition: Exp): Stmt
+    data class For(val before: Stmt, val condition: Exp, val after: Stmt, val body: Stmt): Stmt
+    object Break: Stmt
+    object Continue: Stmt
+    data class Switch(val scrutinee: Exp, val body: Stmt): Stmt
+    data class Labeled(val label: StmtLabel, val stmt: Stmt): Stmt
+    data class Goto(val label: StmtLabel.Label): Stmt
     // data class Asm(val instr: String, val operands: AsmOperands) // TODO check missing properties
 
     companion object {
@@ -263,11 +270,27 @@ sealed class Stmt {
         fun cond(condition: Exp, then: Stmt) = cond(condition, then, Skip)
         @JvmStatic
         fun cond(condition: Exp, then: Stmt, els: Stmt) = Conditional(condition, then, els)
+        @JvmField
+        val skip = Stmt.Skip
+        @JvmStatic
+        fun cswitch(scrutinee: Exp, cases: List<Pair<Int,Stmt>>) =
+            Switch(scrutinee, seq(cases.map { (c, body) -> ccase(c, body) }))
+        @JvmStatic
+        fun ccase(c: Int, body: Stmt) = seq(
+            Labeled(StmtLabel.Case(Exp.constant(c, IKind.IInt), c), body),
+            Break
+        )
     }
 }
 
 sealed class StmtLabel {
-    data class Label(val label: String) : StmtLabel()
-    data class Case(val case: Exp, val num: Int): StmtLabel()
-    object DefaultCase: StmtLabel()
+    data class Label(val label: String) : StmtLabel() {
+        override fun toString() = "$label"
+    }
+    data class Case(val case: Exp, val num: Int): StmtLabel() {
+        override fun toString() = "case $num"
+    }
+    object DefaultCase: StmtLabel() {
+        override fun toString() = "default"
+    }
 }
