@@ -224,7 +224,7 @@ open class CursorParser(
 
         return Meta(
             location = getRange(),
-            presumedLocation = getPresumedLocation(),
+            presumedLocation = getLocation().flatMap { it.asPresumedLocation() },
             doc = comment
         )
     }
@@ -522,7 +522,7 @@ open class CursorParser(
                         } else {
                             cursor
                                 .getSymbol()
-                                .map { Type.Typedeffed(it) }
+                                .map { Type.Typedeffed(it.tlid) }
                         }
                     }
             }
@@ -583,8 +583,8 @@ open class CursorParser(
                     .getSymbol()
                     .flatMap { sym ->
                         when (sym.kind) {
-                            EntityKind.Struct -> Type.Struct(sym).right()
-                            EntityKind.Union  -> Type.Union(sym).right()
+                            EntityKind.Struct -> Type.Struct(sym.tlid).right()
+                            EntityKind.Union  -> Type.Union(sym.tlid).right()
                             else              -> "Invariant violation: failed to reference elaborated struct/union.".left()
                         }
                     }
@@ -593,7 +593,7 @@ open class CursorParser(
             CXType_Enum            -> {
                 clang_getTypeDeclaration(this)
                     .getSymbol()
-                    .map { sym -> Type.Enum(sym) }
+                    .map { sym -> Type.Enum(sym.tlid) }
             }
 
             CXType_Unexposed       -> {

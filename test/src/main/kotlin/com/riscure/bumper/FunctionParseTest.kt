@@ -43,8 +43,8 @@ interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
         val t2 = assertIs<Type.Struct>(a2.type)
 
         val struct = assertNotNull(ast.structs.find { it.ident == "A" })
-        assertEquals(struct.mkSymbol(ast.tuid), t1.ref)
-        assertEquals(struct.mkSymbol(ast.tuid), t2.ref)
+        assertEquals(struct.tlid, t1.ref)
+        assertEquals(struct.tlid, t2.ref)
     }
 
     @Test

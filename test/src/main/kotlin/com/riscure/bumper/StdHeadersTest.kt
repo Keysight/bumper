@@ -4,19 +4,16 @@ import arrow.core.some
 import com.riscure.bumper.ParseTestBase.Companion.stdopts
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
-import com.riscure.bumper.index.Symbol
-import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.nio.file.Path
 import java.util.stream.Stream
 import kotlin.test.*
 
-private val uint32 = Type.Typedeffed(Symbol.typedef(TUID(Path.of("")), "__uint32_t"));
-private val uint64 = Type.Typedeffed(Symbol.typedef(TUID(Path.of("")), "__uint64_t"));
-private val wchar_t = Type.Typedeffed(Symbol(TUID(Path.of("")), TLID("wchar_t", EntityKind.Typedef)))
+private val uint32 = Type.typedef("__uint32_t")
+private val uint64 = Type.typedef("__uint64_t")
+private val wchar_t = Type.typedef("wchar_t")
 
 /**
  * In this test, we parse and pretty-print some standard headers.
@@ -83,22 +80,14 @@ interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
                         "setjmp", "setjmp",
                         Type.function(
                                 Type.int,
-                                Param(
-                                        "__env",
-                                        Type.Typedeffed(
-                                            Symbol(
-                                                TUID(Path.of("")),
-                                                TLID("jmp_buf", EntityKind.Typedef)
-                                            )
-                                        )
-                                )
+                                Param("__env", Type.typedef("jmp_buf"))
                         ),
                         Storage.Extern
                 ),
                 Arguments.of(
                         "netdb", "gethostbyname",
                         Type.function(
-                                Type.Ptr(Type.Struct(Symbol.struct(TUID(Path.of("")), "hostent"))),
+                                Type.struct("hostent").ptr(),
                                 Param(
                                         "__name",
                                         Type.char.const().ptr()

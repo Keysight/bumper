@@ -169,4 +169,22 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
         assertEquals(1, deps.size)
         assertContains(deps, enum.mkSymbol(ast.tuid))
     }
+
+    @Test
+    @DisplayName("local enumerator declaration induces no dependency")
+    fun test11() = parsedAndRoundtrip("""
+        int f(int i) {
+          enum { SALT = 0x1, LENGTH = 0x2, INFO = 0x4 };
+          switch (i) {
+            case SALT: return 0;
+            case LENGTH: return 1;
+            case INFO: return 2;
+            default: return -1;
+          }
+        }
+    """.trimIndent()) { ast, unit ->
+        val f = ast.functions[0].assertOK()
+        val deps = unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)].assertOK()
+        assertEquals(0, deps.size)
+    }
 }

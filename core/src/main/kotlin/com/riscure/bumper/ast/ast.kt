@@ -17,9 +17,13 @@ import com.riscure.bumper.index.TUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import java.nio.file.Path
+import kotlin.io.path.extension
 
 /** The type of raw identifiers */
 typealias Ident = String
+
+typealias TypeRef  = TLID
+typealias Ref = TLID
 
 /** A source location */
 @Serializable
@@ -35,6 +39,8 @@ data class Location(
      */
     operator fun compareTo(other: Location): Int =
         Pair(row, col).compareTo(Pair(other.row, other.col))
+
+    fun isHeader(): Boolean = sourceFile.extension == "h"
 
     override fun toString(): String = "$sourceFile ($row:$col)"
 }
@@ -163,6 +169,10 @@ sealed class Type: FieldType {
     fun restrict() = withAttrs(attrs + Attr.Restrict)
     fun ptr() = Ptr(this)
 
+    sealed interface Defined {
+        val ref: TypeRef
+    }
+
     @Serializable
     data class Void (
         override val attrs: Attrs = listOf()
@@ -217,7 +227,7 @@ sealed class Type: FieldType {
      * Reference to a top-level typedef.
      */
     @Serializable
-    data class Typedeffed (val ref: Symbol, override val attrs: Attrs = listOf()): Type() {
+    data class Typedeffed (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -225,7 +235,7 @@ sealed class Type: FieldType {
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct (val ref: Symbol, override val attrs: Attrs = listOf()): Type() {
+    data class Struct (override val ref: TypeRef, override val attrs: Attrs = listOf()): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -234,9 +244,9 @@ sealed class Type: FieldType {
      */
     @Serializable
     data class Union (
-        val ref: Symbol, // elaborated
+        override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type() {
+    ): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
     /**
@@ -244,9 +254,9 @@ sealed class Type: FieldType {
      */
     @Serializable
     data class Enum (
-        val ref: Symbol, // elaborated
+        override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ): Type() {
+    ): Type(), Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
@@ -291,7 +301,9 @@ sealed class Type: FieldType {
         @JvmStatic fun array(el: Type, size: Option<Long>) = Array(el, size)
         @JvmStatic fun function(returns: Type, vararg params: Param, variadic: Boolean = false) =
             Fun(returns, params.toList(), variadic)
-        @JvmStatic fun typedef(tuid: TUID, ident: String) = Typedeffed(Symbol.typedef(tuid, ident))
+        @JvmStatic fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
+        @JvmStatic fun struct(ident: String) = Struct(TLID.struct(ident))
+        @JvmStatic fun union(ident: String) = Union(TLID.union(ident))
 
     }
 }
@@ -335,6 +347,7 @@ data class Meta(
     val fromMain: Boolean = true
 ) {
     companion object {
+        @JvmStatic
         val default = Meta(None, None, None, true)
     }
 }
@@ -398,14 +411,21 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
 
     /* Mixin */
 
-    /** Everything that can be used as a type */
-    sealed interface Typelike
-
     /** Everything that is visible to other translation units (non-types) */
     sealed interface Valuelike<out Exp, out Stmt> : UnitDeclaration<Exp, Stmt>
 
     /** Everything that declares a new type: Struct, Union, Enum */
-    sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing>, Typelike
+    sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
+        val type: Type get() = when (this) {
+            is Composite ->
+                when (this.structOrUnion) {
+                    StructOrUnion.Struct -> Type.Struct(this.tlid)
+                    StructOrUnion.Union  -> Type.Union(this.tlid)
+                }
+            is Enum      -> Type.Enum(this.tlid)
+            is Typedef   -> Type.Typedeffed(this.tlid)
+        }
+    }
 
     @Serializable
     data class Var<out Exp>(
@@ -462,7 +482,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         val fields: Option<FieldDecls>      = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): UnitDeclaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+    ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -483,7 +503,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): UnitDeclaration<Nothing, Nothing>, Typelike {
+    ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -502,7 +522,7 @@ sealed interface UnitDeclaration<out Exp, out Stmt> : GlobalDeclaration {
         val enumerators: Option<Enumerators> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): UnitDeclaration<Nothing, Nothing>, Typelike, TypeDeclaration {
+    ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -540,6 +560,8 @@ enum class EntityKind {
  */
 @Serializable
 data class TLID(val name: Ident, val kind: EntityKind) {
+    fun symbol(tuid: TUID) = Symbol(tuid, this)
+
     companion object {
         @JvmStatic fun variable(name: Ident) = TLID(name, EntityKind.Var)
         @JvmStatic fun function(name: Ident) = TLID(name, EntityKind.Fun)
@@ -598,7 +620,7 @@ data class TranslationUnit<out E, out T>(
     val unions: List<UnitDeclaration.Composite>  get() = declarations.unions
     val typedefs: List<UnitDeclaration.Typedef>  get() = declarations.typedefs
     val enums: List<UnitDeclaration.Enum>        get() = declarations.enums
-    val typlikeDeclarations  : List<UnitDeclaration.Typelike>        get() = declarations.typelikeDeclarations
+    val typeDeclarations  : List<UnitDeclaration.TypeDeclaration> get() = declarations.typeDeclarations
     val valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
 
     fun filter(predicate: (d: UnitDeclaration<E, T>) -> Boolean) =
@@ -793,8 +815,8 @@ val <T> List<UnitDeclaration.Fun<T>>.definitions: List<UnitDeclaration.Fun<T>> g
 val <T> List<UnitDeclaration.Fun<T>>.declarations: List<UnitDeclaration.Fun<T>> get() =
     filter { !it.isDefinition }
 
-val <E, T> List<UnitDeclaration<E, T>>.typelikeDeclarations: List<UnitDeclaration.Typelike> get() =
-    filterIsInstance<UnitDeclaration.Typelike>()
+val <E, T> List<UnitDeclaration<E, T>>.typeDeclarations: List<UnitDeclaration.TypeDeclaration> get() =
+    filterIsInstance<UnitDeclaration.TypeDeclaration>()
 
 val <E, T> List<UnitDeclaration<E, T>>.valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() =
     filterIsInstance<UnitDeclaration.Valuelike<E,T>>()
