@@ -74,13 +74,13 @@ data class CompilationDb(val entries: List<Entry>) {
             }
         )
 
-    fun toJSON() =
+    fun toJSON(defaultCompilerExe: String) =
         entries
             .map { entry ->
                 PlainCompilationDb.Entry(
                     entry.workingDirectory.toString(),
                     entry.mainSource.toString(),
-                    entry.command.toArguments()
+                    listOf(entry.executable.getOrElse { defaultCompilerExe }) + entry.command.toArguments()
                 )
             }
             .let { json.encodeToString(it) }
@@ -99,8 +99,19 @@ data class CompilationDb(val entries: List<Entry>) {
          * Use with caution!
          */
         val mainSource: Path,
-        val command: Command
+        val command: Command,
+
+        /** The compiler executable */
+        val executable: Option<String>
     ) {
+        // We define this using overloading to make it also accessible from Java
+        constructor(workingDirectory: Path, mainSource: Path, command: Command) : this(
+            workingDirectory,
+            mainSource,
+            command,
+            none()
+        )
+
         val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource).normalize()
     }
 
@@ -161,18 +172,19 @@ data class CompilationDb(val entries: List<Entry>) {
                             InvalidCdbEntry(entry, "missing both command and arguments").left()
                     }
             }
-            .map { it.drop(1) } // drop executable name
-            .flatMap { it ->
+            .flatMap { args ->
+                val exe  = args.firstOrNone().getOrElse { "clang" }
+                val opts = args.drop(1)
                 ClangParser
-                    .parseArguments(it) { unrecognizedOption -> recover.callback(entry.file, unrecognizedOption) }
+                    .parseArguments(opts) { unrecognizedOption ->
+                        recover.callback(entry.file, unrecognizedOption)
+                    }
                     .mapLeft {
                         // give some context to the exception.
-                        InvalidCdbEntry(entry,
-                            "failed to parse compile command '$it'"
-                        )
+                        InvalidCdbEntry(entry, "failed to parse compile command '$it'")
                     }
+                    .map { cmd -> Entry(Path.of(entry.directory), Path.of(entry.file), cmd, exe.some()) }
             }
-            .map { Entry(Path.of(entry.directory), Path.of(entry.file), it) }
     }
 }
 

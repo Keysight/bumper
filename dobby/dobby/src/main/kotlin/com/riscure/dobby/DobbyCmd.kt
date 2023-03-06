@@ -1,6 +1,5 @@
 package com.riscure.dobby
 
-import arrow.core.firstOrNone
 import arrow.core.getOrElse
 import arrow.core.getOrHandle
 import com.riscure.dobby.clang.ClangParser
@@ -125,7 +124,7 @@ class DoValidate: Callable<Int> {
         }
 
         // output validated result
-        println(validated.value.toJSON())
+        println(validated.value.toJSON("clang"))
 
         return 0
     }
