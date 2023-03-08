@@ -5,6 +5,7 @@ import com.riscure.bumper.ast.Exp.*
 import com.riscure.bumper.ast.BinaryOp.*
 import com.riscure.bumper.ast.Exp.Companion.assign
 import com.riscure.bumper.ast.Exp.Companion.dot
+import com.riscure.bumper.ast.Exp.Companion.index
 import com.riscure.bumper.ast.Exp.Companion.op
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.pp.Pretty
@@ -24,7 +25,8 @@ class PrettyPrinterTest {
         Pretty.exp(
             op(OAdd,
                 Var("x", Type.uint),
-                op(OMul, Var("y", Type.uint), Var("z", Type.uint))
+                op(OMul, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
+                Type.uint
             )
         )
     )
@@ -35,7 +37,8 @@ class PrettyPrinterTest {
         Pretty.exp(
             op(OMul,
                 Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint))
+                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
+                Type.uint
             )
         )
     )
@@ -46,7 +49,8 @@ class PrettyPrinterTest {
         Pretty.exp(
             op(OMul,
                 Var("x", Type.uint),
-                op(OAdd, op(OAdd, Var("y", Type.uint), Var("z", Type.uint)), Var("u", Type.uint))
+                op(OAdd, op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint), Var("u", Type.uint), Type.uint),
+                Type.uint
             )
         )
     )
@@ -57,7 +61,8 @@ class PrettyPrinterTest {
         Pretty.exp(
             op(OMul,
                 Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), op(OAdd, Var("z", Type.uint), Var("u", Type.uint)))
+                op(OAdd, Var("y", Type.uint), op(OAdd, Var("z", Type.uint), Var("u", Type.uint), Type.uint), Type.uint),
+                Type.uint
             )
         )
     )
@@ -68,7 +73,7 @@ class PrettyPrinterTest {
         Pretty.exp(
             assign(
                 Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint))
+                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
             )
         )
     )
@@ -78,8 +83,8 @@ class PrettyPrinterTest {
         "x.m = y + z",
         Pretty.exp(
             assign(
-                dot(Var("x", Type.uint), Field("m", Type.uint)),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint))
+                dot(Var("x", Type.uint), Field.Named("m", Type.uint)),
+                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
             )
         )
     )
@@ -89,6 +94,14 @@ class PrettyPrinterTest {
         "sizeof(long long [100])",
         Pretty.exp(
             sizeOf(Type.array(Type.longlong, 100), IKind.IULong)
+        )
+    )
+
+    @Test
+    fun `indexing`() = assertEquals(
+        "x[i]",
+        Pretty.exp(
+            index(Var("x", Type.array(Type.uint)), Var("i", Type.uint), Type.uint)
         )
     )
 }

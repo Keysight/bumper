@@ -311,21 +311,27 @@ open class CursorParser(
         return ts
     }
 
-    fun CXCursor.asField(): Result<Field> {
-        return type()
-            .asFieldType()
-            .flatMap { type ->
-                val attrs = this.cursorAttributes(type())
-                getIdentifier()
-                    .map { id ->
-                        Field(
-                            id,
-                            type.withAttrs(type.attrs + attrs),
-                            clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
-                        )
+    fun CXCursor.asField(): Result<Field> =
+        getIdentifier()
+            .flatMap { id ->
+                when {
+                    id.isBlank() ->
+                        type()
+                            .asAnonType()
+                            .map { t -> Field.Anonymous(t.first, t.second) }
+                    else -> {
+                        val attrs = this.cursorAttributes(type())
+                        type()
+                            .asType()
+                            .map { t ->
+                                Field.Named(
+                                    id,
+                                    t,
+                                    clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) })
+                            }
                     }
+                }
             }
-    }
 
     fun CXCursor.asVariable(): Result<UnitDeclaration.Var<CXCursor>> =
         ifKind(CXCursor_VarDecl, "variable declaration") {
@@ -356,7 +362,7 @@ open class CursorParser(
                 }
         }
 
-    fun CXCursor.getReturnType(): Result<Type.Named> {
+    fun CXCursor.getReturnType(): Result<Type> {
         val typ = clang_getCursorResultType(this)
         return typ.asType()
     }
@@ -465,7 +471,7 @@ open class CursorParser(
      * but that still enables direct access of the innermost fields `a` and `b` on a value
      * of the outermost struct type.
      */
-    fun CXType.asFieldType(): Result<Type> =
+    fun CXType.asAnonType(): Result<Pair<StructOrUnion, FieldDecls>> =
         when (kind()) {
             // anonymous union/struct field are treated differently
             CXType_Record -> {
@@ -475,16 +481,16 @@ open class CursorParser(
                         // sanity check
                         assert(d.ident == "")
                         when (d) {
-                            is UnitDeclaration.Struct -> Type.Anonymous(StructOrUnion.Struct, d.fields).right()
-                            is UnitDeclaration.Union  -> Type.Anonymous(StructOrUnion.Union , d.fields).right()
+                            is UnitDeclaration.Struct -> Pair(StructOrUnion.Struct, d.fields.getOrElse { listOf() }).right()
+                            is UnitDeclaration.Union  -> Pair(StructOrUnion.Union , d.fields.getOrElse { listOf() }).right()
                             else -> "Invariant violation: failed to parse anonymous field.".left()
                         }
                     }
             }
-            else -> asType()
+            else -> "Invariant violation: failed to parse anonymous field.".left()
         }
 
-    fun CXType.asType(): Result<Type.Named> =
+    fun CXType.asType(): Result<Type> =
         when (kind()) {
             CXType_Void            -> Type.Void().right()
             CXType_Bool            -> Type.Int(IKind.IBoolean).right()

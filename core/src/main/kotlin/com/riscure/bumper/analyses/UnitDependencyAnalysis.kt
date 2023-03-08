@@ -57,9 +57,15 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
             ofType(decl.underlyingType)
     }
 
-    fun ofFields(fields: FieldDecls) =
+    fun ofFields(fields: FieldDecls): Result<TLID> =
         fields
-            .map { ofType(it.type) }
+            .map { f: Field ->
+                when (f) {
+                    is Field.Anonymous -> ofFields(f.subfields)
+                    is Field.Named -> ofType(f.type)
+
+                }
+            }
             .sequence()
             .map { it.flatten().toSet() }
 
@@ -79,7 +85,6 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Atomic    -> ofType(type.elementType)
         is Type.Complex   -> nil()
         is Type.VaList    -> nil()
-        is Type.Anonymous -> ofFields(type.fields.getOrElse { listOf() })
     }
 
     private fun ofParams(params: List<Param>): Result<TLID> =

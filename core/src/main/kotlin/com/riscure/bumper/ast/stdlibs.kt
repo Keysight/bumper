@@ -2,6 +2,7 @@ package com.riscure.bumper.ast
 
 import com.riscure.bumper.ast.Exp.*
 import com.riscure.bumper.ast.Exp.Companion.call
+import com.riscure.bumper.ast.Exp.Companion.constant
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.ast.Type.Companion.void
 import com.riscure.bumper.ast.Type.Companion.function
@@ -11,10 +12,9 @@ open class Stdlibs(
     val sizeKind: IKind,
     val pointerKind: IKind
 ) {
-    @JvmField
-    val size = Type.Int(sizeKind)
-    @JvmField
-    val ptr  = Type.Int(pointerKind)
+    @JvmField val size = Type.Int(sizeKind)
+    @JvmField val ptr  = Type.Int(pointerKind)
+    @JvmField val NULL = constant(0, pointerKind)
 
     @JvmField
     val def_size_t = typedef("size_t")
@@ -27,6 +27,6 @@ open class Stdlibs(
 
     companion object {
         @JvmStatic
-        val x64 = Stdlibs(IKind.IULong, IKind.IULong)
+        val x64 = Stdlibs(IKind.IULong, IKind.IULong) // TODO check if this is correct!
     }
 }

@@ -1,5 +1,3 @@
-@file:UseSerializers(OptionSerializer::class)
-
 /**
  * This packages contains a fully type-annotated C source AST *after elaboration*.
  *
@@ -11,114 +9,21 @@
 package com.riscure.bumper.ast
 
 import arrow.core.*
-import com.riscure.OptionSerializer
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.UseSerializers
-import java.nio.file.Path
-import kotlin.io.path.extension
-
-/** The type of raw identifiers */
-typealias Ident = String
-
-typealias TypeRef  = TLID
-typealias Ref = TLID
-
-/** A source location */
-@Serializable
-data class Location(
-    val sourceFile: Path,
-    /** The line number, with first line being 1 */
-    val row: Int,
-    /** The column number, with first column being 1 */
-    val col: Int
-) {
-    /**
-     * compares the row and col of this to [other], ignoring the sourceFile.
-     */
-    operator fun compareTo(other: Location): Int =
-        Pair(row, col).compareTo(Pair(other.row, other.col))
-
-    fun isHeader(): Boolean = sourceFile.extension == "h"
-
-    override fun toString(): String = "$sourceFile ($row:$col)"
-}
-
-/** A source range with a begin and end location. */
-@Serializable
-data class SourceRange(
-
-    /** begin location of the source range (inclusive) */
-    val begin: Location,
-    /** end location of the source range (inclusive) */
-    val end: Location
-) {
-    /**
-     * Returns true iff this range fully encloses [other]
-     */
-    fun encloses(other: SourceRange): Boolean =
-        file == other.file && begin <= other.begin && end >= other.end
-
-    fun encloses(other: Location): Boolean =
-        file == other.sourceFile && begin <= other && end >= other
-
-    /** Gets the sourceFile of [begin], which is assumed to match [end]'s */
-    val file get() = begin.sourceFile
-}
-
-/**
- * This is a comparator for ranges of declarations in the same unit.
- * That means that the ranges that are partially overlapping are considered equal,
- * but nested ones have an order.
- *
- * One source range is less than another if it appears logically before the other.
- * For nested ranges, this means that the innermost is less than the outermost.
- */
-object dependencyOrder: Comparator<SourceRange> {
-    override fun compare(r1: SourceRange, r2: SourceRange): Int = when {
-        r1.end   < r2.begin -> -1                    // r2 disjoint after r1
-        r1.begin > r2.end   -> 1                     // r1 disjoint after r2
-        r1.begin > r2.begin && r1.end < r2.end -> -1 // r1 nested in r2
-        r2.begin > r1.begin && r2.end < r1.end -> 1  // r2 nested in r1
-        else                -> 0                     // not disjoint, or exactly overlapping
-    }
-}
-
-/** Different integer kinds */
-enum class IKind {
-      IBoolean
-    , IChar, ISChar, IUChar
-    , IShort, IUShort
-    , IInt, IUInt
-    , ILong, IULong
-    , ILongLong, IULongLong
-}
-
-/** Different float kinds */
-enum class FKind {
-    FFloat, FDouble, FLongDouble
-}
 
 /* Attributes */
-@Serializable
 sealed class AttrArg {
-    @Serializable
     data class AnIdent(val value: Ident) : AttrArg()
-    @Serializable
     data class AnInt(val value: Int) : AttrArg()
-    @Serializable
     data class AString(val value: String) : AttrArg()
 }
 
-@Serializable
 sealed class Attr {
     object Constant : Attr()
     object Volatile : Attr()
     object Restrict : Attr()
-    @Serializable
     data class AlignAs(val alignment: Long) : Attr()
-    @Serializable
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
@@ -143,211 +48,31 @@ sealed interface Storage {
 
 typealias Attrs = List<Attr>
 
-
 enum class StructOrUnion { Struct, Union }
 
-sealed interface Type {
-    val attrs: Attrs
-    fun withAttrs(attrs: Attrs): Type
+/** Struct or union field */
+sealed interface Field {
+    companion object {
+        operator fun invoke(id: Ident, type: Type, bitfield: Option<Int> = none()) = Named(id, type, bitfield)
+    }
 
-    /**
-     * Fields can have anonymous compound types *that cannot be elaborated*.
-     * Those are represented by [Anonymous].
-     */
+    val name get() = ""
+
+    data class Named(
+        override val name: Ident, /* non-empty! */
+        val type: Type,
+        val bitfield: Option<Int> = none()
+    ): Field
+
     data class Anonymous(
         val structOrUnion: StructOrUnion,
-        val fields: Option<FieldDecls> = None,
-        override val attrs: Attrs = listOf()
-    ) : Type {
-        override fun withAttrs(attrs: Attrs): Anonymous = copy(attrs = attrs)
-    }
-
-    /**
-     * In our elaborated AST, most types are [Named], either because they are primitive,
-     * or declared with a (elaboration generated) name.
-     */
-    sealed interface Named : Type {
-        abstract override fun withAttrs(attrs: Attrs): Named // refine the return type.
-
-        fun const() = withAttrs(attrs + Attr.Constant)
-        fun restrict() = withAttrs(attrs + Attr.Restrict)
-        fun ptr() = Ptr(this)
-    }
-
-    /**
-     * A defined type is one that has a definition in the translation unit.
-     */
-    sealed interface Defined: Named {
-        val ref: TypeRef
-    }
-
-    @Serializable
-    data class Void(
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    @Serializable
-    data class Int(
-        val kind: IKind,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    @Serializable
-    data class Float(
-        val kind: FKind,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    @Serializable
-    data class Ptr(
-        val pointeeType: Named,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    @Serializable
-    data class Array(
-        val elementType: Named,
-        val size: Option<Long> = None,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    @Serializable
-    data class Fun(
-        val returnType: Named,
-        val params: List<Param>,
-        val vararg: Boolean = false,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /**
-     * Reference to a top-level typedef.
-     */
-    @Serializable
-    data class Typedeffed(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Defined {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /**
-     * Reference to a top-level struct
-     */
-    @Serializable
-    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Defined {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /**
-     * Reference to a top-level union
-     */
-    @Serializable
-    data class Union(
-        override val ref: TypeRef,
-        override val attrs: Attrs = listOf()
-    ) : Defined {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /**
-     * Reference to a top-level enum
-     */
-    @Serializable
-    data class Enum(
-        override val ref: TypeRef,
-        override val attrs: Attrs = listOf()
-    ) : Defined {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /* _Complex */
-    @Serializable
-    data class Complex(
-        val kind: FKind,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /* _Atomic */
-    @Serializable
-    data class Atomic(
-        val elementType: Named,
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    /* The builtin type __builtin_va_list */
-    @Serializable
-    data class VaList(
-        override val attrs: Attrs = listOf()
-    ) : Named {
-        override fun withAttrs(attrs: Attrs): Named = copy(attrs = attrs)
-    }
-
-    companion object {
-        // smart constructors
-
-        @JvmStatic val void = Void()
-        @JvmStatic val bool = Int(IKind.IBoolean)
-        @JvmStatic val char = Int(IKind.IChar)
-        @JvmStatic val schar = Int(IKind.ISChar)
-        @JvmStatic val uchar = Int(IKind.IUChar)
-        @JvmStatic val short = Int(IKind.IShort)
-        @JvmStatic val ushort = Int(IKind.IUShort)
-        @JvmStatic val uint = Int(IKind.IUInt)
-        @JvmStatic val int = Int(IKind.IInt)
-        @JvmStatic val long = Int(IKind.ILong)
-        @JvmStatic val longlong = Int(IKind.ILongLong)
-        @JvmStatic val ulong = Int(IKind.IULong)
-        @JvmStatic val ulonglong = Int(IKind.IULongLong)
-        @JvmStatic val double = Float(FKind.FDouble)
-        @JvmStatic val longdouble = Float(FKind.FLongDouble)
-        @JvmStatic val float = Float(FKind.FFloat)
-
-        @JvmStatic
-        fun array(el: Named, size: Long) = Array(el, size.some())
-        @JvmStatic
-        fun array(el: Named) = Array(el, none())
-        @JvmStatic
-        fun function(returns: Named, vararg params: Param, variadic: Boolean) =
-            Fun(returns, params.toList(), variadic)
-        @JvmStatic
-        fun function(returns: Named, vararg params: Param): Fun = function(returns, *params, variadic = false)
-        @JvmStatic
-        fun typedef(ident: String) = Typedeffed(TLID.typedef(ident))
-        @JvmStatic
-        fun struct(ident: String) = Struct(TLID.struct(ident))
-        @JvmStatic
-        fun union(ident: String) = Union(TLID.union(ident))
-
-    }
+        val subfields: FieldDecls,
+        val bitfield: Option<Int> = none()
+    ): Field
 }
-
-/** Struct or union field */
-@Serializable
-data class Field(
-    val name: Ident,
-    val type: Type,
-    val bitfield: Option<Int> = none()
-) {
-    val isAnonymous: Boolean get() = name.isEmpty()
-}
-
 typealias FieldDecls  = List<Field>
 
-@Serializable
-data class Param(val name: Ident, val type: Type.Named) {
+data class Param(val name: Ident, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
 
     val ref get() = Exp.Var(name, type)
@@ -357,7 +82,6 @@ typealias Params = List<Param>
 /**
  * Metadata for the top-level elements.
  */
-@Serializable
 data class Meta(
     /**
      * The location where this element was parsed.
@@ -395,9 +119,8 @@ sealed interface GlobalDeclaration {
 /**
  * The type of an enum's value name
  */
-@Serializable
 data class Enumerator(override val ident: Ident, val key: Long, val enum: TypeRef) : GlobalDeclaration {
-    override fun withIdent(id: Ident): Enumerator = copy(ident=id)
+   override fun withIdent(id: Ident): Enumerator = copy(ident=id)
 }
 
 typealias Enumerators = List<Enumerator>
@@ -408,7 +131,6 @@ typealias Enumerators = List<Enumerator>
  * @param E the type that represents expressions
  * @param S the type that represents statements
  */
-@Serializable
 sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     override fun withIdent(id: Ident): UnitDeclaration<E, S>
@@ -439,7 +161,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     /** Everything that is visible to other translation units (non-types) */
     sealed interface Valuelike<out E, out S> : UnitDeclaration<E, S> {
-        val type: Type.Named
+        val type: Type
         fun getRef() = Exp.Var(ident, type)
     }
 
@@ -461,14 +183,13 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val isDefinition get() = fields.isDefined()
     }
 
-    @Serializable
     data class Var<out Exp>(
         override val ident: Ident,
-        override val type: Type.Named,
+        override val type: Type,
         val rhs: Option<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
-    ): Valuelike<Exp, Nothing> {
+    ) : Valuelike<Exp, Nothing> {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -481,11 +202,10 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         fun <E> mapRhs(onExp: (Exp) -> E): Var<E> = Var(ident, type, rhs.map(onExp), storage, meta)
     }
 
-    @Serializable
     data class Fun<out Stmt>(
         override val ident: Ident,
         val inline: Boolean,
-        val returnType: Type.Named,
+        val returnType: Type,
         val params: Params,
         val vararg: Boolean           = false,
         val body: Option<Stmt>        = None,
@@ -502,7 +222,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         fun withDefinition(stmt: @UnsafeVariance Stmt) = this.copy(body = stmt.some())
 
-        override val type get(): Type.Named = Type.Fun(returnType, params, vararg)
+        override val type get(): Type = Type.Fun(returnType, params, vararg)
 
         override val isDefinition: Boolean get() = body.isDefined()
 
@@ -513,7 +233,6 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
             Fun(ident, inline, returnType, params, vararg, body.map(f), storage, meta)
     }
 
-    @Serializable
     data class Struct(
         override val ident: Ident,
         override val fields: Option<FieldDecls> = None,
@@ -527,7 +246,6 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val structOrUnion = StructOrUnion.Struct
     }
 
-    @Serializable
     data class Union(
         override val ident: Ident,
         override val fields: Option<FieldDecls> = none(),
@@ -542,10 +260,9 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val structOrUnion = StructOrUnion.Union
     }
 
-    @Serializable
     data class Typedef(
         override val ident: Ident,
-        val underlyingType: Type.Named,
+        val underlyingType: Type,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
@@ -561,7 +278,6 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val kind: EntityKind get() = EntityKind.Typedef
     }
 
-    @Serializable
     data class Enum(
         override val ident: Ident,
         val enumerators: Option<Enumerators> = None,
@@ -603,7 +319,6 @@ enum class EntityKind {
 /**
  * Name and kind pair
  */
-@Serializable
 data class TLID(val name: Ident, val kind: EntityKind) {
     fun symbol(tuid: TUID) = Symbol(tuid, this)
 
@@ -621,7 +336,6 @@ data class TLID(val name: Ident, val kind: EntityKind) {
  * @param <E> the type of expressions in the AST.
  * @param <S> the type of statements in the AST.
  */
-@Serializable
 data class TranslationUnit<out E, out T>(
     /** The (preprocessed) C translation unit identifier */
     val tuid  : TUID,

@@ -235,10 +235,18 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         assertEquals(l.enum, r.enum)
     }
 
-    fun eq(f1: Field, f2: Field) {
-        assertEquals(f1.name, f2.name)
-        assertEquals(f1.bitfield, f2.bitfield)
-        eq(f1.type, f2.type)
+    fun eq(f1: Field, f2: Field) = when(f1) {
+        is Field.Anonymous -> {
+            val a2 = assertIs<Field.Anonymous>(f2)
+            assertEquals(f1.structOrUnion, a2.structOrUnion)
+            eq(f1.subfields, a2.subfields)
+        }
+        is Field.Named -> {
+            val n2 = assertIs<Field.Named>(f2)
+            assertEquals(f1.name, n2.name)
+            assertEquals(f1.bitfield, n2.bitfield)
+            eq(f1.type, n2.type)
+        }
     }
 
     fun eq(t1: Type, t2: Type) {
@@ -286,11 +294,6 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             is Type.Union             -> {
                 val u2 = assertIs<Type.Union>(t2)
                 assertEquals(t1.ref, u2.ref)
-            }
-            is Type.Anonymous -> {
-                val c2 = assertIs<Type.Anonymous>(t2)
-                assertEquals(t1.structOrUnion, c2.structOrUnion)
-                eq(t1.fields, c2.fields)
             }
         }
     }

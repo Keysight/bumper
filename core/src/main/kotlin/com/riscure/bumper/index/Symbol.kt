@@ -3,7 +3,6 @@ package com.riscure.bumper.index
 import com.riscure.bumper.ast.TLID
 import kotlinx.serialization.Serializable
 
-@Serializable
 data class Symbol(
     val unit: TUID,
     val tlid: TLID

@@ -85,8 +85,6 @@ object Pretty {
         is Type.Complex           -> "${floatKind(type.kind)} _Complex"
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
         is Type.VaList            -> "__builtin_va_list"
-
-        is Type.Anonymous -> with (type) { composite(structOrUnion, "", fields) }
     }
 
     @JvmStatic
@@ -172,8 +170,10 @@ object Pretty {
             .getOrElse {"" }
 
     @JvmStatic
-    fun field(field: Field) =
-        "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
+    fun field(field: Field): String = when (field) {
+        is Field.Anonymous -> composite(field.structOrUnion, "", field.subfields.some())
+        is Field.Named     -> "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
+    }
 
     @JvmStatic
     fun fields(fields: List<Field>) = fields.joinToString(separator="; ") { field(it) }
@@ -194,7 +194,12 @@ object Pretty {
 
     @JvmStatic
     fun stmt(s: Stmt): String = when (s) {
-        is Stmt.Block -> "{\n${stmt(Stmt.seq(s.stmts))}}\n}"
+        is Stmt.Block ->
+            """
+            {
+                ${stmt(Stmt.seq(s.stmts))};
+            }
+            """
         is Stmt.Break -> "break;"
         is Stmt.Conditional ->
             """
@@ -208,7 +213,12 @@ object Pretty {
         }
         is Stmt.Do -> "${exp(s.todo)};"
         is Stmt.DoWhile -> TODO()
-        is Stmt.For -> TODO()
+        is Stmt.For ->
+            """
+            for (${stmt(s.before)} ${exp(s.condition)}; ${exp(s.after)}) {
+                ${stmt(s.body)}
+            }
+            """.trimIndent()
         is Stmt.Goto -> TODO()
         is Stmt.Labeled ->
             """
@@ -220,7 +230,16 @@ object Pretty {
             is Some -> "return ${exp(exp.value)};"
             is None -> "return;"
         }
-        is Stmt.Seq -> "${stmt(s.first)}\n${stmt(s.second)}"
+        is Stmt.Seq -> {
+            val fst = stmt(s.first)
+            val snd = stmt(s.second)
+            when {
+                fst.isNotBlank() && snd.isNotBlank() -> "$fst\n$snd"
+                fst.isNotBlank()                     -> fst
+                snd.isNotBlank()                     -> snd
+                else                                 -> ""
+            }
+        }
         is Stmt.Switch ->
             """
             switch (${exp(s.scrutinee)}) {
@@ -240,9 +259,9 @@ object Pretty {
         val prec = e.prec.prec
         val (prec1, prec2) =
             if (e.prec.assoc == Assoc.LR)
-                Pair(e.prec.prec, e.prec.prec + 1)
+                Pair(prec, prec + 1)
             else
-                Pair(e.prec.prec + 1, e.prec.prec)
+                Pair(prec + 1, prec)
 
         val ePrint = when (e) {
             is Exp.Alignof -> TODO()
@@ -286,7 +305,7 @@ object Pretty {
                     OGt -> "$l > $r"
                     OLe -> "$l <= $r"
                     OGe -> "$l >= $r"
-                    OIndex -> "$l[$r]"
+                    OIndex -> "$l[${exp(e.right, 0)}]"
                     OAssign -> "$l = $r"
                     OAddAssign -> "$l += $r"
                     OSubAssign -> "$l -= $r"
@@ -320,7 +339,7 @@ object Pretty {
             }
         }
 
-        return if (e.prec.prec < atPrec) "($ePrint)" else ePrint
+        return if (prec < atPrec) "($ePrint)" else ePrint
     }
 
     @JvmStatic

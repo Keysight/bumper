@@ -8,7 +8,7 @@ import arrow.core.some
 data class FloatConstant(val hex: Boolean, val intPart: String, val fracPart: String, val exp: String)
 
 sealed interface Constant {
-    data class CInt  (val value: Int, val kind: IKind): Constant
+    data class CInt  (val value: Long, val kind: IKind): Constant
     data class CFloat(val value: FloatConstant, val kind: FKind): Constant
     data class CStr  (val value: String): Constant
     // data class CWStr (val value: List<String>): Constant()
@@ -174,14 +174,16 @@ sealed interface Exp {
 
     companion object {
         @JvmStatic
-        fun constant(i: Int, kind: IKind) = Const(Constant.CInt(i, kind), Type.Int(kind))
+        fun constant(i: Long, kind: IKind) = Const(Constant.CInt(i, kind), Type.Int(kind))
         @JvmStatic
         fun not(exp: Exp) = UnOp(UnaryOp.OLogNot, exp, Type.bool)
         @JvmStatic
-        fun dot(exp: Exp, field: Field) = UnOp(UnaryOp.ODot(field.name), exp, field.type)
+        fun dot(exp: Exp, field: Field.Named) = UnOp(UnaryOp.ODot(field.name), exp, field.type)
+        @JvmStatic
+        fun index(lhs: Exp, rhs: Exp, elTyp: Type) = BinOp(BinaryOp.OIndex, lhs, rhs, lhs.etype, elTyp)
 
         @JvmStatic
-        fun arrow(exp: Exp, field: Field) = UnOp(UnaryOp.OArrow(field.name), exp, field.type)
+        fun arrow(exp: Exp, field: Field.Named) = UnOp(UnaryOp.OArrow(field.name), exp, field.type)
 
         @JvmStatic
         fun addrOf(exp: Exp, ptrKind: IKind) = UnOp(UnaryOp.OAddrOf, exp, Type.Int(ptrKind))
@@ -193,7 +195,7 @@ sealed interface Exp {
         fun assign(lhs: Exp, rhs: Exp) = BinOp(BinaryOp.OAssign, lhs, rhs, lhs.etype, lhs.etype)
 
         @JvmStatic
-        fun op(op: BinaryOp, lhs: Exp, rhs: Exp) = BinOp(op, lhs, rhs, lhs.etype, lhs.etype)
+        fun op(op: BinaryOp, lhs: Exp, rhs: Exp, result: Type) = BinOp(op, lhs, rhs, lhs.etype, result)
 
         @JvmStatic
         fun call(function: Exp, vararg args: Exp) = when (val typ = function.etype) {
@@ -233,7 +235,9 @@ sealed interface Stmt {
         val ident: Ident,
         val type: Type,
         val init: Option<Initializer> = none()
-    ): Stmt
+    ): Stmt {
+        val ref get() = Exp.Var(ident, type)
+    }
     data class Block(val stmts: List<Stmt>): Stmt
     data class Return(val value: Option<Exp> = none()): Stmt
     object Skip: Stmt
@@ -242,7 +246,7 @@ sealed interface Stmt {
     data class Conditional(val condition: Exp, val thenBranch: Stmt, val elseBranch: Stmt): Stmt
     data class While(val condition: Exp, val body: Stmt): Stmt
     data class DoWhile(val body: Stmt, val condition: Exp): Stmt
-    data class For(val before: Stmt, val condition: Exp, val after: Stmt, val body: Stmt): Stmt
+    data class For(val before: Stmt, val condition: Exp, val after: Exp, val body: Stmt): Stmt
     object Break: Stmt
     object Continue: Stmt
     data class Switch(val scrutinee: Exp, val body: Stmt): Stmt
@@ -255,7 +259,8 @@ sealed interface Stmt {
         @JvmStatic
         fun exp(exp: Exp) = Do(exp)
         @JvmStatic
-        fun decl(name: Ident, type: Type, init: Initializer) = Decl(ident = name, type = type, init = init.some())
+        fun decl(name: Ident, type: Type, init: Exp) =
+            Decl(ident = name, type = type, init = Initializer.InitSingle(init).some())
         @JvmStatic
         fun decl(name: Ident, type: Type) = Decl(ident = name, type = type)
         @JvmStatic
@@ -277,7 +282,7 @@ sealed interface Stmt {
             Switch(scrutinee, seq(cases.map { (c, body) -> ccase(c, body) }))
         @JvmStatic
         fun ccase(c: Int, body: Stmt) = seq(
-            Labeled(StmtLabel.Case(Exp.constant(c, IKind.IInt), c), body),
+            Labeled(StmtLabel.Case(Exp.constant(c.toLong(), IKind.IInt), c), body),
             Break
         )
     }
