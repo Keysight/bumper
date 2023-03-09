@@ -197,5 +197,39 @@ sealed interface Type {
         fun union(ident: String) = Union(TLID.union(ident))
 
     }
+
+    /**
+     * Remove the outer layers of typedefs, Atomic, Complex.
+     *
+     * @returns none if typedef could not be resolved.
+     */
+    fun unroll(lookup: (tlid: TLID) -> Option<UnitDeclaration.Typedef>): Option<Type> = when (this) {
+        is Typedeffed -> lookup(ref).flatMap { it.underlyingType.unroll(lookup) }
+        is Atomic -> elementType.some()
+        is Complex -> Float(kind).some()
+        is Enum -> int.some()
+        else -> this.some()
+    }
+
+    /**
+     * Convert type to an equivalent C Light type.
+     *
+     * @returns none if typedef could not be resolved, or when [this] is VaList.
+     */
+    fun toLight(lookup: (tlid: TLID) -> Option<UnitDeclaration.Typedef>): Option<Light> = when(this) {
+        is Struct -> this.some()
+        is Union -> this.some()
+        is Array -> this.some()
+        is Float -> this.some()
+        is Fun -> this.some()
+        is Int -> this.some()
+        is Ptr -> this.some()
+        is Void -> this.some()
+        is Atomic -> elementType.toLight(lookup)
+        is Complex -> Float(kind).some()
+        is Enum -> int.some()
+        is Typedeffed -> lookup(ref).flatMap { it.underlyingType.toLight(lookup) }
+        is VaList -> none() // requires platform info
+    }
 }
 

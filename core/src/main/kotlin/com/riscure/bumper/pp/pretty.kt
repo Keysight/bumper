@@ -321,7 +321,7 @@ object Pretty {
                 }
             }
             is Exp.UnOp  -> {
-                val l = exp(e.exp, prec)
+                val l = exp(e.operand, prec)
                 when (e.op) {
                     is OArrow -> "$l->${e.op.member}"
                     is ODot -> "$l.${e.op.member}"
@@ -347,9 +347,8 @@ object Pretty {
         lhs(decl) + when (decl) {
             is UnitDeclaration.TypeDeclaration -> ";"
             is UnitDeclaration.Var -> decl.rhs .map { "= ${exp (it)};" }.getOrElse { ";" }
-            is UnitDeclaration.Fun -> decl.body.map { "{\n ${stmt(it)}\n}" }.getOrElse { ";" }
+            is UnitDeclaration.Fun -> decl.body.map { "{\n${stmt(it)}\n}" }.getOrElse { ";" }
         }
-
 
 }
 
@@ -403,7 +402,7 @@ class AstWriters<Exp, Stmt>(
         }
 
         is UnitDeclaration.Fun       -> when (val stmt = toplevel.body) {
-            is Some -> stmtWriter(stmt.value).map { text(it) }
+            is Some -> stmtWriter(stmt.value).map { text("{\n$it\n}") }
             is None -> semicolon.right()
         }
 
@@ -430,6 +429,13 @@ class AstWriters<Exp, Stmt>(
          */
         @JvmStatic
         fun usingStrings(): AstWriters<String, String> = AstWriters({ it.right() }, { it.right() })
+
+        /**
+         * An instance of AstWriters for translation units whose expressions and statements
+         * are C expression/statements ASTs.
+         */
+        @JvmStatic
+        fun usingPretty(): AstWriters<Exp, Stmt> = AstWriters({ Pretty.exp(it).right() }, { Pretty.stmt(it).right() })
 
     }
 }

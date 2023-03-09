@@ -139,7 +139,7 @@ sealed interface Exp {
 
     data class UnOp(
         val op: UnaryOp,
-        val exp: Exp,
+        val operand: Exp,
         override val etype: Type
     ): Exp {
         override val prec: Prec get() = op.prec
@@ -181,12 +181,19 @@ sealed interface Exp {
         fun dot(exp: Exp, field: Field.Named) = UnOp(UnaryOp.ODot(field.name), exp, field.type)
         @JvmStatic
         fun index(lhs: Exp, rhs: Exp, elTyp: Type) = BinOp(BinaryOp.OIndex, lhs, rhs, lhs.etype, elTyp)
-
         @JvmStatic
         fun arrow(exp: Exp, field: Field.Named) = UnOp(UnaryOp.OArrow(field.name), exp, field.type)
 
         @JvmStatic
-        fun addrOf(exp: Exp, ptrKind: IKind) = UnOp(UnaryOp.OAddrOf, exp, Type.Int(ptrKind))
+        fun deref(exp: Exp, pointee: Type) = when {
+            exp is UnOp && exp.op is UnaryOp.OAddrOf -> exp.operand
+            else                                     -> UnOp(UnaryOp.ODeref, exp, pointee)
+        }
+        @JvmStatic
+        fun addrOf(exp: Exp) = when {
+            exp is UnOp && exp.op is UnaryOp.ODeref -> exp.operand
+            else                                    -> UnOp(UnaryOp.OAddrOf, exp, exp.etype.ptr())
+        }
 
         @JvmStatic
         fun sizeOf(typ: Type, sizeKind: IKind) = Sizeof(typ, Type.Int(sizeKind))
