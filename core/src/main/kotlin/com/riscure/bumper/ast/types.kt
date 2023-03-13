@@ -153,13 +153,6 @@ sealed interface Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
-    /* The builtin type __builtin_va_list */
-    data class VaList(
-        override val attrs: Attrs = listOf()
-    ) : Type {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-    }
-
     companion object {
         // smart constructors
 
@@ -213,8 +206,6 @@ sealed interface Type {
 
     /**
      * Convert type to an equivalent C Light type.
-     *
-     * @returns none if typedef could not be resolved, or when [this] is VaList.
      */
     fun toLight(lookup: (tlid: TLID) -> Option<UnitDeclaration.Typedef>): Option<Light> = when(this) {
         is Struct -> this.some()
@@ -229,7 +220,6 @@ sealed interface Type {
         is Complex -> Float(kind).some()
         is Enum -> int.some()
         is Typedeffed -> lookup(ref).flatMap { it.underlyingType.toLight(lookup) }
-        is VaList -> none() // requires platform info
     }
 }
 

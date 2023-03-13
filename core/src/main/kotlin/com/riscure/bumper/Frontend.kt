@@ -18,7 +18,7 @@ typealias Result<R> = Either<Throwable, R>
  * Assembles the various stages into a frontend pipeline for processing
  * translation units.
  */
-class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
+open class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
     private val preprocessor: Preprocessor,
     private val parser: Parser<Exp, Stmt, S>,
     private val cppStorage: Storage

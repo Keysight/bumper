@@ -61,8 +61,10 @@ sealed interface Field {
     data class Named(
         override val name: Ident, /* non-empty! */
         val type: Type,
-        val bitfield: Option<Int> = none()
-    ): Field
+        val bitfield: Option<Int>
+    ): Field {
+        constructor(name: Ident, type: Type): this(name, type, none())
+    }
 
     data class Anonymous(
         val structOrUnion: StructOrUnion,
@@ -236,9 +238,11 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     data class Struct(
         override val ident: Ident,
         override val fields: Option<FieldDecls> = None,
-        override val storage: Storage = Storage.Default,
-        override val meta: Meta = Meta.default
+        override val storage: Storage,
+        override val meta: Meta
     ): Compound {
+        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, fields, Storage.Default, Meta.default)
+
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -263,9 +267,10 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     data class Typedef(
         override val ident: Ident,
         val underlyingType: Type,
-        override val storage: Storage = Storage.Default,
-        override val meta: Meta = Meta.default
+        override val storage: Storage,
+        override val meta: Meta
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
+        constructor(ident: Ident, underlyingType: Type): this(ident, underlyingType, Storage.Default, Meta.default)
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)

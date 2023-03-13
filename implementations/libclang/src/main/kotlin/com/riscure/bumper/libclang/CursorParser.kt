@@ -529,14 +529,9 @@ open class CursorParser(
                 cursor
                     .getIdentifier()
                     .flatMap { id ->
-                        // clang presents this as a typedef.
-                        if (id == "__builtin_va_list") {
-                            Type.VaList().right()
-                        } else {
-                            cursor
-                                .getSymbol()
-                                .map { Type.Typedeffed(it.tlid) }
-                        }
+                        cursor
+                            .getSymbol()
+                            .map { Type.Typedeffed(it.tlid) }
                     }
             }
 
