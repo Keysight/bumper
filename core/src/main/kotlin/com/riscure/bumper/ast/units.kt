@@ -368,7 +368,7 @@ data class TranslationUnit<out E, out T> (
      * All declarations in the unit.
      */
     val declarations: List<UnitDeclaration<E, T>>,
-): TypeEnv {
+) {
     val isEmpty get() = declarations.isEmpty()
 
     val byIdentifier: Map<TLID, List<UnitDeclaration<E, T>>> by lazy {
@@ -446,11 +446,16 @@ data class TranslationUnit<out E, out T> (
             ?.find { it.isDefinition }
             .toOption()
 
-    override fun lookup(tlid: TLID): Either<TypeEnv.Missing, UnitDeclaration.TypeDeclaration> =
-        typeDeclarations
-            .find { it.tlid == tlid && it.isDefinition }
-            .toOption()
-            .toEither { TypeEnv.Missing(tlid) }
+    fun typeEnv(builtins: Builtins) = object:TypeEnv {
+        override val builtins: Builtins
+            get() = builtins
+
+        override fun lookup(tlid: TLID): Either<TypeEnv.Missing, UnitDeclaration.TypeDeclaration> =
+            typeDeclarations
+                .find { it.tlid == tlid && it.isDefinition }
+                .toOption()
+                .toEither { TypeEnv.Missing(tlid) }
+    }
 
     /**
      * Given a function definition identifier, turn it into a declaration only.

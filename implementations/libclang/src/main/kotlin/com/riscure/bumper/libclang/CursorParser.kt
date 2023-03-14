@@ -145,7 +145,12 @@ open class CursorParser(
                             .sequence()
                     }
                     // and finally collect the outputs in a translation unit model.
-                    .map { ds -> UnitWithCursorData(TranslationUnit(tuid, ds.map { it.second }), ds.toMap()) }
+                    .map { ds ->
+                        UnitWithCursorData(
+                            TranslationUnit(tuid, ds.map { it.second }),
+                            ds.toMap()
+                        )
+                    }
             }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,
@@ -529,9 +534,14 @@ open class CursorParser(
                 cursor
                     .getIdentifier()
                     .flatMap { id ->
-                        cursor
-                            .getSymbol()
-                            .map { Type.Typedeffed(it.tlid) }
+                        // clang presents this as a typedef.
+                        if (id == "__builtin_va_list") {
+                            Type.VaList().right()
+                        } else {
+                            cursor
+                                .getSymbol()
+                                .map { Type.Typedeffed(it.tlid) }
+                        }
                     }
             }
 

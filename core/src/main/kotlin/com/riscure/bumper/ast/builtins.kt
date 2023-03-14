@@ -8,12 +8,15 @@ interface Builtins {
 
     val builtinTypedefs: List<UnitDeclaration.Typedef>
         get() = listOf(__builtin_va_list)
-}
 
-// Inspired by LGPL Compcert definitions
-// https://github.com/AbsInt/CompCert/blob/04f499c632a76e460560fc9ec4e14d8216e7fc18/aarch64/CBuiltins.ml
-object Aarch64: Builtins {
-    override val __builtin_va_list
-        // TODO this is only true apparently for AAPCS64 Abi and not on MacOSX?
-        get() = UnitDeclaration.Typedef("__builtin_va_list", Type.void.ptr())
+
+    // Be inspired by LGPL Compcert definitions
+    // https://github.com/AbsInt/CompCert/blob/04f499c632a76e460560fc9ec4e14d8216e7fc18/aarch64/CBuiltins.ml
+    companion object {
+        @JvmField
+        val clang = object:Builtins {
+            override val __builtin_va_list =
+                UnitDeclaration.Typedef("__builtin_va_list", Type.array(Type.struct("__va_list_tag"), 1L))
+        }
+    }
 }

@@ -84,6 +84,7 @@ object Pretty {
 
         is Type.Complex           -> "${floatKind(type.kind)} _Complex"
         is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
+        is Type.VaList            -> "__builtin_va_list"
     }
 
     @JvmStatic

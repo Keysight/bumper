@@ -84,6 +84,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Void      -> nil()
         is Type.Atomic    -> ofType(type.elementType)
         is Type.Complex   -> nil()
+        is Type.VaList    -> nil()
     }
 
     private fun ofParams(params: List<Param>): Result<TLID> =

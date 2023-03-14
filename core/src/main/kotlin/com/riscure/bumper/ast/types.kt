@@ -9,6 +9,8 @@ interface TypeEnv {
             get() = "Failed to lookup definition of ${type.kind.toString().lowercase()} ${type.name}"
     }
 
+    val builtins: Builtins
+
     fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
 
     fun typedefs(tlid: TLID): TypeLookup<UnitDeclaration.Typedef> =
@@ -231,6 +233,13 @@ sealed interface Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
     }
 
+    /* The type __builtin_va_list is an opaque builtin type definition */
+    data class VaList(
+        override val attrs: Attrs = listOf()
+    ) : Type {
+        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+    }
+
     companion object {
         // smart constructors
 
@@ -287,6 +296,7 @@ sealed interface Type {
         is Int -> this.right()
         is Ptr -> this.right()
         is Void -> this.right()
+        is VaList -> env.builtins.__builtin_va_list.underlyingType.unroll(env)
     }
 }
 
