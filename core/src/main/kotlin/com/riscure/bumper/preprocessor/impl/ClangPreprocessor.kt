@@ -3,6 +3,7 @@ package com.riscure.bumper.preprocessor.impl
 import arrow.core.*
 import com.github.pgreze.process.Redirect
 import com.github.pgreze.process.process
+import com.riscure.bumper.parser.ParseError
 import com.riscure.dobby.clang.Arg
 import com.riscure.dobby.clang.Command
 import com.riscure.dobby.clang.Options
@@ -19,10 +20,10 @@ import java.nio.file.Path
 class ClangPreprocessor(private val clang: Path) : Preprocessor {
     private val log = LoggerFactory.getLogger(this.javaClass)
 
-    override fun preprocess(main: File, opts: Options, out: File): Either<Throwable, Unit> = runBlocking {
+    override fun preprocess(main: File, opts: Options, out: File): Either<ParseError.PreprocFailed, Unit> = runBlocking {
         if (main.extension != "c") {
             // Yes...
-            Preprocessor.Error(main, "Preprocessor expects input with '.c' file extension, got '$main'").left()
+            ParseError.PreprocFailed(main, "Preprocessor expects input with '.c' file extension, got '$main'").left()
         }
 
         val cmd: Command =
@@ -48,7 +49,7 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
 
         // detect failures
         if (res.resultCode != 0) {
-            Preprocessor.Error(main, res.output.joinToString(separator = "\n")).left()
+            ParseError.PreprocFailed(main, res.output.joinToString(separator = "\n")).left()
         } else Unit.right()
     }
 }
