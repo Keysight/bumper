@@ -176,6 +176,8 @@ sealed interface Exp {
         @JvmStatic
         fun constant(i: Long, kind: IKind) = Const(Constant.CInt(i, kind), Type.Int(kind))
         @JvmStatic
+        fun cast(to: Type, exp: Exp) = Cast(to, exp, to)
+        @JvmStatic
         fun not(exp: Exp) = UnOp(UnaryOp.OLogNot, exp, Type.bool)
         @JvmStatic
         fun dot(exp: Exp, field: Field.Named) = UnOp(UnaryOp.ODot(field.name), exp, field.type)

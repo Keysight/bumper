@@ -40,14 +40,16 @@ tasks.named<Test>("test") {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs +
+                "-Xskip-prerelease-check"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs +
+                "-xskip-prerelease-check"
     }
 }
 

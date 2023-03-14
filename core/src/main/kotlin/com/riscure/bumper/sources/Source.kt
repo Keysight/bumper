@@ -17,7 +17,7 @@ sealed interface Preproc {
         private val header: String
     ): Preproc {
         val quoted: String get() =
-            if (header.isNotEmpty() && header.first() == '<') "\"$header\""
+            if (header.isNotEmpty() && header.first() != '<') "\"$header\""
             else header
 
         override fun pretty() = "#include $quoted"

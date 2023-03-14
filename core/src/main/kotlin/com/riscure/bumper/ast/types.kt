@@ -2,6 +2,47 @@ package com.riscure.bumper.ast
 
 import arrow.core.*
 
+private typealias TypeLookup<T> = Either<TypeEnv.Missing, T>
+interface TypeEnv {
+    data class Missing(val type: TLID): Exception() {
+        override val message: String?
+            get() = "Failed to lookup definition of ${type.kind.toString().lowercase()} ${type.name}"
+    }
+
+    fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
+
+    fun typedefs(tlid: TLID): TypeLookup<UnitDeclaration.Typedef> =
+        lookup(tlid)
+            .flatMap {
+                if (it is UnitDeclaration.Typedef) it.right()
+                else Missing(tlid).left()
+            }
+    fun structs(tlid: TLID): TypeLookup<UnitDeclaration.Struct> =
+        lookup(tlid)
+            .flatMap {
+                if (it is UnitDeclaration.Struct) it.right()
+                else Missing(tlid).left()
+            }
+    fun unions(tlid: TLID): TypeLookup<UnitDeclaration.Union> =
+        lookup(tlid)
+            .flatMap {
+                if (it is UnitDeclaration.Union) it.right()
+                else Missing(tlid).left()
+            }
+    fun enums(tlid: TLID): TypeLookup<UnitDeclaration.Enum> =
+        lookup(tlid)
+            .flatMap {
+                if (it is UnitDeclaration.Enum) it.right()
+                else Missing(tlid).left()
+            }
+    fun fields(tlid: TLID): TypeLookup<FieldDecls> =
+        lookup(tlid)
+            .flatMap {
+                if (it is UnitDeclaration.Compound) it.fields.toEither { Missing(tlid) }
+                else Missing(tlid).left()
+            }
+}
+
 /** Different integer kinds */
 enum class IKind {
     IBoolean
@@ -26,12 +67,19 @@ enum class AccessMode {
 
 sealed interface Type {
 
-    /**
-     * The types of CompCert's CLight.
-     */
-    sealed interface Light: Type {
+    sealed interface Unrolled: Type {
         val accessMode: AccessMode
+
+        /**
+         * A type is complete w.r.t. a given type environment when its size
+         * can be computed.
+         */
+        override fun isComplete(typeEnv: TypeEnv): Boolean
     }
+
+    fun isComplete(typeEnv: TypeEnv): Boolean = unroll(typeEnv)
+        .map { it.isComplete(typeEnv) }
+        .getOrElse { false }
 
     val attrs: Attrs
     fun withAttrs(attrs: Attrs): Type // refine type
@@ -50,42 +98,49 @@ sealed interface Type {
 
     data class Void(
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.None
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true
     }
 
     data class Int(
         val kind: IKind,
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByValue
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true
     }
 
     data class Float(
         val kind: FKind,
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByValue
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true
     }
 
     data class Ptr(
         val pointeeType: Type,
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByValue
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true
     }
 
     data class Array(
         val elementType: Type,
         val size: Option<Long> = None,
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByReference
+        override fun isComplete(typeEnv: TypeEnv): Boolean =
+            // C treats arrays as complete even when the array size is variable.
+            elementType.isComplete(typeEnv)
     }
 
     data class Fun(
@@ -93,9 +148,10 @@ sealed interface Type {
         val params: List<Param>,
         val vararg: Boolean = false,
         override val attrs: Attrs = listOf()
-    ) : Light {
+    ) : Unrolled {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByReference
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true // functions decay to pointers
     }
 
     /**
@@ -106,14 +162,27 @@ sealed interface Type {
         override val attrs: Attrs = listOf()
     ): Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+        override fun isComplete(typeEnv: TypeEnv): Boolean =
+            typeEnv
+                .typedefs(ref)
+                .map { it.underlyingType.isComplete(typeEnv) }
+                .getOrElse { false }
     }
 
     /**
      * Reference to a top-level struct
      */
-    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Light, Defined {
+    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Unrolled, Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByCopy
+        override fun isComplete(typeEnv: TypeEnv): Boolean =
+            typeEnv
+                .structs(ref)
+                .map { struct ->
+                    // recursively check completeness of the field types
+                    struct.foldFields(true) { acc, fs -> acc && fs.type.isComplete(typeEnv) }
+                }
+                .getOrElse { false }
     }
 
     /**
@@ -122,9 +191,17 @@ sealed interface Type {
     data class Union(
         override val ref: TypeRef,
         override val attrs: Attrs = listOf()
-    ) : Light, Defined {
+    ) : Unrolled, Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
         override val accessMode get() = AccessMode.ByCopy
+        override fun isComplete(typeEnv: TypeEnv): Boolean =
+            typeEnv
+                .unions(ref)
+                .map { struct ->
+                    // recursively check completeness of the field types
+                    struct.foldFields(true) { acc, fs -> acc && fs.type.isComplete(typeEnv) }
+                }
+                .getOrElse { false }
     }
 
     /**
@@ -135,6 +212,7 @@ sealed interface Type {
         override val attrs: Attrs = listOf()
     ) : Defined {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
+        override fun isComplete(typeEnv: TypeEnv): Boolean = true
     }
 
     /* _Complex */
@@ -192,34 +270,23 @@ sealed interface Type {
     }
 
     /**
-     * Remove the outer layers of typedefs, Atomic, Complex.
+     * Remove the outer layers of typedefs, Atomic, Complex to get to the normalized representation type.
      *
      * @returns none if typedef could not be resolved.
      */
-    fun unroll(lookup: (tlid: TLID) -> Option<UnitDeclaration.Typedef>): Option<Type> = when (this) {
-        is Typedeffed -> lookup(ref).flatMap { it.underlyingType.unroll(lookup) }
-        is Atomic -> elementType.some()
-        is Complex -> Float(kind).some()
-        is Enum -> int.some()
-        else -> this.some()
-    }
-
-    /**
-     * Convert type to an equivalent C Light type.
-     */
-    fun toLight(lookup: (tlid: TLID) -> Option<UnitDeclaration.Typedef>): Option<Light> = when(this) {
-        is Struct -> this.some()
-        is Union -> this.some()
-        is Array -> this.some()
-        is Float -> this.some()
-        is Fun -> this.some()
-        is Int -> this.some()
-        is Ptr -> this.some()
-        is Void -> this.some()
-        is Atomic -> elementType.toLight(lookup)
-        is Complex -> Float(kind).some()
-        is Enum -> int.some()
-        is Typedeffed -> lookup(ref).flatMap { it.underlyingType.toLight(lookup) }
+    fun unroll(env: TypeEnv): TypeLookup<Type.Unrolled> = when (this) {
+        is Typedeffed -> env.typedefs(ref).flatMap { it.underlyingType.unroll(env) }
+        is Atomic -> elementType.unroll(env)
+        is Complex -> Float(kind).right()
+        is Enum -> int.right()
+        is Struct -> this.right()
+        is Union -> this.right()
+        is Array -> this.right()
+        is Float -> this.right()
+        is Fun -> this.right()
+        is Int -> this.right()
+        is Ptr -> this.right()
+        is Void -> this.right()
     }
 }
 

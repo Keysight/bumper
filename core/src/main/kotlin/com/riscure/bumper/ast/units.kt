@@ -1,5 +1,5 @@
 /**
- * This packages contains a fully type-annotated C source AST *after elaboration*.
+ * This package contains a fully type-annotated C source AST *after elaboration*.
  *
  * The representation is similar to CompCert's elaborated AST:
  * - https://github.com/AbsInt/CompCert/blob/master/cparser/C.mli
@@ -52,9 +52,6 @@ enum class StructOrUnion { Struct, Union }
 
 /** Struct or union field */
 sealed interface Field {
-    companion object {
-        operator fun invoke(id: Ident, type: Type, bitfield: Option<Int> = none()) = Named(id, type, bitfield)
-    }
 
     val name get() = ""
 
@@ -71,8 +68,27 @@ sealed interface Field {
         val subfields: FieldDecls,
         val bitfield: Option<Int> = none()
     ): Field
+
+    companion object {
+        /**
+         * Utility constructor to construct a named field as Field(..)
+         */
+        operator fun invoke(id: Ident, type: Type, bitfield: Option<Int> = none()) = Named(id, type, bitfield)
+    }
 }
 typealias FieldDecls  = List<Field>
+
+/**
+ * Fold over the named fields in the list, and inside the anonymous structs and unions
+ * of anonymous fields.
+ */
+fun <R> List<Field>.foldFields(initial: R, f: (R, Field.Named) -> R):R =
+    this.fold(initial) { acc, field ->
+        when (field) {
+            is Field.Named     -> f(acc, field)
+            is Field.Anonymous -> field.subfields.foldFields(acc, f)
+        }
+    }
 
 data class Param(val name: Ident, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
@@ -164,7 +180,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     /** Everything that is visible to other translation units (non-types) */
     sealed interface Valuelike<out E, out S> : UnitDeclaration<E, S> {
         val type: Type
-        fun getRef() = Exp.Var(ident, type)
+        fun ref() = Exp.Var(ident, type)
     }
 
     /** Everything that declares a new type: Struct, Union, Enum */
@@ -183,6 +199,9 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         val structOrUnion: StructOrUnion
 
         override val isDefinition get() = fields.isDefined()
+
+        fun <A> foldFields(initial: A, f: (A, Field.Named) -> A): A =
+            fields.fold({ initial }) { fs -> fs.foldFields(initial, f) }
     }
 
     data class Var<out Exp>(
@@ -341,7 +360,7 @@ data class TLID(val name: Ident, val kind: EntityKind) {
  * @param <E> the type of expressions in the AST.
  * @param <S> the type of statements in the AST.
  */
-data class TranslationUnit<out E, out T>(
+data class TranslationUnit<out E, out T> (
     /** The (preprocessed) C translation unit identifier */
     val tuid  : TUID,
 
@@ -349,7 +368,7 @@ data class TranslationUnit<out E, out T>(
      * All declarations in the unit.
      */
     val declarations: List<UnitDeclaration<E, T>>,
-) {
+): TypeEnv {
     val isEmpty get() = declarations.isEmpty()
 
     val byIdentifier: Map<TLID, List<UnitDeclaration<E, T>>> by lazy {
@@ -426,6 +445,12 @@ data class TranslationUnit<out E, out T>(
         byIdentifier[id]
             ?.find { it.isDefinition }
             .toOption()
+
+    override fun lookup(tlid: TLID): Either<TypeEnv.Missing, UnitDeclaration.TypeDeclaration> =
+        typeDeclarations
+            .find { it.tlid == tlid && it.isDefinition }
+            .toOption()
+            .toEither { TypeEnv.Missing(tlid) }
 
     /**
      * Given a function definition identifier, turn it into a declaration only.

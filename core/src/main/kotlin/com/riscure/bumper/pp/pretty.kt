@@ -272,7 +272,7 @@ object Pretty {
                     else       -> "(${exp(e.funRef, prec)})($args)"
                 }
             }
-            is Exp.Cast -> TODO()
+            is Exp.Cast -> "(${type(e.toType)}) ${exp(e.exp)}"
             is Exp.Compound -> TODO()
             is Exp.Conditional -> TODO()
             is Exp.Const -> when (val c = e.constant) {
