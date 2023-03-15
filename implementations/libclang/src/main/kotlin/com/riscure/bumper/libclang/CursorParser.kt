@@ -250,10 +250,10 @@ open class CursorParser(
                     children()
                         .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
-                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators.some()) }
+                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators) }
                 }
             } else {
-                getSymbol().map { symbol -> UnitDeclaration.Enum(symbol.name, None)}
+                getSymbol().map { symbol -> UnitDeclaration.Enum(symbol.name) }
             }
         }
 
@@ -514,15 +514,15 @@ open class CursorParser(
             CXType_Float           -> Type.Float(FKind.FFloat).right()
             CXType_Double          -> Type.Float(FKind.FDouble).right()
             CXType_LongDouble      -> Type.Float(FKind.FLongDouble).right()
-            CXType_Complex         ->
-                clang_getElementType(this)
-                    .asType()
-                    .flatMap {
-                        when (it) {
-                            is Type.Float -> Type.Complex(it.kind).right()
-                            else          -> "Complex element type is not a float.".left()
-                        }
-                    }
+            CXType_Complex         -> "_Complex is not yet supported".left()
+//                clang_getElementType(this)
+//                    .asType()
+//                    .flatMap {
+//                        when (it) {
+//                            is Type.Float -> Type.Complex(it.kind).right()
+//                            else          -> "Complex element type is not a float.".left()
+//                        }
+//                    }
 
             CXType_Pointer         ->
                 clang_getPointeeType(this)
@@ -586,10 +586,10 @@ open class CursorParser(
                             .map { args -> Type.Fun(retType, args, false) }
                     }
 
-            CXType_Atomic          ->
-                clang_Type_getValueType(this)
-                    .asType()
-                    .map { Type.Atomic(it) }
+            CXType_Atomic          -> "_Atomic is not yet supported".left()
+//                clang_Type_getValueType(this)
+//                    .asType()
+//                    .map { Type.Atomic(it) }
 
             // Special type kind for inline declarations are elaborated by clang.
             CXType_Elaborated      ->
@@ -664,7 +664,7 @@ open class CursorParser(
     CXCursor_WarnUnusedResultAttr -> TODO()
     */
 
-        else                 -> "Not a recognized attribute?".left()
+        else                 -> "Not a recognized attribute of kind ${kindName()}".left()
     }
 
     fun CXType.getAlignment(): Option<Long> {

@@ -36,7 +36,7 @@ object Pretty {
     @JvmStatic
     fun declaration(ident: Ident, type: Type): String {
         val (remainingType, decl) = namePart(type, ident)
-        return "${maybeAttrs(remainingType.attrs)}${typePrefix(remainingType)} $decl".trim()
+        return "${maybeAttrs(remainingType.attrsOnType)}${typePrefix(remainingType)} $decl".trim()
     }
 
     @JvmStatic
@@ -58,7 +58,7 @@ object Pretty {
     private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
 
     private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
-        is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrs)}${name}")
+        is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrsOnType)}${name}")
         is Type.Fun   -> {
             // this is strange, but true, I think
             namePart(type.returnType, "($name)(${formals(type.params)})")
@@ -82,8 +82,8 @@ object Pretty {
         is Type.Union             -> "union ${type.ref.name}"
         is Type.Void              -> "void"
 
-        is Type.Complex           -> "${floatKind(type.kind)} _Complex"
-        is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
+//        is Type.Complex           -> "${floatKind(type.kind)} _Complex"
+//        is Type.Atomic            -> "_Atomic ${typePrefix(type.elementType)}"
         is Type.VaList            -> "__builtin_va_list"
     }
 

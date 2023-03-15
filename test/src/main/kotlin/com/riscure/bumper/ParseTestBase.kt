@@ -250,13 +250,13 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
     fun eq(t1: Type, t2: Type) {
-        assertEquals(t1.attrs, t2.attrs)
+        assertEquals(t1.attrsOnType, t2.attrsOnType)
 
         when (t1) {
             is Type.Int               -> assertEquals(t1, t2)
             is Type.Float             -> assertEquals(t1, t2)
             is Type.Void              -> assertEquals(t1, t2)
-            is Type.Complex           -> assertEquals(t1, t2)
+//            is Type.Complex           -> assertEquals(t1, t2)
             is Type.VaList            -> assertIs<Type.VaList>(t2)
 
             is Type.Array             -> {
@@ -264,10 +264,10 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 assertEquals(t1.size, a2.size)
                 eq(t1.elementType, a2.elementType)
             }
-            is Type.Atomic            -> {
-                val a2 = assertIs<Type.Atomic>(t2)
-                eq(t1.elementType, a2.elementType)
-            }
+//            is Type.Atomic            -> {
+//                val a2 = assertIs<Type.Atomic>(t2)
+//                eq(t1.elementType, a2.elementType)
+//            }
             is Type.Fun               -> {
                 val f2 = assertIs<Type.Fun>(t2)
                 eq(t1.returnType, f2.returnType)

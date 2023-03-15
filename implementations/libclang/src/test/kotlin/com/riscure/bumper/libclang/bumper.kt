@@ -46,3 +46,4 @@ class LibclangTypedefParseTest  : LibclangTestBase(), TypedefParseTest<CXCursor,
 class LibclangTypeRoundtripTest : LibclangTestBase(), TypeRoundtripTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangStdHeadersTest    : LibclangTestBase(), StdHeadersTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangGlobalParseTest   : LibclangTestBase(), GlobalParseTest<CXCursor, CXCursor, ClangUnitState>
+class LibclangTypeTest          : LibclangTestBase(), TypeTest<CXCursor, CXCursor, ClangUnitState>

@@ -82,8 +82,8 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.Int       -> nil()
         is Type.Float     -> nil()
         is Type.Void      -> nil()
-        is Type.Atomic    -> ofType(type.elementType)
-        is Type.Complex   -> nil()
+//        is Type.Atomic    -> ofType(type.elementType)
+//        is Type.Complex   -> nil()
         is Type.VaList    -> nil()
     }
 

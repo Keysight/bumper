@@ -46,8 +46,6 @@ sealed interface Storage {
     object Register: Public
 }
 
-typealias Attrs = List<Attr>
-
 enum class StructOrUnion { Struct, Union }
 
 /** Struct or union field */
@@ -186,10 +184,10 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
         val type: Type.Defined get() = when (this) {
-            is Struct  -> Type.Struct(this.tlid)
-            is Union   -> Type.Union(this.tlid)
-            is Enum    -> Type.Enum(this.tlid)
-            is Typedef -> Type.Typedeffed(this.tlid)
+            is Struct  -> Type.Struct(this.tlid, this.attributes)
+            is Union   -> Type.Union(this.tlid, this.attributes)
+            is Enum    -> Type.Enum(this.tlid, this.attributes)
+            is Typedef -> Type.Typedeffed(this.tlid, listOf())
         }
     }
 
@@ -197,6 +195,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     sealed interface Compound: TypeDeclaration {
         val fields: Option<FieldDecls>
         val structOrUnion: StructOrUnion
+        val attributes: List<Attr>
 
         override val isDefinition get() = fields.isDefined()
 
@@ -256,11 +255,12 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     data class Struct(
         override val ident: Ident,
-        override val fields: Option<FieldDecls> = None,
+        override val attributes: List<Attr>,
+        override val fields: Option<FieldDecls>,
         override val storage: Storage,
         override val meta: Meta
     ): Compound {
-        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, fields, Storage.Default, Meta.default)
+        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, listOf(), fields, Storage.Default, Meta.default)
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -271,10 +271,12 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     data class Union(
         override val ident: Ident,
-        override val fields: Option<FieldDecls> = none(),
-        override val storage: Storage = Storage.Default,
-        override val meta: Meta = Meta.default
+        override val attributes: List<Attr>,
+        override val fields: Option<FieldDecls>,
+        override val storage: Storage,
+        override val meta: Meta
     ): Compound {
+        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, listOf(), fields, Storage.Default, Meta.default)
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -304,10 +306,13 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     data class Enum(
         override val ident: Ident,
-        val enumerators: Option<Enumerators> = None,
+        val attributes: List<Attr>,
+        val enumerators: Option<Enumerators>,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
+        constructor(ident: Ident): this(ident, listOf(), None)
+        constructor(ident: Ident, enumerators: Enumerators): this(ident, listOf(), enumerators.some())
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -456,80 +461,7 @@ data class TranslationUnit<out E, out T> (
                 .toOption()
                 .toEither { TypeEnv.Missing(tlid) }
     }
-
-    /**
-     * Given a function definition identifier, turn it into a declaration only.
-     * This will correctly drop the definition if the translation unit already contains a separate
-     * declaration of this function. On any other identifier kind this is a noop.
-     */
-    /*
-    fun dropDefinition(def: TLID) = when (def.kind) {
-        def.kind == EntityKind.Fun -> {
-            // check if the translation unit has a separate declaration
-            when (get(def.copy(kind = EntityKind.FunDecl))) {
-                // drop the whole definition
-                is Some -> copy(decls = decls.filter { d -> d.tlid.all { it != def } })
-                // turn def into declaration
-                is None -> update(def) { (it as Declaration.Fun).copy(body = None) }
-            }
-        }
-
-        // if not a function definition id, do nothing
-        else -> this
-    }
-
-    fun dropDefinitions(vararg defs: TLID) =
-        defs.fold(this) { acc, it -> acc.dropDefinition(it) }
-    */
-
-
-    /*
-    /**
-     * We can use an index as a whitelist to mask a translation unit.
-     * This returns a translation unit AST with only those decls that are whitelisted.
-     *
-     * If the whitelist contains a function prototype, [mask] will do the right thing
-     * when it encounters a function definition.
-     */
-    fun mask(whitelist: Index): TranslationUnit<E, T> {
-        fun check(i: Symbol) = whitelist.symbols.contains(i)
-        return copy(decls = decls.flatMap { entity ->
-            when (entity) {
-                // functions are special.
-                is Declaration.Fun -> {
-                    val funDef = Symbol(tuid, TLID.function(entity.name))
-                    val funDec = Symbol(tuid, TLID.prototype(entity.name))
-
-                    when {
-                        // definition is whitelisted, also keep declarations
-                        check(funDef) -> listOf(entity)
-                        // declaration is whitelisted, keep declarations
-                        check(funDec) && !entity.isDefinition -> listOf(entity)
-                        // declaration is whitelisted, definition is not
-                        check(funDec) && entity.isDefinition ->
-                            // check if the tu also contains a separate declaration.
-                            // if so, just keep that one, else, turn this one into a declaration
-                            if (symbols.contains(funDec)) listOf()
-                            else listOf(entity.copy(body = None))
-                        // otherwise: not whitelisted
-                        else -> listOf()
-                    }
-                }
-
-                else ->
-                    // everything else is just directly checked against the whitelist
-                    if (entity.tlid.exists { id -> check(Symbol(tuid, id)) })
-                        listOf(entity)
-                    else listOf()
-            }
-        }
-        )
-    }
-    */
 }
-
-typealias AnyDeclaration     = UnitDeclaration<Any?, Any?>
-typealias AnyTranslationUnit = TranslationUnit<Any?, Any?>
 
 typealias ErasedDeclaration     = UnitDeclaration<Unit, Unit>
 typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>

@@ -49,7 +49,7 @@ tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs +
-                "-xskip-prerelease-check"
+                "-Xskip-prerelease-check"
     }
 }
 

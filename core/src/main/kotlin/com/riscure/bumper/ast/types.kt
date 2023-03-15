@@ -67,178 +67,259 @@ enum class AccessMode {
     None
 }
 
+typealias Attrs = List<Attr>
+
 sealed interface Type {
 
-    sealed interface Unrolled: Type {
-        val accessMode: AccessMode
+    /**
+     * The core C types. All properties of C types are defined on the core types.
+     * Typedeffed types and opaque implementation defined types get their properties
+     * from their eventual expansion to core types.
+     */
+    sealed interface Core: Type {
+        override fun modifyAttrs(f: (Attrs) -> Attrs): Core = withAttrs(f(attrsOnType))
+
+        override fun withAttrs(newAttrs: Attrs): Core =  when (this) {
+            is Enum -> copy(attrsOnType = newAttrs)
+            is Struct -> copy(attrsOnType = newAttrs)
+            is Union -> copy(attrsOnType = newAttrs)
+            is Array -> copy(attrsOnType = newAttrs)
+            is Fun -> copy(attrsOnType = newAttrs)
+            is Float -> copy(attrsOnType = newAttrs)
+            is Int -> copy(attrsOnType = newAttrs)
+            is Ptr -> copy(attrsOnType = newAttrs)
+            is Void -> copy(attrsOnType = newAttrs)
+        }
+
+        val accessMode: AccessMode get() = when (this) {
+            is Enum -> AccessMode.ByValue
+            is Float -> AccessMode.ByValue
+            is Int -> AccessMode.ByValue
+            is Ptr -> AccessMode.ByValue
+
+            is Array -> AccessMode.ByReference
+            is Fun -> AccessMode.ByReference
+
+            is Struct -> AccessMode.ByCopy
+            is Union -> AccessMode.ByCopy
+
+            is Void -> AccessMode.None
+        }
 
         /**
-         * A type is complete w.r.t. a given type environment when its size
-         * can be computed.
+         * A type is complete w.r.t. a given type environment when its size can be computed.
          */
-        override fun isComplete(typeEnv: TypeEnv): Boolean
+        override fun isComplete(typeEnv: TypeEnv): Boolean = when (this) {
+            is Array ->
+                // C treats arrays as complete even when the array length is unknown, I think.
+                // Because it assumes them to be length 0 when computing sizes.
+                elementType.isComplete(typeEnv)
+            is Record ->
+                typeEnv
+                    .fields(ref)
+                    .map { fields ->
+                        // recursively check completeness of the field types
+                        fields.foldFields(true) { acc, fs -> acc && fs.type.isComplete(typeEnv) }
+                    }
+                    .getOrElse { false }
+            is Fun -> true // decays to point
+            is Enum -> true // represented by int
+            is Float -> true
+            is Int -> true
+            is Ptr -> true
+            is Void -> false // always incomplete!
+        }
+
+        /**
+         * Some types decay to pointers
+         */
+        fun decay(): Core = when (this) {
+            is Array -> this.elementType.ptr()
+            is Fun   -> this.ptr()
+            else     -> this
+        }
+
+        /**
+         * Whether the type is constant.
+         */
+        override fun isConstant(typeEnv: TypeEnv) =
+            attributes(typeEnv).contains(Attr.Constant) || when (this) {
+                is Record -> typeEnv
+                    .fields(ref)
+                    .map { it.foldFields(false) { acc, field -> acc || field.type.isConstant(typeEnv)} }
+                    .getOrElse { false }
+
+                else      -> false
+            }
+
+        /* Whether an expression of this type can be modifiable. See:
+         * https://learn.microsoft.com/en-us/cpp/c-language/l-value-and-r-value-expressions?view=msvc-170
+         */
+        override fun isModifiable(typeEnv: TypeEnv) = isComplete(typeEnv) && !isConstant(typeEnv)
+
+        /**
+         * Attributes of the type including those attached to their definitions if applicable.
+         */
+        override fun attributes(typeEnv: TypeEnv) = attrsOnType + when (this) {
+            is Array -> elementType.attributes(typeEnv)
+            is Defined -> typeEnv
+                .lookup(ref)
+                .map { it.type.attrsOnType }
+                .getOrElse { listOf() }
+            else       -> listOf()
+        }
     }
 
-    fun isComplete(typeEnv: TypeEnv): Boolean = unroll(typeEnv)
-        .map { it.isComplete(typeEnv) }
-        .getOrElse { false }
+    /** Some core types are called scalar **/
+    sealed interface Scalar: Core
+    /** Some core types are called aggregate **/
+    sealed interface Aggregate: Core
 
-    val attrs: Attrs
-    fun withAttrs(attrs: Attrs): Type // refine type
-
-    // smart constructors
-    fun const() = withAttrs(attrs + Attr.Constant)
-    fun restrict() = withAttrs(attrs + Attr.Restrict)
-    fun ptr() = Ptr(this)
-
-    /**
-     * A defined type is one that has a definition in the translation unit.
-     */
+    /** A defined type is one that has a definition in the translation unit */
     sealed interface Defined: Type {
         val ref: TypeRef
     }
 
-    data class Void(
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.None
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true
+    /** Record types are aggregate defined types */
+    sealed interface Record: Aggregate, Defined
+
+    /**
+     * Remove the outer layers of typedefs, Atomic, Complex to get to the normalized representation type,
+     * while propagating attributes.
+     *
+     * @returns none if typedef could not be resolved.
+     */
+    fun toCore(env: TypeEnv): TypeLookup<Type.Core> = when (this) {
+        is Core -> this.right()
+        is Typedeffed -> env
+            .typedefs(ref)
+            .flatMap { it.underlyingType.toCore(env) }
+            .map { it.modifyAttrs { it.plus(attrsOnType) } }
+        is VaList -> env.builtins.__builtin_va_list.underlyingType
+            .toCore(env)
+            .map { it.modifyAttrs { it.plus(attrsOnType) } }
     }
+
+    fun isComplete(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
+        .map { it.isComplete(typeEnv) }
+        .getOrElse { false }
+
+    fun isModifiable(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
+        .map { it.isModifiable(typeEnv) }
+        .getOrElse { false }
+
+    fun isConstant(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
+        .map { it.isConstant(typeEnv) }
+        .getOrElse { false }
+
+    fun attributes(typeEnv: TypeEnv): Attrs = toCore(typeEnv)
+        .map { it.attributes(typeEnv) }
+        .getOrElse { listOf() }
+
+    /**
+     * The attributes on this type.
+     * When inspecting the attributes, you should usually consult [attributes] instead.
+     */
+    val attrsOnType: Attrs
+    fun withAttrs(newAttrs: Attrs): Type = when (this) {
+        is Typedeffed -> copy(attrsOnType = newAttrs)
+        is VaList     -> copy(attrsOnType = newAttrs)
+        is Core       -> withAttrs(newAttrs)
+    }
+    fun modifyAttrs(f: (Attrs) -> Attrs): Type = withAttrs(f(attrsOnType))
+
+    // smart constructors
+    fun const() = modifyAttrs {it + Attr.Constant }
+    fun restrict() = modifyAttrs { it + Attr.Restrict }
+    fun ptr() = Ptr(this)
+
+    data class Void(
+        override val attrsOnType: Attrs = listOf()
+    ) : Core
 
     data class Int(
         val kind: IKind,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByValue
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Scalar
 
     data class Float(
         val kind: FKind,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByValue
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Scalar
 
     data class Ptr(
         val pointeeType: Type,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByValue
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Scalar
 
     data class Array(
         val elementType: Type,
         val size: Option<Long> = None,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByReference
-        override fun isComplete(typeEnv: TypeEnv): Boolean =
-            // C treats arrays as complete even when the array size is variable.
-            elementType.isComplete(typeEnv)
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Aggregate
 
     data class Fun(
         val returnType: Type,
         val params: List<Param>,
         val vararg: Boolean = false,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByReference
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true // functions decay to pointers
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Core
 
     /**
      * Reference to a top-level typedef.
      */
     data class Typedeffed(
         override val ref: TypeRef,
-        override val attrs: Attrs = listOf()
-    ): Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override fun isComplete(typeEnv: TypeEnv): Boolean =
-            typeEnv
-                .typedefs(ref)
-                .map { it.underlyingType.isComplete(typeEnv) }
-                .getOrElse { false }
-    }
+        override val attrsOnType: Attrs = listOf()
+    ): Defined
 
     /**
      * Reference to a top-level struct
      */
-    data class Struct(override val ref: TypeRef, override val attrs: Attrs = listOf()) : Unrolled, Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByCopy
-        override fun isComplete(typeEnv: TypeEnv): Boolean =
-            typeEnv
-                .structs(ref)
-                .map { struct ->
-                    // recursively check completeness of the field types
-                    struct.foldFields(true) { acc, fs -> acc && fs.type.isComplete(typeEnv) }
-                }
-                .getOrElse { false }
-    }
+    data class Struct(override val ref: TypeRef, override val attrsOnType: Attrs = listOf()) : Record
 
     /**
      * Reference to a top-level union
      */
     data class Union(
         override val ref: TypeRef,
-        override val attrs: Attrs = listOf()
-    ) : Unrolled, Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override val accessMode get() = AccessMode.ByCopy
-        override fun isComplete(typeEnv: TypeEnv): Boolean =
-            typeEnv
-                .unions(ref)
-                .map { struct ->
-                    // recursively check completeness of the field types
-                    struct.foldFields(true) { acc, fs -> acc && fs.type.isComplete(typeEnv) }
-                }
-                .getOrElse { false }
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Record
 
     /**
      * Reference to a top-level enum
      */
     data class Enum(
         override val ref: TypeRef,
-        override val attrs: Attrs = listOf()
-    ) : Defined {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-        override fun isComplete(typeEnv: TypeEnv): Boolean = true
-    }
+        override val attrsOnType: Attrs = listOf()
+    ) : Scalar, Defined
+
+
+    /**
+     * The type __builtin_va_list is an opaque builtin type definition.
+     *
+     * We represent it in our model, because otherwise it would be determined already by the parser,
+     * and we lose portability of modeled C code.
+     */
+    data class VaList(
+        override val attrsOnType: Attrs = listOf()
+    ) : Type
 
     /* _Complex */
-    data class Complex(
+    /*data class Complex(
         val kind: FKind,
-        override val attrs: Attrs = listOf()
+        override val attrsOnType: Attrs = listOf()
     ) : Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-    }
+    }*/
 
     /* _Atomic */
-    data class Atomic(
+    /*data class Atomic(
         val elementType: Type,
-        override val attrs: Attrs = listOf()
+        override val attrsOnType: Attrs = listOf()
     ) : Type {
         override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-    }
-
-    /* The type __builtin_va_list is an opaque builtin type definition */
-    data class VaList(
-        override val attrs: Attrs = listOf()
-    ) : Type {
-        override fun withAttrs(attrs: Attrs): Type = copy(attrs = attrs)
-    }
+    }*/
 
     companion object {
         // smart constructors
@@ -276,27 +357,6 @@ sealed interface Type {
         @JvmStatic
         fun union(ident: String) = Union(TLID.union(ident))
 
-    }
-
-    /**
-     * Remove the outer layers of typedefs, Atomic, Complex to get to the normalized representation type.
-     *
-     * @returns none if typedef could not be resolved.
-     */
-    fun unroll(env: TypeEnv): TypeLookup<Type.Unrolled> = when (this) {
-        is Typedeffed -> env.typedefs(ref).flatMap { it.underlyingType.unroll(env) }
-        is Atomic -> elementType.unroll(env)
-        is Complex -> Float(kind).right()
-        is Enum -> int.right()
-        is Struct -> this.right()
-        is Union -> this.right()
-        is Array -> this.right()
-        is Float -> this.right()
-        is Fun -> this.right()
-        is Int -> this.right()
-        is Ptr -> this.right()
-        is Void -> this.right()
-        is VaList -> env.builtins.__builtin_va_list.underlyingType.unroll(env)
     }
 }
 
