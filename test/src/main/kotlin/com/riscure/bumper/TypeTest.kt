@@ -1,26 +1,16 @@
 package com.riscure.bumper
 
-import com.riscure.bumper.ast.Attr
 import com.riscure.bumper.ast.Builtins
-import com.riscure.bumper.ast.Exp
 import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.parser.UnitState
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
-import kotlin.test.assertContains
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-/**
- * Manual roundtrip tests (of the same kind as StdHeadersTest but handcrafted).
- * This tests for internal consistency of parsing and pretty-printing.
- * If the parser always yields the empty translation unit, this test succeeds.
- */
 interface TypeTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U>  {
 
     companion object {
