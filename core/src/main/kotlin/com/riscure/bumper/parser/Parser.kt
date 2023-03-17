@@ -8,14 +8,23 @@ import java.io.File
 
 
 enum class Severity {
-    INFO,
+    // in order of high severity to low.
+    // This defines the natural order used by [this.compareTo] of the type's values,
+    // so the order is relevant.
+    ERROR,
     WARNING,
-    ERROR;
+    INFO;
 
     override fun toString() = when (this) {
         INFO    -> "info"
         WARNING -> "warning"
         ERROR   -> "error"
+    }
+
+    val symbol get() = when (this) {
+        INFO    -> "-"
+        WARNING -> "?"
+        ERROR   -> "!"
     }
 }
 data class Diagnostic(
@@ -36,12 +45,15 @@ data class Diagnostic(
             .map { "\n              originally at $it" } // indent is trimmed
             .getOrElse { "" }
         return """
-            - $severity
+            ${severity.symbol} $severity
               at $loc$presumed
               because: $headline
         """.trimIndent() + (details.map { "\n\n$${it.prependIndent("  ")}" } .getOrElse { "" })
     }
 }
+
+val List<Diagnostic>.sortedBySeverity get() =
+    this.sortedBy { it.severity }
 
 fun interface Parser<Exp, Stmt, out S : UnitState<Exp, Stmt>> {
 

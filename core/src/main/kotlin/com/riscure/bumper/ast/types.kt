@@ -131,6 +131,14 @@ sealed interface Type {
         }
 
         /**
+         * Whether this type can be the returned from a C function.
+         */
+        override fun isReturnable(typeEnv: TypeEnv): Boolean =
+            isComplete(typeEnv)
+                    && this !is Array
+                    && this !is Fun
+
+        /**
          * Some types decay to pointers
          */
         fun decay(): Core = when (this) {
@@ -210,6 +218,10 @@ sealed interface Type {
 
     fun isConstant(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
         .map { it.isConstant(typeEnv) }
+        .getOrElse { false }
+
+    fun isReturnable(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
+        .map { it.isReturnable(typeEnv) }
         .getOrElse { false }
 
     fun attributes(typeEnv: TypeEnv): Attrs = toCore(typeEnv)

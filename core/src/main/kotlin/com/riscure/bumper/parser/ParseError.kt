@@ -24,7 +24,11 @@ sealed class ParseError: Exception() {
         val diagnostics: List<Diagnostic>
     ): ParseError() {
         override val message: String
-            get() = "Failed to parse ${tuid.main}:\n${diagnostics.joinToString("\n") { it.format() }}"
+            get() =
+                diagnostics
+                    .sortedBySeverity
+                    .joinToString("\n") { it.format() }
+                    .let { "Failed to parse ${tuid.main}:\n${it}" }
     }
 
     /**
