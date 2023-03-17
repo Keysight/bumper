@@ -99,18 +99,24 @@ data class CompilationDb(val entries: List<Entry>) {
          * Use with caution!
          */
         val mainSource: Path,
-        val command: Command,
+        val options: Options,
 
         /** The compiler executable */
         val executable: Option<String>
     ) {
-        // We define this using overloading to make it also accessible from Java
-        constructor(workingDirectory: Path, mainSource: Path, command: Command) : this(
-            workingDirectory,
-            mainSource,
-            command,
-            none()
-        )
+        val command get() = Command(options, listOf(resolvedMainSource.toString()))
+
+        /**
+         * Construct an entry using a command. The positional arguments of the command are discarded.
+         */
+        constructor(workingDirectory: Path, mainSource: Path, command: Command)
+                : this(workingDirectory, mainSource, command.optArgs, none())
+
+        /**
+         * Construct an entry using a command. The positional arguments of the command are discarded.
+         */
+        constructor(workingDirectory: Path, mainSource: Path, command: Command, exe: Option<String>)
+                : this(workingDirectory, mainSource, command.optArgs, exe)
 
         val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource).normalize()
     }
