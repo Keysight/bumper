@@ -8,8 +8,7 @@ import java.nio.file.Path
 
 sealed class ParseError: Exception() {
     data class MissingCompileCommand(val path: Path, val cdb: CompilationDb): ParseError() {
-        override val message: String
-            get() = "No compile command for file '$path'"
+        override val message: String get() = "No compile command for file '$path'"
     }
 
     /**

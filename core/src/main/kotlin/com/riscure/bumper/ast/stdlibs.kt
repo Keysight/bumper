@@ -14,11 +14,11 @@ open class Stdlibs(
     val ptrKind: IKind
 ) {
     // stdlib typedefs
-    @JvmField val size_t = UnitDeclaration.Typedef("size_t", Type.Int(sizeKind))
+    @JvmField val size_t = Type.Int(sizeKind)
 
     // stdlib functions
     @JvmField
-    val malloc = UnitDeclaration.Fun<Nothing>("malloc", function(void.ptr(), Param("size", size_t.type)))
+    val malloc = UnitDeclaration.Fun<Nothing>("malloc", function(void.ptr(), Param("size", size_t)))
 
     @JvmField val NULL = UnitDeclaration.Var("NULL", void.ptr(), cast(void.ptr(), constant(0, ptrKind)).some())
 
@@ -37,7 +37,6 @@ open class Stdlibs(
     fun malloc(type: Type)   = malloc(sizeof(type))
 
     val header: List<UnitDeclaration<Exp, Stmt>> = listOf(
-        size_t,
         malloc,
         NULL
     )
