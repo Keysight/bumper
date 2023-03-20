@@ -45,7 +45,7 @@ data class PlainCompilationDb(val entries: List<Entry>) {
 }
 
 /** Semantic model of a compilation database */
-data class CompilationDb(val entries: List<Entry>) {
+data class CompilationDb(val entries: List<Entry> = listOf()) {
     private val byMain: Map<Path, Entry> = entries.associateBy {
         // mainSource can be relative to the working directory according to
         // the specification of compilation databases
@@ -54,8 +54,8 @@ data class CompilationDb(val entries: List<Entry>) {
 
     fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
     fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
-    fun plus(entries: List<Entry>): CompilationDb  = copy(entries = entries.plus(entries))
-    fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
+    operator fun plus(other: List<Entry>): CompilationDb  = copy(entries = entries.plus(other))
+    operator fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
 
     /**
      * Apply a path mapping to the entries' resolvedMainSource, obtaining a new database.
@@ -102,7 +102,7 @@ data class CompilationDb(val entries: List<Entry>) {
         val options: Options,
 
         /** The compiler executable */
-        val executable: Option<String>
+        val executable: Option<String> = none()
     ) {
         val command get() = Command(options, listOf(resolvedMainSource.toString()))
 
