@@ -11,6 +11,9 @@ interface TypeEnv {
 
     val builtins: Builtins
 
+    /**
+     * Return a definition of the type identified by [tlid].
+     */
     fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
 
     fun typedefs(tlid: TLID): TypeLookup<UnitDeclaration.Typedef> =

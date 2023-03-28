@@ -2,7 +2,6 @@ package com.riscure.bumper.libclang
 
 import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.assertOK
-import org.junit.jupiter.api.Disabled
 
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*
@@ -43,12 +42,12 @@ class LinkAnalysisTest: LibclangTestBase() {
             assertEquals(1, unit1Deps.size)
             val gDep = unit1Deps.first()
             assertEquals(unit2.first.tuid, gDep.definition.unit)
-            assertEquals(unit2.first.functions.find { it.ident == "g" }!!, gDep.definition.decl)
+            assertEquals(unit2.first.functions.find { it.ident == "g" }!!, gDep.definition.proto)
 
             assertEquals(1, unit2Deps.size)
             val fDep = unit2Deps.first()
             assertEquals(unit1.first.tuid, fDep.definition.unit)
-            assertEquals(unit1.first.functions.find { it.ident == "f" }!!, fDep.definition.decl)
+            assertEquals(unit1.first.functions.find { it.ident == "f" }!!, fDep.definition.proto)
         }
     }
 
@@ -85,7 +84,7 @@ class LinkAnalysisTest: LibclangTestBase() {
             assertEquals(1, unit1Deps.size)
             val edge = unit1Deps.first()
             assertNotNull(edge.definition)
-            assertEquals("f", edge.definition.decl.ident)
+            assertEquals("f", edge.definition.proto.ident)
 
         }
     }

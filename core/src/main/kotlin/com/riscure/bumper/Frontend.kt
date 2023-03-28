@@ -8,16 +8,18 @@ import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.ParseError
 import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
+import com.riscure.bumper.preprocessor.CPPInfo
 import com.riscure.bumper.preprocessor.Preprocessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import kotlin.io.path.nameWithoutExtension
 
 /**
  * Assembles the various stages into a frontend pipeline for processing
  * translation units.
  */
-open class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
+open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
     private val preprocessor: Preprocessor,
     private val parser: Parser<Exp, Stmt, S>,
     private val cppStorage: Storage
@@ -31,28 +33,29 @@ open class Frontend<Exp, Stmt, out S : UnitState<Exp, Stmt>>(
      * If the (contents of) the input file change, or the compilation options change,
      * this location also changes.
      */
-    fun preprocessedAt(main: File, command: Options): File {
-        val digest = main.digest().plus(command.digest())
-        return cppStorage.inputAddressed(main.nameWithoutExtension, digest, suffix = ".c")
+    fun preprocessedAt(entry: CompilationDb.Entry): File = with(entry) {
+        val digest = resolvedMainSource.toString().digest().plus(command.digest())
+        return cppStorage.inputAddressed(resolvedMainSource.nameWithoutExtension, digest, suffix = ".c")
     }
 
     /**
      * Process a translation unit represented by the given main file.
      */
-    fun process(main: File, command: Options): Either<ParseError, S> =
+    fun process(entry: CompilationDb.Entry): Either<ParseError, S> = with (entry) {
         // compute the location of the preprocessed input.
-        preprocessedAt(main, command).let { cpped ->
+        preprocessedAt(entry).let { cpped ->
             // Preprocess the file.
-            // We cannot use the file as is when it exists,
-            // because the #include's are not part of the cache key.
-            // Hence changing the content of an included header won't bust the cache.
-            val cppResult = preprocess(main, command, cpped)
-            cppResult.flatMap {
-                // Call the parser with the preprocessed source.
-                // We make sure that the result will be identified by the given TUID.
-                parser.parse(cpped, command, TUID(cpped.toPath()))
-            }
+            val cppResult = preprocess(entry, cpped)
+            cppResult
+                .flatMap { cppInfo ->
+                    // Call the parser with the preprocessed source.
+                    // We make sure that the result will be identified by the given TUID.
+                    parser
+                        .parse(entry.copy(mainSource = cpped.toPath()), TUID(cpped.toPath()))
+                        .map { it.withCppinfo(cppinfo = cppInfo) }
+                }
         }
+    }
 }
 
 fun Options.digest(): Digest =

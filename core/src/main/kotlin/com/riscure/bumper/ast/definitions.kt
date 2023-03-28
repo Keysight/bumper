@@ -1,6 +1,7 @@
 package com.riscure.bumper.ast
 
 import arrow.core.Option
+import arrow.core.getOrElse
 import arrow.core.none
 import arrow.core.some
 
@@ -236,6 +237,7 @@ sealed interface Initializer {
 
 /* Statements */
 sealed interface Stmt {
+
     // variable declarations:
     // - Point x;
     // - Point x = { .x = 1; .x = 2; };

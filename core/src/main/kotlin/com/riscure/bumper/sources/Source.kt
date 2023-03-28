@@ -5,7 +5,6 @@ import com.riscure.bumper.ast.Exp
 import com.riscure.bumper.ast.Stmt
 import com.riscure.bumper.ast.TranslationUnit
 import com.riscure.bumper.pp.AstWriters
-import com.riscure.bumper.pp.Printer
 import java.io.Writer
 import kotlin.io.path.nameWithoutExtension
 
@@ -45,6 +44,6 @@ data class Source(
         return AstWriters
             .usingPretty()
             .print(unit)
-            .map { w -> w.write(Printer.of(writer)) }
+            .map { pp -> pp.writeTo(writer) }
     }
 }

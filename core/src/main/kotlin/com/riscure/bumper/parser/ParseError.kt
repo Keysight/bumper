@@ -46,11 +46,16 @@ sealed class ParseError: Exception() {
         override val cause: Throwable? = null // JDK choice
     ): ParseError()
 
-    data class PreprocFailed(val input: File, val reason: List<String>): ParseError() {
-        constructor(input: File, reason: String): this(input, listOf(reason))
+    data class PreprocFailed(val input: Path, val reason: List<String>): ParseError() {
+        constructor(input: Path, reason: String): this(input, listOf(reason))
 
         override val message: String
             get() = "Failed to preprocess ${input}, saying:\n${reason.joinToString { it }}"
 
+    }
+
+    data class AnalysisFailed(val reason: String): ParseError() {
+        override val message: String
+            get() = "Analysis failed: $reason"
     }
 }

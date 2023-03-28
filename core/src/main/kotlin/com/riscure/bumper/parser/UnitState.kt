@@ -6,6 +6,7 @@ import com.riscure.bumper.analyses.DependencyGraph
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.pp.AstWriters
+import com.riscure.bumper.preprocessor.CPPInfo
 import java.io.Closeable
 import java.nio.file.Path
 
@@ -23,7 +24,10 @@ import java.nio.file.Path
  * and you have to promise to properly call close() when you're done with
  * the instance of UnitState.
  */
-interface UnitState<Exp,Stmt>: Closeable {
+interface UnitState<Exp,Stmt,Self:UnitState<Exp,Stmt,Self>>: Closeable {
+    val cppinfo: CPPInfo
+    fun withCppinfo(cppinfo: CPPInfo): Self
+
     val tuid: TUID get() = ast.tuid
 
     /**
@@ -35,11 +39,6 @@ interface UnitState<Exp,Stmt>: Closeable {
      * The dependency graph for this unit.
      */
     val dependencies: Either<String, DependencyGraph>
-
-    /**
-     * The pretty printers for the AST elements.
-     */
-    val printer: AstWriters<Exp, Stmt>
 
     /**
      * An improved [close], that returns a side-effect free
@@ -54,10 +53,10 @@ interface UnitState<Exp,Stmt>: Closeable {
  */
 data class UnitData(
     override val ast: TranslationUnit<SourceRange, SourceRange>,
-    override val dependencies: Either<String, DependencyGraph>
-) : UnitState<SourceRange, SourceRange> {
-    override val printer: AstWriters<SourceRange, SourceRange>
-        get() = AstWriters.usingExtraction(ast.tuid)
+    override val dependencies: Either<String, DependencyGraph>,
+    override val cppinfo: CPPInfo = CPPInfo(),
+) : UnitState<SourceRange, SourceRange, UnitData> {
+    override fun withCppinfo(cppinfo: CPPInfo): UnitData = copy(cppinfo = cppinfo)
 
     override fun erase(): Either<String, UnitData> = this.right()
 

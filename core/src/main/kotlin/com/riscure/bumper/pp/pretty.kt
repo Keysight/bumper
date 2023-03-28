@@ -362,13 +362,13 @@ class AstWriters<Exp, Stmt>(
 ) {
     private val semicolon = text(";")
 
-    fun print(unit: TranslationUnit<Exp, Stmt>): Either<String, Writer> =
+    fun print(unit: TranslationUnit<Exp, Stmt>): Either<String, PP> =
         unit.declarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> =
+    fun print(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, PP> =
         rhs(toplevel).map { rhs ->
             text(Pretty.lhs(toplevel))
                 .andThen(rhs)
@@ -395,7 +395,7 @@ class AstWriters<Exp, Stmt>(
              */
         }
 
-    fun rhs(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, Writer> = when (toplevel) {
+    fun rhs(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, PP> = when (toplevel) {
         is UnitDeclaration.Var       -> when (val exp = toplevel.rhs) {
             is Some -> expWriter(exp.value).map { text(" = $it;") }
             is None -> semicolon.right()

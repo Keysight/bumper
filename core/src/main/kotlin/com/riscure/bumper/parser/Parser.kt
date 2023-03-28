@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.ast.Location
 import com.riscure.dobby.clang.Options
 import com.riscure.bumper.index.TUID
+import com.riscure.dobby.clang.CompilationDb
 import java.io.File
 
 
@@ -55,7 +56,7 @@ data class Diagnostic(
 val List<Diagnostic>.sortedBySeverity get() =
     this.sortedBy { it.severity }
 
-fun interface Parser<Exp, Stmt, out S : UnitState<Exp, Stmt>> {
+fun interface Parser<Exp, Stmt, S : UnitState<Exp, Stmt, S>> {
 
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform
@@ -64,7 +65,7 @@ fun interface Parser<Exp, Stmt, out S : UnitState<Exp, Stmt>> {
      * Some options are removed, namely any option conflicting with -E,
      * and any option specifying output.
      */
-    fun parse(file: File, opts: Options, tuid: TUID) : Either<ParseError, S>
-    fun parse(file: File, opts: Options) : Either<ParseError, S> = parse(file, opts, TUID(file.toPath()))
-    fun parse(file: File) : Either<ParseError, S> = parse(file, listOf())
+    fun parse(entry: CompilationDb.Entry, tuid: TUID) : Either<ParseError, S>
+
+    fun parse(entry: CompilationDb.Entry) = parse(entry, TUID(entry.resolvedMainSource))
 }

@@ -6,18 +6,34 @@ import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 
-data class DeclarationInUnit<E, S>(
-    val unit: TUID,
-    val decl: UnitDeclaration.Valuelike<E,S>
+/**
+ * A [DeclarationInUnit] is a pair of a translation unit identifier [unit]
+ * and a [proto]type of a value (function or global) in that [unit].
+ */
+data class DeclarationInUnit(
+    val tuid: TUID,
+    val proto: Prototype
 ) {
-    val symbol: Symbol get() = decl.mkSymbol(unit)
+    val name: String get() = proto.tlid.name
+    val symbol: Symbol get() = Symbol(tuid, proto.tlid)
 }
 
-data class Link<E, S>(
-    val declaration: DeclarationInUnit<E,S>,
-    val definition : DeclarationInUnit<E,S>,
+/**
+ * A [Link] associates a [declaration] without a definition in one unit
+ * with a [definition] of the same symbol in another unit.
+ */
+data class Link(
+    val declaration: DeclarationInUnit,
+    val definition : DeclarationInUnit,
 )
 
+/**
+ * A [DependencyGraph] describes the dependencies between symbols.
+ * The graph is represented as an edge-set: the [dependencies] map gives a set of
+ * symbols that a given symbol depends on.
+ *
+ * A [DependencyGraph] can be used for graphs for a single or multiple translation units.
+ */
 data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
 
     val nodes get() = dependencies.keys
@@ -25,8 +41,11 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
     fun union(other: DependencyGraph) = with (graphMonoid) { combine(other) }
 
     /**
-     * Performs a reachability analysis on the dependency graph,
-     * returning the subgraph of reachable nodes.
+     * Performs a reachability analysis on the dependency graph.
+     *
+     * @param roots are the nodes from which we start the reachability analysis.
+     * @return the subgraph of nodes that are reachable in this graph
+     *         from the given set of [roots].
      */
     fun reachable(roots: Set<Symbol>): DependencyGraph {
         // we start with the given set of symbols to keep
@@ -64,13 +83,23 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
             override fun empty() = DependencyGraph(mapOf())
         }
 
+        /** Construct an empty dependency graph */
         @JvmStatic fun empty() = graphMonoid.empty()
+
+        /** Combine a list of dependency graphs into one */
         @JvmStatic fun union(graphs: List<DependencyGraph>) = graphMonoid.fold(graphs)
 
     }
 }
 
-data class LinkGraph<E, S>(private val dependencies: Map<TUID, Set<Link<E, S>>>) {
+/**
+ * The linkgraph represents inter-unit dependencies.
+ * It consists of a set [dependencies] of [Link]s for every translation unit U identified by a [TUID].
+ * Every [Link] associates a declaration in the unit U, with some declaration in some other known unit V.
+ *
+ * A linkgraph can be computed from a set of translation units using [LinkAnalysis].
+ */
+data class LinkGraph(private val dependencies: Map<TUID, Set<Link>>) {
 
     /**
      * For every symbol, a set of symbols in other translation unit that it depends on.
@@ -103,62 +132,91 @@ data class LinkGraph<E, S>(private val dependencies: Map<TUID, Set<Link<E, S>>>)
 }
 
 /**
- * Implements a dependency analysis *between* translation units
- * that together make a link target.
+ * [LinkAnalysis] implements a dependency analysis *between* translation units.
  *
  * For each unit, we compute an object interface with exports (defined symbols)
  * and imports (declared but not defined symbols).
  *
  * We then cross-reference the imports of each unit against the exports
- * from other units, obtaining a dependency graph.
+ * from other units, obtaining a [LinkGraph].
  */
 object LinkAnalysis {
 
     /**
-     * Compute the edge-set for each node in the link graph
+     * Compute the [LinkGraph] for a set of translation [units],
+     * by cross-referencing the imports with the combined exports of all the units.
+     *
+     * If a declaration cannot be resolved within the given [units],
+     * we simply do not record a link for it in the graph.
      */
     @JvmStatic
-    fun <E, S> linkGraph(units: Collection<TranslationUnit<E, S>>): Either<String, LinkGraph<E, S>> {
+    fun <E, S> linkGraph(units: Collection<TranslationUnit<E, S>>): LinkGraph = this(units).first
+
+    /**
+     * Compute the [LinkGraph] for a set of translation [units],
+     * by cross-referencing the imports with the combined exports of all the units,
+     * as well as the set of symbols that have no matching definition in the set of [units].
+     *
+     * This assumes that there are no duplicate definitions in the set of [units].
+     * In other words: it is a well typed link target.
+     *
+     * @return a [Pair] of the [LinkGraph] and the set of prototypes for which no definition was found.
+     */
+    @JvmStatic
+    operator fun <E, S> invoke(units: Collection<TranslationUnit<E, S>>): Pair<LinkGraph, Set<Prototype>> {
         // compute for each translation unit its interface
         val interfaces = units.associate { unit -> Pair(unit.tuid, objectInterface(unit)) }
 
         // Index the exports by TLID.
         // This assumes that we have at most one definition per tlid in the units.
-        val exportIndex: Map<TLID, DeclarationInUnit<E, S>> = interfaces
+        val exportIndex: Map<TLID, DeclarationInUnit> = interfaces
             .entries
             .flatMap { (tuid, intf) ->
                 intf.exports
-                    .map { Pair(it.tlid, DeclarationInUnit(tuid, it)) }
+                    .map { Pair(it.tlid, DeclarationInUnit(tuid, it.prototype())) }
             }
             .toMap()
 
         // Now try to resolve all imports, obtaining links from declarations to definitions.
-        return Either.catch({ it.message!! }) {
-            interfaces
-                .mapValues { (tuid, intf) ->
-                    intf.imports
-                        .flatMap { import ->
-                            // we try to resolve the import.
-                            // If it fails, then we don't have a definition
-                            // within the translation unit, and we don't incur a link dependency.
-                            exportIndex[import.tlid]
-                                .toOption()
-                                .map { Link(DeclarationInUnit(tuid, import), it) }
-                                .toList()
+        val missing = mutableSetOf<Prototype>()
+        val edges: Map<TUID, Set<Link>> = interfaces
+            .mapValues { (tuid, intf) ->
+                intf
+                    .imports
+                    .flatMap { import ->
+                        // we try to resolve the import to a matching export from the index.
+                        val link: Option<Link> = exportIndex[import.tlid]
+                            .toOption()
+                            .map { Link(DeclarationInUnit(tuid, import.prototype()), it) }
+
+                        when (link) {
+                            is Some -> listOf(link.value)
+                            is None -> {
+                                // If resolution then we don't have a definition
+                                // within the set of translation units, and we don't incur a link dependency.
+                                // We record the missing dependency
+                                missing.add(import.prototype())
+                                listOf()
+                            }
                         }
-                        .toSet()
-                }
-                .let { LinkGraph(it) }
-        }
+                    }
+                    .toSet()
+            }
+
+        return Pair(LinkGraph(edges), missing)
     }
 
+    /**
+     * A [UnitInterface] is set of imports (declarations without definitions in the unit)
+     * together with a set of exports (defined and visible/non-static symbols in the unit).
+     */
     data class UnitInterface<E, S>(
         val imports: Set<UnitDeclaration.Valuelike<E,S>>,
         val exports: Set<UnitDeclaration.Valuelike<E,S>>,
     )
 
     /**
-     * Compute the set of imports and exports of a translation unit.
+     * Compute the [UnitInterface] of a translation [unit].
      */
     @JvmStatic
     fun <E, S> objectInterface(unit: TranslationUnit<E, S>): UnitInterface<E, S> {

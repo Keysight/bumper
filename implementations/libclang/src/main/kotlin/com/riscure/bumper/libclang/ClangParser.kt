@@ -49,7 +49,7 @@ private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
  */
 class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
-    override fun parse(file: File, opts: Options, tuid: TUID): Either<ParseError, ClangUnitState> {
+    override fun parse(entry: CompilationDb.Entry, tuid: TUID): Either<ParseError, ClangUnitState> = with (entry) {
         // escalate some warnings to errors
         val warnErrors   = if (badWarnings.isNotEmpty()) {
             listOf(
@@ -59,14 +59,14 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
         } else listOf()
 
         val cmd: Command = with(Spec.clang11) {
-            Command(opts + warnErrors, listOf())
+            Command(options + warnErrors, listOf())
         }
         val args = cmd.toArguments()
 
         // We allocate the arguments.
         val c_index: CXIndex = clang_createIndex(0, 0)
         val c_tu = CXTranslationUnit()
-        val c_sourceFile = BytePointer(file.absolutePath.toString())
+        val c_sourceFile = BytePointer(resolvedMainSource.toString())
         val c_arg_pointers = args.map { BytePointer(it) }
         val c_args = PointerPointer<BytePointer>(args.size.toLong())
         val c_parseOptions = CXTranslationUnit_SingleFileParse

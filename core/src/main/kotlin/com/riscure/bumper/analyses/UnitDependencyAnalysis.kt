@@ -87,6 +87,11 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         is Type.VaList    -> nil()
     }
 
+    fun ofExps(exps: List<Exp>) = exps
+        .map { ofExp(it) }
+        .sequence()
+        .map { it.flatten().toSet() }
+
     private fun ofParams(params: List<Param>): Result<TLID> =
         params
             .map { ofType(it.type) }
