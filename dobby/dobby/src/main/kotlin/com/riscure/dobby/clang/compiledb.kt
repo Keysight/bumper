@@ -52,7 +52,7 @@ data class CompilationDb(val entries: List<Entry> = listOf()) {
         it.resolvedMainSource
     }
 
-    fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
+    operator fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
     fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
     operator fun plus(other: List<Entry>): CompilationDb  = copy(entries = entries.plus(other))
     operator fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
@@ -105,6 +105,9 @@ data class CompilationDb(val entries: List<Entry> = listOf()) {
         val executable: Option<String> = none()
     ) {
         val command get() = Command(options, listOf(resolvedMainSource.toString()))
+
+        constructor(workingDirectory: Path, mainSource: Path)
+                : this(workingDirectory, mainSource, listOf(), none())
 
         /**
          * Construct an entry using a command. The positional arguments of the command are discarded.
