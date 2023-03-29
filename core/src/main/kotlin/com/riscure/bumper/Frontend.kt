@@ -14,6 +14,7 @@ import com.riscure.dobby.clang.Options
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.nio.file.Path
 import kotlin.io.path.nameWithoutExtension
 
 /**
@@ -39,26 +40,30 @@ open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
         return cppStorage.inputAddressed(resolvedMainSource.nameWithoutExtension, digest, suffix = ".c")
     }
 
-    fun process(cdb: CompilationDb, tuid: TUID): Either<ParseError, S> =
-        cdb[tuid.main]
-            .toEither { ParseError.MissingCompileCommand(tuid.main, cdb) }
+    fun process(cdb: CompilationDb, main: Path): Either<ParseError, S> =
+        cdb[main]
+            .toEither { ParseError.MissingCompileCommand(main, cdb) }
             .flatMap { process(it) }
 
     /**
      * Process a translation unit represented by the given main file.
      */
-    fun process(entry: CompilationDb.Entry): Either<ParseError, S> = with (entry) {
+    fun process(entry: CompilationDb.Entry): Either<ParseError, S> {
         // compute the location of the preprocessed input.
-        preprocessedAt(entry).let { cpped ->
+        return preprocessedAt(entry).let { cpped ->
             // Preprocess the file.
             val cppResult = preprocess(entry, cpped)
             cppResult
                 .flatMap { cppInfo ->
                     // Call the parser with the preprocessed source.
-                    // We make sure that the result will be identified by the given TUID.
+                    // We make sure that the result will be identified by the right TUID.
                     parser
-                        .parse(entry.copy(mainSource = cpped.toPath()), TUID(cpped.toPath()))
-                        .map { it.withCppinfo(cppinfo = cppInfo) }
+                        .parse(entry.copy(mainSource = cpped.toPath()))
+                        .map {
+                            it
+                                .withCppinfo(cppinfo = cppInfo)
+                                .withTUID(TUID.mk(entry))
+                        }
                 }
         }
     }

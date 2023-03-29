@@ -2,10 +2,9 @@ package com.riscure.bumper.parser
 
 import arrow.core.*
 import com.riscure.bumper.ast.Location
-import com.riscure.dobby.clang.Options
 import com.riscure.bumper.index.TUID
 import com.riscure.dobby.clang.CompilationDb
-import java.io.File
+import java.nio.file.Path
 
 
 enum class Severity {
@@ -58,18 +57,13 @@ val List<Diagnostic>.sortedBySeverity get() =
 
 fun interface Parser<Exp, Stmt, S : UnitState<Exp, Stmt, S>> {
 
-    fun parse(cdb: CompilationDb, tuid: TUID): Either<ParseError, S> =
-        cdb[tuid.main].toEither { ParseError.MissingCompileCommand(tuid.main, cdb) }
+    fun parse(cdb: CompilationDb, main: Path): Either<ParseError, S> =
+        cdb[main].toEither { ParseError.MissingCompileCommand(main, cdb) }
             .flatMap { parse(it) }
 
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform
      * static analysis of the file, so this can fail on illtyped C programs.
-     *
-     * Some options are removed, namely any option conflicting with -E,
-     * and any option specifying output.
      */
-    fun parse(entry: CompilationDb.Entry, tuid: TUID) : Either<ParseError, S>
-
-    fun parse(entry: CompilationDb.Entry) = parse(entry, TUID(entry.resolvedMainSource))
+    fun parse(entry: CompilationDb.Entry) : Either<ParseError, S>
 }

@@ -33,6 +33,7 @@ data class ClangUnitState(
 ) : UnitState<CXCursor, CXCursor, ClangUnitState> {
     override fun close() = cxunit.close()
     override fun withCppinfo(cppinfo: CPPInfo): ClangUnitState = copy(cppinfo = cppinfo)
+    override fun withTUID(tuid: TUID): ClangUnitState = copy(ast = ast.copy(tuid = tuid))
 
     override fun erase() = Either
         .catch({ e -> close(); e.message!! }) {

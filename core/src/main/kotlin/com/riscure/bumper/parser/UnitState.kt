@@ -27,6 +27,7 @@ interface UnitState<Exp,Stmt,Self:UnitState<Exp,Stmt,Self>>: Closeable {
     fun withCppinfo(cppinfo: CPPInfo): Self
 
     val tuid: TUID get() = ast.tuid
+    fun withTUID(tuid: TUID): Self
 
     /**
      * Convert this translation unit to an AST.
@@ -55,8 +56,7 @@ data class UnitData(
     override val cppinfo: CPPInfo = CPPInfo(),
 ) : UnitState<SourceRange, SourceRange, UnitData> {
     override fun withCppinfo(cppinfo: CPPInfo): UnitData = copy(cppinfo = cppinfo)
-
+    override fun withTUID(tuid: TUID): UnitData = copy(ast = ast.copy(tuid = tuid))
     override fun erase(): Either<String, UnitData> = this.right()
-
     override fun close() { /* noop */ }
 }

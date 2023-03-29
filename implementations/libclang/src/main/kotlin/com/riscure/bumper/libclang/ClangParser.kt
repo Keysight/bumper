@@ -13,6 +13,7 @@ import org.bytedeco.javacpp.PointerPointer
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.io.File
+import java.nio.file.Path
 
 private fun Int.asSeverity(): Option<Severity> =
     if (this == CXDiagnostic_Error || this == CXDiagnostic_Fatal) {
@@ -49,7 +50,9 @@ private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
  */
 class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
-    override fun parse(entry: CompilationDb.Entry, tuid: TUID): Either<ParseError, ClangUnitState> = with (entry) {
+    override fun parse(entry: CompilationDb.Entry): Either<ParseError, ClangUnitState> = with (entry) {
+        val tuid = TUID.mk(entry)
+
         // escalate some warnings to errors
         val warnErrors   = if (badWarnings.isNotEmpty()) {
             listOf(
@@ -123,12 +126,10 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
     }
 
     companion object {
-        private val spec = Spec.clang11
-
         // Use this to escalate some warnings to errors.
         // For example, if you want to specify '-Werror=missing-declarations',
         // add "missing-declarations" to the list.
-        val badWarnings = listOf<String>(
+        val badWarnings = listOf(
             // LinkAnalyses does not handle implicit function declarations correctly.
             // So by escalating this warning, we avoid bugs downstream. See LinkAnalysisTest
             "implicit-function-declaration"

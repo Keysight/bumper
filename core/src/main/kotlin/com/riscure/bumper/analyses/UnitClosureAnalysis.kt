@@ -1,7 +1,6 @@
 package com.riscure.bumper.analyses
 
 import arrow.core.*
-import com.riscure.bumper.Frontend
 import com.riscure.bumper.ast.EntityKind
 import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.index.Index
@@ -42,7 +41,7 @@ class UnitClosureAnalysis(
         // TODO fix for linking globals?
         // so we should maybe add a local cache?
         val state = frontend
-            .parse(cdb, definition.tuid)
+            .parse(cdb, definition.tuid.main)
             .getOrHandle { throw it }
 
         val depGraph = state
