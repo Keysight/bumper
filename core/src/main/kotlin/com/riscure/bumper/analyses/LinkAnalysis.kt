@@ -28,7 +28,9 @@ data class Link(
 )
 
 /**
- * A [DependencyGraph] describes the dependencies between symbols.
+ * A [DependencyGraph] describes the dependencies between symbols, whether they be
+ * functions, variables, types, etc.
+ *
  * The graph is represented as an edge-set: the [dependencies] map gives a set of
  * symbols that a given symbol depends on.
  *
@@ -92,14 +94,37 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
     }
 }
 
+data class Linking(
+    val bound: Set<Link>,
+    val unbound: Set<Prototype>
+)
+
 /**
- * The linkgraph represents inter-unit dependencies.
+ * The linkgraph only represents inter-unit dependencies.
+ * Such dependencies come from linking declarations to definitions.
+ *
  * It consists of a set [dependencies] of [Link]s for every translation unit U identified by a [TUID].
  * Every [Link] associates a declaration in the unit U, with some declaration in some other known unit V.
  *
  * A linkgraph can be computed from a set of translation units using [LinkAnalysis].
  */
-data class LinkGraph(private val dependencies: Map<TUID, Set<Link>>) {
+data class LinkGraph(
+    val dependencies: Map<TUID, Linking>,
+) {
+    val linkedUnits: Set<TUID> get() =
+        dependencies
+            .values
+            .asIterable()
+            .flatMapTo(mutableSetOf()) { it.bound.map { it.definition.tuid }}
+
+    /** Get a complete set of unbound symbols */
+    val unbound: Set<Pair<TUID,Prototype>> get() =
+        dependencies.entries
+            .flatMap { (tuid, linking) ->
+                linking.unbound
+                    .map { Pair(tuid, it) }
+            }
+            .toSet()
 
     /**
      * For every symbol, a set of symbols in other translation unit that it depends on.
@@ -108,7 +133,7 @@ data class LinkGraph(private val dependencies: Map<TUID, Set<Link>>) {
         val result = mutableMapOf<Symbol, MutableSet<Symbol>>()
 
         for ((_, links) in dependencies) {
-            for ((declaration, definition) in links) {
+            for ((declaration, definition) in links.bound) {
                 val from = declaration.symbol
 
                 val deps = result.getOrDefault(from, mutableSetOf())
@@ -121,6 +146,7 @@ data class LinkGraph(private val dependencies: Map<TUID, Set<Link>>) {
         DependencyGraph(result)
     }
 
+    /** Get the linking data for the give [tuid] */
     operator fun get(tuid: TUID) = dependencies[tuid].toOption()
 
     /**
@@ -129,6 +155,23 @@ data class LinkGraph(private val dependencies: Map<TUID, Set<Link>>) {
     operator fun get(symbol: Symbol): Set<Symbol> = externalDependencyGraph
         .dependencies
         .getOrDefault(symbol, setOf())
+
+    companion object {
+        /**
+         * Construct an [LinkGraph] from a mapping representing [links] between declarations and definitions and
+         * a set of [unbound] declarations.
+         */
+        operator fun invoke(links: Map<DeclarationInUnit,DeclarationInUnit>, unbound: Set<DeclarationInUnit>): LinkGraph {
+            val unboundByTUID = unbound.groupBy({ it.tuid }) { it.proto }
+            val edgeset = links.entries
+                .groupBy({ it.key.tuid }) { Link(it.key, it.value) }
+                .mapValues { (tuid, bound) ->
+                    Linking(bound.toSet(), unboundByTUID.getOrDefault(tuid, listOf()).toSet())
+                }
+
+            return LinkGraph(edgeset)
+        }
+    }
 }
 
 /**
@@ -144,26 +187,17 @@ object LinkAnalysis {
 
     /**
      * Compute the [LinkGraph] for a set of translation [units],
-     * by cross-referencing the imports with the combined exports of all the units.
-     *
-     * If a declaration cannot be resolved within the given [units],
-     * we simply do not record a link for it in the graph.
-     */
-    @JvmStatic
-    fun <E, S> linkGraph(units: Collection<TranslationUnit<E, S>>): LinkGraph = this(units).first
-
-    /**
-     * Compute the [LinkGraph] for a set of translation [units],
      * by cross-referencing the imports with the combined exports of all the units,
      * as well as the set of symbols that have no matching definition in the set of [units].
      *
      * This assumes that there are no duplicate definitions in the set of [units].
      * In other words: it is a well typed link target.
      *
-     * @return a [Pair] of the [LinkGraph] and the set of prototypes for which no definition was found.
+     * @return a [LinkGraph] with the linked symbols and
+     *         the set of prototypes for which no definition was found.
      */
     @JvmStatic
-    operator fun <E, S> invoke(units: Collection<TranslationUnit<E, S>>): Pair<LinkGraph, Set<Prototype>> {
+    operator fun <E, S> invoke(units: Collection<TranslationUnit<E, S>>): LinkGraph {
         // compute for each translation unit its interface
         val interfaces = units.associate { unit -> Pair(unit.tuid, objectInterface(unit)) }
 
@@ -178,10 +212,12 @@ object LinkAnalysis {
             .toMap()
 
         // Now try to resolve all imports, obtaining links from declarations to definitions.
-        val missing = mutableSetOf<Prototype>()
-        val edges: Map<TUID, Set<Link>> = interfaces
+        val edges: Map<TUID, Linking> = interfaces
             .mapValues { (tuid, intf) ->
-                intf
+                // We keep track of symbols that are missing from the export index.
+                val missing = mutableSetOf<Prototype>()
+
+                val links = intf
                     .imports
                     .flatMap { import ->
                         // we try to resolve the import to a matching export from the index.
@@ -192,7 +228,7 @@ object LinkAnalysis {
                         when (link) {
                             is Some -> listOf(link.value)
                             is None -> {
-                                // If resolution then we don't have a definition
+                                // If resolution fails then we don't have a definition
                                 // within the set of translation units, and we don't incur a link dependency.
                                 // We record the missing dependency
                                 missing.add(import.prototype())
@@ -201,9 +237,11 @@ object LinkAnalysis {
                         }
                     }
                     .toSet()
+
+                Linking(links, missing)
             }
 
-        return Pair(LinkGraph(edges), missing)
+        return LinkGraph(edges)
     }
 
     /**

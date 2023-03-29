@@ -373,8 +373,8 @@ data class TLID(val name: Ident, val kind: EntityKind) {
  * @param <S> the type of statements in the AST.
  */
 data class TranslationUnit<out E, out T> (
-    /** The (preprocessed) C translation unit identifier */
-    val tuid  : TUID,
+    /** The translation unit identifier */
+    val tuid : TUID,
 
     /**
      * All declarations in the unit.

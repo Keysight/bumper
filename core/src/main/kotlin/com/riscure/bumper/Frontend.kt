@@ -1,15 +1,16 @@
 package com.riscure.bumper
 
-import arrow.core.*
+import arrow.core.Either
+import arrow.core.flatMap
 import com.riscure.Digest
-import com.riscure.digest
-import com.riscure.dobby.clang.*
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.ParseError
 import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
-import com.riscure.bumper.preprocessor.CPPInfo
 import com.riscure.bumper.preprocessor.Preprocessor
+import com.riscure.digest
+import com.riscure.dobby.clang.CompilationDb
+import com.riscure.dobby.clang.Options
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -37,6 +38,11 @@ open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
         val digest = resolvedMainSource.toString().digest().plus(command.digest())
         return cppStorage.inputAddressed(resolvedMainSource.nameWithoutExtension, digest, suffix = ".c")
     }
+
+    fun process(cdb: CompilationDb, tuid: TUID): Either<ParseError, S> =
+        cdb[tuid.main]
+            .toEither { ParseError.MissingCompileCommand(tuid.main, cdb) }
+            .flatMap { process(it) }
 
     /**
      * Process a translation unit represented by the given main file.

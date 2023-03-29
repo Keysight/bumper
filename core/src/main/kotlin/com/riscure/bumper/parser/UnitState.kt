@@ -5,10 +5,8 @@ import arrow.core.right
 import com.riscure.bumper.analyses.DependencyGraph
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.TUID
-import com.riscure.bumper.pp.AstWriters
 import com.riscure.bumper.preprocessor.CPPInfo
 import java.io.Closeable
-import java.nio.file.Path
 
 /**
  * The interface to the state of the parser. This negotiates between

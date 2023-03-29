@@ -58,6 +58,10 @@ val List<Diagnostic>.sortedBySeverity get() =
 
 fun interface Parser<Exp, Stmt, S : UnitState<Exp, Stmt, S>> {
 
+    fun parse(cdb: CompilationDb, tuid: TUID): Either<ParseError, S> =
+        cdb[tuid.main].toEither { ParseError.MissingCompileCommand(tuid.main, cdb) }
+            .flatMap { parse(it) }
+
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform
      * static analysis of the file, so this can fail on illtyped C programs.
