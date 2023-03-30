@@ -42,9 +42,8 @@ open class CursorParser(
     val tuid: TUID,
 
     /**
-     * Declarations that were referenced and need to be elaborated
-     * to top-level definitions. Because we elaborate during parsing, we may
-     * (re)name the declaration.
+     * Declarations that need to be elaborated to top-level definitions.
+     * Because we elaborate during parsing, we may (re)name the declaration.
      *
      * We store in this map the symbol with the generated/elaborated name.
      * References should be consistently renamed to use the elaborated name.
@@ -70,15 +69,15 @@ open class CursorParser(
     }
 
     /**
-     * Parse the list of [elaborated] definitions.
+     * Parse the list of [toBeElaborated] definitions.
      * Every parsed definition is removed from that list.
      */
-    private fun pleaseDoElaborate(done: Set<CursorHash>): Result<List<Pair<CXCursor, ClangDeclaration>>> {
+    private fun pleaseDoElaborate(): Result<List<Pair<CXCursor, ClangDeclaration>>> {
         // We use [toBeElaborated] as a worklist
         // Parsing a declaration can add new items to the worklist as a side-effect.
         // When parsing fails, we immediately return the failure.
         return Either.catch({ it.message!! }) {
-            val alreadyParsed = done.toMutableSet()
+            val alreadyParsed = mutableSetOf<CursorHash>()
             val results = mutableListOf<Pair<CXCursor, ClangDeclaration>>()
 
             // work loop
@@ -91,7 +90,13 @@ open class CursorParser(
                     .getOrHandle { throw Throwable(it) } // escalate
 
                 alreadyParsed.add(cursor.hash())
-                results.add(Pair(cursor, decl))
+
+                // name the anonymous declarations correctly.
+                // TODO it might be better to solve this in getIdentifier() to avoid inconsistencies
+                val sym = cursor.getElaboratedSymbol()
+                    .getOrHandle { throw RuntimeException("Invariant violation: missing elaborated name for elaborated cursor.") }
+
+                results.add(Pair(cursor, decl.withIdent(sym.name)))
             }
 
             results
@@ -115,43 +120,28 @@ open class CursorParser(
 
     fun CXCursor.asTranslationUnit(): Result<UnitWithCursorData> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
-            // We parse the top-level declarations
-            val topLevelDeclarations = children()
+            // Add all top-level declarations in the clang AST to the work list
+            // of things to be elaborated
+            children()
                 // somehow e.g. an empty ';' results in top-level UnexposedDecls
                 .filter { cursor -> (cursor.kind() != CXCursor_UnexposedDecl) }
-                .map    { cursor -> cursor.asDeclaration().map { d -> Pair(cursor, d) }}
-                .sequence() // propagate errors
+                .forEach { cursor -> cursor.lazyElaborate() }
 
-            topLevelDeclarations.flatMap { tlds ->
-                // In addition, we elaborate some definitions that we encountered but perhaps did not yet
-                // parse while parsing types.
-                val done = tlds.map { it.first.hash() }.toMutableSet()
-                val decls = pleaseDoElaborate(done).map { r -> tlds + r }
-
-                // elaborate all the declarations
-                decls
-                    // we sort these, because we don't know from the traversal order where
-                    // the elaborated declarations should appear. And the order is relevant for type completeness
-                    // of structs and unions.
-                    .map { it.sortedWith(myDependencyOrder) }
-                    .flatMap { ds ->
-                        ds
-                            .map { (cursor, decl) ->
-                                // rename the declaration from the programmer-written name to the elaborated name.
-                                cursor
-                                    .getSymbol()
-                                    .map { Pair(cursor.hash(), decl.withIdent(it.name)) }
-                            }
-                            .sequence()
-                    }
-                    // and finally collect the outputs in a translation unit model.
-                    .map { ds ->
-                        UnitWithCursorData(
-                            TranslationUnit(tuid, ds.map { it.second }),
-                            ds.toMap()
-                        )
-                    }
-            }
+            // We now run the worklist algorithm to parse all nodes marked for elaboration.
+            // While doing the work, we may see new nodes that need elaboration.
+            pleaseDoElaborate()
+                // we sort these, because we don't know from the traversal order where
+                // the elaborated declarations should appear. And the order is relevant for type completeness
+                // of structs and unions.
+                .map { it.sortedWith(myDependencyOrder) }
+                .map { ds -> ds.map { (cursor, decl) -> Pair(cursor.hash(), decl) }}
+                // and finally collect the outputs in a translation unit model.
+                .map { ds ->
+                    UnitWithCursorData(
+                        TranslationUnit(tuid, ds.map { it.second }),
+                        ds.toMap()
+                    )
+                }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,
             // because we are possibly extending the visibility of elaborated declarations,
@@ -246,14 +236,14 @@ open class CursorParser(
     fun CXCursor.asEnum(): Result<UnitDeclaration.Enum> =
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             if (clang_isCursorDefinition(this).toBool()) {
-                getSymbol().flatMap { symbol ->
+                lazyElaborate().flatMap { symbol ->
                     children()
                         .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
                         .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators) }
                 }
             } else {
-                getSymbol().map { symbol -> UnitDeclaration.Enum(symbol.name) }
+                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name) }
             }
         }
 
@@ -435,9 +425,12 @@ open class CursorParser(
             .mapLeft { "Failed to get elaborated name for cursor." }
 
     /**
-     * Return a symbol for the definition under the cursor, elaborating one if necessary.
+     * Mark the CXCursor for elaboration (if it has not been already) and return
+     * a symbol for the definition under the cursor.
+     * The returned symbol is stable and can be used to reference the
+     * AST node that will be generated by the elaborated possibly later.
      */
-    fun CXCursor.getSymbol(): Result<Symbol> =
+    fun CXCursor.lazyElaborate(): Result<Symbol> =
         // elaboration may have already (re)named the definition under the cursor,
         // so we check our tables
         getElaboratedSymbol()
@@ -539,7 +532,7 @@ open class CursorParser(
                             Type.VaList().right()
                         } else {
                             cursor
-                                .getSymbol()
+                                .lazyElaborate()
                                 .map { Type.Typedeffed(it.tlid) }
                         }
                     }
@@ -598,7 +591,7 @@ open class CursorParser(
 
             CXType_Record          -> {
                 clang_getTypeDeclaration(this)
-                    .getSymbol()
+                    .lazyElaborate()
                     .flatMap { sym ->
                         when (sym.kind) {
                             EntityKind.Struct -> Type.Struct(sym.tlid).right()
@@ -610,7 +603,7 @@ open class CursorParser(
 
             CXType_Enum            -> {
                 clang_getTypeDeclaration(this)
-                    .getSymbol()
+                    .lazyElaborate()
                     .map { sym -> Type.Enum(sym.tlid) }
             }
 
