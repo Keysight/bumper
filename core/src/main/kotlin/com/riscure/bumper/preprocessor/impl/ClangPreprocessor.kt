@@ -44,7 +44,7 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
                     // We add -v to get the search paths out of stderr
                     .plus(Arg(Spec.clang11["v"]))
 
-            log.info("Exec: $clang ${cmd.toPOSIXArguments().joinToString(separator = " ")}")
+            log.debug("Exec: $clang ${cmd.toPOSIXArguments().joinToString(separator = " ")}")
 
             // Preprocess the input, writing to the output
             val res = process(

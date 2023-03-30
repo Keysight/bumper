@@ -7,8 +7,8 @@ import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 
 /**
- * A [DeclarationInUnit] is a pair of a translation unit identifier [unit]
- * and a [proto]type of a value (function or global) in that [unit].
+ * A [DeclarationInUnit] is a pair of a translation unit identifier [tuid]
+ * and a [proto]type of a value (function or global) in the identified unit.
  */
 data class DeclarationInUnit(
     val tuid: TUID,
@@ -111,18 +111,23 @@ data class Linking(
 data class LinkGraph(
     val dependencies: Map<TUID, Linking>,
 ) {
+    /**
+     * All units whose definitions are linked to in [dependencies].
+     */
     val linkedUnits: Set<TUID> get() =
         dependencies
             .values
             .asIterable()
             .flatMapTo(mutableSetOf()) { it.bound.map { it.definition.tuid }}
 
-    /** Get a complete set of unbound symbols */
-    val unbound: Set<Pair<TUID,Prototype>> get() =
+    /**
+     * Get a complete set of used-but-not-defined symbols.
+     */
+    val unbound: Set<DeclarationInUnit> get() =
         dependencies.entries
             .flatMap { (tuid, linking) ->
                 linking.unbound
-                    .map { Pair(tuid, it) }
+                    .map { DeclarationInUnit(tuid, it) }
             }
             .toSet()
 
@@ -161,10 +166,10 @@ data class LinkGraph(
          * Construct an [LinkGraph] from a mapping representing [links] between declarations and definitions and
          * a set of [unbound] declarations.
          */
-        operator fun invoke(links: Map<DeclarationInUnit,DeclarationInUnit>, unbound: Set<DeclarationInUnit>): LinkGraph {
+        operator fun invoke(links: List<Link>, unbound: Set<DeclarationInUnit>): LinkGraph {
             val unboundByTUID = unbound.groupBy({ it.tuid }) { it.proto }
-            val edgeset = links.entries
-                .groupBy({ it.key.tuid }) { Link(it.key, it.value) }
+            val edgeset = links
+                .groupBy { it.declaration.tuid }
                 .mapValues { (tuid, bound) ->
                     Linking(bound.toSet(), unboundByTUID.getOrDefault(tuid, listOf()).toSet())
                 }

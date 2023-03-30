@@ -1,6 +1,7 @@
 package com.riscure.bumper.analyses
 
 import arrow.core.*
+import com.riscure.bumper.Frontend
 import com.riscure.bumper.ast.EntityKind
 import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.index.Index
@@ -24,7 +25,7 @@ import com.riscure.dobby.clang.CompilationDb
 class UnitClosureAnalysis(
     val index: Index,
     val cdb: CompilationDb,
-    val frontend: Parser<*, *, *>
+    val frontend: Frontend<*, *, *>
 ) {
     data class Unresolved(val decl: DeclarationInUnit, val resolutions: Set<Index.Entry>)
 
@@ -41,10 +42,10 @@ class UnitClosureAnalysis(
         // TODO fix for linking globals?
         // so we should maybe add a local cache?
         val state = frontend
-            .parse(cdb, definition.tuid.main)
+            .process(cdb, definition.tuid.main)
             .getOrHandle { throw it }
 
-        val depGraph = state
+        val depGraph = state // todo only analyse dependencies of [definition]
             .dependencies
             .getOrHandle { reason ->
                 throw ParseError.AnalysisFailed(
@@ -60,12 +61,12 @@ class UnitClosureAnalysis(
         return depGraph
             .reachable(setOf(definition.symbol))
             .nodes
-            .filter { it.kind == EntityKind.Fun }
+            .filter { it.kind == EntityKind.Fun || it.kind == EntityKind.Var }
             .flatMap { sym ->
-                // get the (non-empty) list of function declarations within the unit
+                // get the (non-empty) list of declarations within the unit
                 val decls = state.ast
                     .declarationsForSymbol(sym)
-                    .filterIsInstance<UnitDeclaration.Fun<*>>()
+                    .filterIsInstance<UnitDeclaration.Valuelike<*, *>>()
 
                 // if the unit contains a definition for the symbol,
                 // then it is not an external dependency.
@@ -86,11 +87,10 @@ class UnitClosureAnalysis(
         // Initialize the edgeset from the given graph.
         // We will iteratively grow the edgeset by resolving items from the worklist,
         // until the set of unbound symbols is empty.
-        val edgeset: MutableMap<DeclarationInUnit, DeclarationInUnit> = graph
+        val links: MutableList<Link> = graph
             .dependencies
             .entries
-            .flatMap { it.value.bound }
-            .associateByTo(mutableMapOf(), { it.declaration }) { it.definition }
+            .flatMapTo(mutableListOf()) { it.value.bound }
 
         // We keep track of symbols that we cannot unambiguously resolve to definitions.
         val failed = mutableMapOf<DeclarationInUnit, Unresolved>()
@@ -105,11 +105,15 @@ class UnitClosureAnalysis(
         // We avoid putting things on the worklist that we already tried to resolve,
         // The set of symbols in the index is finite, so this means that
         // eventually we run out of symbols on the worklist and the algorithm terminates.
+        val visited = mutableSetOf<DeclarationInUnit>()
         while (unbound.isNotEmpty()) {
             // remove an item from the work list
             val decl = unbound
                 .first()
                 .apply { unbound.remove(this) }
+
+            if (decl in visited) continue
+            else visited.add(decl)
 
             // try to resolve the prototype using the index
             val options: Set<Index.Entry> = index.resolve(decl.proto)
@@ -119,14 +123,15 @@ class UnitClosureAnalysis(
                 // link the previously unbound symbol to the result of resolution in the index.
                 val def = options.first().let { DeclarationInUnit(it.tuid, it.proto) }
 
-                // extend the edgeset with the newly found link
-                edgeset[decl] = def
+                // extend the links with the newly found link
+                links.add(Link(decl, def))
 
                 // add the dependencies of the linked definition to the worklist
                 // after filtering only those declarations that we have not worked on before
-                undefinedDependenciesOfOrThrow(def)
-                    .filter { !failed.contains(it) && !edgeset.contains(it) }
-                    .let { unbound.addAll(it) }
+                val work = undefinedDependenciesOfOrThrow(def)
+                    .filter { it !in visited }
+
+                unbound.addAll(work)
             } else {
                 // if the resolution is not ambiguous,
                 // then we extend the set of failures for the unit.
@@ -136,6 +141,6 @@ class UnitClosureAnalysis(
 
         }
 
-        return LinkGraph(edgeset, failed.keys)
+        return LinkGraph(links, failed.keys)
     }
 }

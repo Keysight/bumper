@@ -14,6 +14,7 @@ import org.bytedeco.llvm.global.clang.*
  */
 class ClangDependencyAnalysis(
     private val ast: ClangTranslationUnit,
+    /** A mapping from clang cursors (identified by their hash) and declarations in the [ast] */
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
 ) : UnitDependencyAnalysis<CXCursor, CXCursor> {
 
