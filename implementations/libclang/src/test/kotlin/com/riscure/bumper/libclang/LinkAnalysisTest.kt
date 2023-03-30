@@ -33,21 +33,21 @@ class LinkAnalysisTest: LibclangTestBase() {
     ) { units ->
         run {
             // We test the link graph
-            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
+            val graph = LinkAnalysis(units.map { it.first }).assertOK()
             val (unit1, unit2) = units
 
             val unit1Deps = graph[unit1.first.tuid].assertOK()
             val unit2Deps = graph[unit2.first.tuid].assertOK()
 
-            assertEquals(1, unit1Deps.size)
-            val gDep = unit1Deps.first()
-            assertEquals(unit2.first.tuid, gDep.definition.unit)
-            assertEquals(unit2.first.functions.find { it.ident == "g" }!!, gDep.definition.proto)
+            assertEquals(1, unit1Deps.bound.size)
+            val gDep = unit1Deps.bound.first()
+            assertEquals(unit2.first.tuid, gDep.definition.tuid)
+            assertEquals(unit2.first.functions.find { it.ident == "g" }.assertOK().prototype(), gDep.definition.proto)
 
-            assertEquals(1, unit2Deps.size)
-            val fDep = unit2Deps.first()
-            assertEquals(unit1.first.tuid, fDep.definition.unit)
-            assertEquals(unit1.first.functions.find { it.ident == "f" }!!, fDep.definition.proto)
+            assertEquals(1, unit2Deps.bound.size)
+            val fDep = unit2Deps.bound.first()
+            assertEquals(unit1.first.tuid, fDep.definition.tuid)
+            assertEquals(unit1.first.functions.find { it.ident == "f" }.assertOK().prototype(), fDep.definition.proto)
         }
     }
 
@@ -63,7 +63,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) { units ->
         run {
-            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
+            val graph = LinkAnalysis(units.map { it.first }).assertOK()
             val (unit1, unit2) = units
 
             val objectInterface1 = LinkAnalysis.objectInterface(unit1.first)
@@ -80,11 +80,11 @@ class LinkAnalysisTest: LibclangTestBase() {
             val unit1Deps = graph[unit1.first.tuid].assertOK()
             val unit2Deps = graph[unit2.first.tuid].assertOK()
 
-            assertEquals(0, unit2Deps.size)
-            assertEquals(1, unit1Deps.size)
-            val edge = unit1Deps.first()
+            assertEquals(0, unit2Deps.bound.size)
+            assertEquals(1, unit1Deps.bound.size)
+            val edge = unit1Deps.bound.first()
             assertNotNull(edge.definition)
-            assertEquals("f", edge.definition.proto.ident)
+            assertEquals("f", edge.definition.proto.tlid.name)
 
         }
     }

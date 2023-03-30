@@ -10,7 +10,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
-interface StructParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
+interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Empty anonymous struct definition")

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
  * This tests for internal consistency of parsing and pretty-printing.
  * If the parser always yields the empty translation unit, this test succeeds.
  */
-interface TypeRoundtripTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U>  {
+interface TypeRoundtripTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
 
     /* function type */
     @Test

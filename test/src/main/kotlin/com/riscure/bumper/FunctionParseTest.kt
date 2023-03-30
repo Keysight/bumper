@@ -8,7 +8,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
-interface FunctionParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E,S,U> {
+interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Empty main")

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
-interface EnumParseTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
+interface EnumParseTest<E,S,U: UnitState<E, S, U>> : ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named enum")

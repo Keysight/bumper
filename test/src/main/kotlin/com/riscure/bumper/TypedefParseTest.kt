@@ -5,7 +5,7 @@ import com.riscure.bumper.parser.UnitState
 import org.junit.jupiter.api.*
 import kotlin.test.*
 
-interface TypedefParseTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U> {
+interface TypedefParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Typedef anonymous struct")

@@ -7,7 +7,6 @@ import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
 import com.riscure.dobby.clang.*
 import org.opentest4j.AssertionFailedError
-import java.io.File
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.copyTo
@@ -28,7 +27,7 @@ fun <T> T?.assertOK(): T = assertNotNull(this)
 fun <T> Option<T>.assertOK(): T =
     this.getOrElse { fail("Expected some, got none") }
 
-interface ParseTestBase<E,S,U: UnitState<E, S>> {
+interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
 
     companion object {
 
@@ -60,29 +59,28 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
 
-    fun mkTempCFile(program: String): File = kotlin.io.path
+    fun mkTempCFile(program: String): Path = kotlin.io.path
         .createTempFile(suffix = ".c")
         .apply { writeText(program) }
-        .toFile()
 
-    private fun <T> withTemp(program: String, withFile: (file: File) -> T): T {
+    private fun <T> withTemp(program: String, withFile: (file: Path) -> T): T {
         val file = mkTempCFile(program)
         return try {
             withFile(file)
         } finally {
             // Delete this when the JVM quits, so we have time to read it
             // when we pause the JVM during debug
-            file.deleteOnExit()
+            file.toFile().deleteOnExit()
         }
     }
 
-    private fun <T> withTemp(programs: List<String>, withFiles: (files: List<File>) -> T): T {
+    private fun <T> withTemp(programs: List<String>, withFiles: (files: List<Path>) -> T): T {
         val files = programs.map { mkTempCFile(it) }
         return try {
             withFiles(files)
         } finally {
             for (file in files) {
-                file.deleteOnExit()
+                file.toFile().deleteOnExit()
             }
         }
     }
@@ -101,8 +99,8 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             whenOk(ast, unit)
         }
 
-    fun parsed(test: File, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
-        val unit = parser.parse(test).assertOK()
+    fun parsed(test: Path, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
+        val unit = parser.parse(CompilationDb.Entry(test, listOf())).assertOK()
         whenOk(unit.ast)
         return unit.ast
     }
@@ -133,7 +131,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     ): Unit = withTemp(programs.toList()) { files -> bumped(files, opts, whenOk) }
 
     fun bumped(
-        file: File,
+        file: Path,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ) {
@@ -142,20 +140,21 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     }
 
     fun bumped(
-            file: Path,
-            opts: Options = listOf(),
-            whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
-    ): Unit = bumped(file.toFile(), opts, whenOk)
+        file: Path,
+        cdb: CompilationDb,
+        whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
+    ): Unit = process(file, cdb[file].assertOK().options).let { whenOk(it.first, it.second) }
 
     fun bumped(
-        files: List<File>,
+        files: List<Path>,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
     ) = whenOk(files.map { process(it, opts) })
 
-    private fun process(file: File, opts: Options): Pair<TranslationUnit<E, S>, U> {
-        println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
-        return frontend.process(file, opts).map { Pair(it.ast, it) }.assertOK()
+    private fun process(file: Path, opts: Options): Pair<TranslationUnit<E, S>, U> {
+        val entry = CompilationDb.Entry(file, opts)
+        println("Preprocessed input at: ${frontend.preprocessedAt(entry)}")
+        return frontend.process(entry).map { Pair(it.ast, it) }.assertOK()
     }
 
     fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)

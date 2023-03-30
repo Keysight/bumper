@@ -18,7 +18,7 @@ private val wchar_t = Type.typedef("wchar_t")
 /**
  * In this test, we parse and pretty-print some standard headers.
  */
-interface StdHeadersTest<E,S,U: UnitState<E, S>> : ParseTestBase<E, S, U> {
+interface StdHeadersTest<E,S,U: UnitState<E, S, U>> : ParseTestBase<E, S, U> {
 
     companion object {
         // https://en.cppreference.com/w/c/header

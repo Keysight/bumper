@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-interface TypeTest<E,S,U: UnitState<E, S>>: ParseTestBase<E, S, U>  {
+interface TypeTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
 
     companion object {
         @JvmStatic

@@ -19,16 +19,16 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
 
     override fun roundtrip(program: String, opts: Options, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
         bumped(program, opts) { ast1, unit1 ->
-            val pp1 = unit1.printer.print(ast1).assertOK().write()
+            val pp1 = ClangUnitState.pp(ast1.tuid).print(ast1).assertOK().writeTo()
             bumped(pp1, opts) { ast2, unit2 ->
                 ast1.declarations.zip(ast2.declarations) { l, r ->
                     try {
                         eq(l, r.withMeta(l.meta))
                     } catch (e: Throwable) {
                         println("Pretty 1:\n")
-                        println(unit1.printer.print(l).assertOK().write())
+                        println(ClangUnitState.pp(ast1.tuid).print(l).assertOK().writeTo())
                         println("Pretty 2:\n")
-                        println(unit1.printer.print(r).assertOK().write())
+                        println(ClangUnitState.pp(ast1.tuid).print(r).assertOK().writeTo())
                         throw e
                     }
                 }
