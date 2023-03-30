@@ -5,6 +5,8 @@ description = "Riscure True Code C Frontend -- Libclang Implementation"
 
 plugins {
     kotlin("jvm") version "1.7.20"
+    id("org.jetbrains.dokka")
+
     `maven-publish`
     application
 }
