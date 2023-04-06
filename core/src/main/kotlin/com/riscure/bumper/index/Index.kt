@@ -1,17 +1,24 @@
 package com.riscure.bumper.index
 
-import arrow.core.getOrElse
-import arrow.core.zip
+import arrow.core.*
 import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Index.Entry
-import java.nio.file.Path
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.cbor.*
+import kotlinx.serialization.decodeFromByteArray
+import java.io.*
+import java.util.Base64
 
 /**
  * An [Index] maps identifiers to a set of matching [Entry]s.
  * It only records value definitions (functions, globals) that are visible across unit boundaries (non-static).
  */
+@Serializable
 data class Index(val symbols: Map<Ident, Set<Entry>>) {
+    @Serializable
     data class Entry(
         val tuid: TUID,
         val proto: Prototype,
@@ -40,7 +47,26 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
             .filter { decl -> match(prototype.type, decl.proto.type) }
             .toSet()
 
+    @OptIn(ExperimentalSerializationApi::class)
+    fun write(stream: OutputStream) {
+        Cbor
+            .encodeToByteArray(serializer(), this)
+            .let {
+                stream.write(it)
+                stream.flush()
+            }
+    }
+
     companion object {
+        @OptIn(ExperimentalSerializationApi::class)
+        fun read(stream: InputStream): Either<Exception, Index> = try {
+            Cbor
+                .decodeFromByteArray<Index>(stream.readBytes())
+                .right()
+        }
+        catch (err : IllegalArgumentException) { err.left() }
+        catch (err : SerializationException)   { err.left() }
+
         /**
          * We don't have a function yet to check if two types are 'compatible'
          * in the vague C sense of that word. So for now we do a weak check 'match'.

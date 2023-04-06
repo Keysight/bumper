@@ -11,25 +11,39 @@ package com.riscure.bumper.ast
 import arrow.core.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import com.riscure.bumper.serialization.OptionAsNullable
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Prototype(val tlid: TLID, val type: Type)
 
 /* Attributes */
+@Serializable
 sealed class AttrArg {
+    @Serializable
     data class AnIdent(val value: Ident) : AttrArg()
+    @Serializable
     data class AnInt(val value: Int) : AttrArg()
+    @Serializable
     data class AString(val value: String) : AttrArg()
 }
 
+@Serializable
 sealed class Attr {
+    @Serializable
     object Constant : Attr()
+    @Serializable
     object Volatile : Attr()
+    @Serializable
     object Restrict : Attr()
+    @Serializable
     data class AlignAs(val alignment: Long) : Attr()
+    @Serializable
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
 }
 
 /** Different ways of storing values in C */
+@Serializable
 sealed interface Storage {
     sealed interface Public: Storage
 
@@ -41,11 +55,11 @@ sealed interface Storage {
         Register  -> (this as Public).some()
     }
 
-    object Static: Storage
-    object Default: Public // used for toplevel names without explicit storage
-    object Extern: Public
-    object Auto: Public // used for block-scoped names without explicit storage
-    object Register: Public
+    @Serializable object Static: Storage
+    @Serializable object Default: Public // used for toplevel names without explicit storage
+    @Serializable object Extern: Public
+    @Serializable object Auto: Public // used for block-scoped names without explicit storage
+    @Serializable object Register: Public
 }
 
 enum class StructOrUnion { Struct, Union }
@@ -90,6 +104,7 @@ fun <R> List<Field>.foldFields(initial: R, f: (R, Field.Named) -> R):R =
         }
     }
 
+@Serializable
 data class Param(val name: Ident, val type: Type) {
     val isAnonymous: Boolean get() = name.isEmpty()
 
@@ -100,18 +115,19 @@ typealias Params = List<Param>
 /**
  * Metadata for the top-level elements.
  */
+@Serializable
 data class Meta(
     /**
      * The location where this element was parsed.
      */
-    val location: Option<SourceRange> = None,
+    val location: OptionAsNullable<SourceRange> = None,
     /**
      * This location reflects {@code #line} directives,
      * as for example outputted by the preprocessor, pointing
      * poking through to the location beneath the {@code #include} directive.
      */
-    val presumedLocation: Option<Location> = None,
-    val doc: Option<String> = None,
+    val presumedLocation: OptionAsNullable<Location> = None,
+    val doc: OptionAsNullable<String> = None,
     val fromMain: Boolean = true
 ) {
     val presumedHeader get() = presumedLocation.filter { it.isHeader() }
@@ -339,6 +355,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     }
 }
 
+@Serializable
 enum class EntityKind {
     Fun,
     Enum,
@@ -355,6 +372,7 @@ enum class EntityKind {
 /**
  * Name and kind pair
  */
+@Serializable
 data class TLID(val name: Ident, val kind: EntityKind) {
     fun symbol(tuid: TUID) = Symbol(tuid, this)
 

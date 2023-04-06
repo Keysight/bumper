@@ -1,10 +1,12 @@
 package com.riscure.bumper.index
 
+import com.riscure.bumper.serialization.PathAsString
 import com.riscure.dobby.clang.CompilationDb
 import kotlinx.serialization.Serializable
 import java.nio.file.Path
 
 /** Uniquely identify a translation unit */
+@Serializable
 data class TUID private constructor(
     /**
      * Translation units are identified primarily by the absolute path to the [main] source file.
@@ -14,7 +16,7 @@ data class TUID private constructor(
      * The reason for this is that the TUID can potentially be persisted,
      * and the preprocessed source is usually only cached for uncertain amount of time.
      */
-    val main: Path
+    val main: PathAsString
 ) {
     companion object {
         @JvmStatic

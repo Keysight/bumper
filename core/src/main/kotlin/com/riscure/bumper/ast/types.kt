@@ -1,6 +1,8 @@
 package com.riscure.bumper.ast
 
 import arrow.core.*
+import com.riscure.bumper.serialization.OptionAsNullable
+import kotlinx.serialization.Serializable
 
 private typealias TypeLookup<T> = Either<TypeEnv.Missing, T>
 interface TypeEnv {
@@ -49,7 +51,7 @@ interface TypeEnv {
 }
 
 /** Different integer kinds */
-enum class IKind {
+@Serializable enum class IKind {
     IBoolean
     , IChar, ISChar, IUChar
     , IShort, IUShort
@@ -59,11 +61,12 @@ enum class IKind {
 }
 
 /** Different float kinds */
-enum class FKind {
+@Serializable enum class FKind {
     FFloat, FDouble, FLongDouble
 }
 
-enum class AccessMode {
+
+@Serializable enum class AccessMode {
     ByValue,
     ByCopy,
     ByReference,
@@ -72,7 +75,7 @@ enum class AccessMode {
 
 typealias Attrs = List<Attr>
 
-sealed interface Type {
+@Serializable sealed interface Type {
 
     /**
      * The core C types. All properties of C types are defined on the core types.
@@ -248,31 +251,37 @@ sealed interface Type {
     fun restrict() = modifyAttrs { it + Attr.Restrict }
     fun ptr() = Ptr(this)
 
+    @Serializable
     data class Void(
         override val attrsOnType: Attrs = listOf()
     ) : Core
 
+    @Serializable
     data class Int(
         val kind: IKind,
         override val attrsOnType: Attrs = listOf()
     ) : Scalar
 
+    @Serializable
     data class Float(
         val kind: FKind,
         override val attrsOnType: Attrs = listOf()
     ) : Scalar
 
+    @Serializable
     data class Ptr(
         val pointeeType: Type,
         override val attrsOnType: Attrs = listOf()
     ) : Scalar
 
+    @Serializable
     data class Array(
         val elementType: Type,
-        val size: Option<Long> = None,
+        val size: OptionAsNullable<Long> = None,
         override val attrsOnType: Attrs = listOf()
     ) : Aggregate
 
+    @Serializable
     data class Fun(
         val returnType: Type,
         val params: List<Param>,
@@ -283,6 +292,7 @@ sealed interface Type {
     /**
      * Reference to a top-level typedef.
      */
+    @Serializable
     data class Typedeffed(
         override val ref: TypeRef,
         override val attrsOnType: Attrs = listOf()
@@ -291,11 +301,13 @@ sealed interface Type {
     /**
      * Reference to a top-level struct
      */
+    @Serializable
     data class Struct(override val ref: TypeRef, override val attrsOnType: Attrs = listOf()) : Record
 
     /**
      * Reference to a top-level union
      */
+    @Serializable
     data class Union(
         override val ref: TypeRef,
         override val attrsOnType: Attrs = listOf()
@@ -304,6 +316,7 @@ sealed interface Type {
     /**
      * Reference to a top-level enum
      */
+    @Serializable
     data class Enum(
         override val ref: TypeRef,
         override val attrsOnType: Attrs = listOf()
@@ -316,6 +329,7 @@ sealed interface Type {
      * We represent it in our model, because otherwise it would be determined already by the parser,
      * and we lose portability of modeled C code.
      */
+    @Serializable
     data class VaList(
         override val attrsOnType: Attrs = listOf()
     ) : Type

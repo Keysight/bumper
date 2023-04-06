@@ -1,6 +1,8 @@
 package com.riscure.bumper.ast
 
 import arrow.core.compareTo
+import com.riscure.bumper.serialization.PathAsString
+import kotlinx.serialization.Serializable
 import java.nio.file.Path
 import kotlin.io.path.extension
 
@@ -29,8 +31,9 @@ object dependencyOrder: Comparator<SourceRange> {
 }
 
 /** A source location */
+@Serializable
 data class Location(
-    val sourceFile: Path,
+    val sourceFile: PathAsString,
     /** The line number, with first line being 1 */
     val row: Int,
     /** The column number, with first column being 1 */
@@ -48,6 +51,7 @@ data class Location(
 }
 
 /** A source range with a begin and end location. */
+@Serializable
 data class SourceRange(
     /** begin location of the source range (inclusive) */
     val begin: Location,

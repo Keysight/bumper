@@ -24,8 +24,8 @@ sealed interface Preproc {
 }
 
 data class Source(
-    val cppHeader: List<Preproc>,
-    val description: List<String>,
+    val cppHeader: List<Preproc> = listOf(),
+    val description: List<String> = listOf(),
     val unit: TranslationUnit<Exp, Stmt>
 ) {
     val prettyHeader get() = cppHeader.joinToString(separator = "\n") { it.pretty() }

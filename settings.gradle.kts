@@ -37,12 +37,15 @@ pluginManagement {
             }
         }
 
+        val serialization = "1.5.0"
+
         versionCatalogs {
             create("kotlinx") {
-                library("json"                   , "org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
                 library("coroutines-core"        , "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-                library("serialization-core"     , "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.4.1")
-                library("serialization-protobuf" , "org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.4.1")
+                library("serialization-core"     , "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:$serialization")
+                library("serialization-protobuf" , "org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$serialization")
+                library("serialization-cbor"     , "org.jetbrains.kotlinx:kotlinx-serialization-cbor:$serialization")
+                library("serialization-json"     , "org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization")
             }
 
             create("libs") {
