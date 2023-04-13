@@ -12,7 +12,7 @@ import com.riscure.bumper.index.TUID
  */
 data class DeclarationInUnit(
     val tuid: TUID,
-    val proto: Prototype
+    val proto: UnitDeclaration.Valuelike<*,*>
 ) {
     val name: String get() = proto.tlid.name
     val symbol: Symbol get() = Symbol(tuid, proto.tlid)
@@ -96,7 +96,7 @@ data class DependencyGraph(val dependencies: Map<Symbol, Set<Symbol>>) {
 
 data class Linking(
     val bound: Set<Link>,
-    val unbound: Set<Prototype>
+    val unbound: Set<UnitDeclaration.Valuelike<*,*>>
 )
 
 /**
@@ -212,7 +212,7 @@ object LinkAnalysis {
             .entries
             .flatMap { (tuid, intf) ->
                 intf.exports
-                    .map { Pair(it.tlid, DeclarationInUnit(tuid, it.prototype())) }
+                    .map { Pair(it.tlid, DeclarationInUnit(tuid, it)) }
             }
             .toMap()
 
@@ -220,7 +220,7 @@ object LinkAnalysis {
         val edges: Map<TUID, Linking> = interfaces
             .mapValues { (tuid, intf) ->
                 // We keep track of symbols that are missing from the export index.
-                val missing = mutableSetOf<Prototype>()
+                val missing = mutableSetOf<UnitDeclaration.Valuelike<*,*>>()
 
                 val links = intf
                     .imports
@@ -228,7 +228,7 @@ object LinkAnalysis {
                         // we try to resolve the import to a matching export from the index.
                         val link: Option<Link> = exportIndex[import.tlid]
                             .toOption()
-                            .map { Link(DeclarationInUnit(tuid, import.prototype()), it) }
+                            .map { Link(DeclarationInUnit(tuid, import), it) }
 
                         when (link) {
                             is Some -> listOf(link.value)
@@ -236,7 +236,7 @@ object LinkAnalysis {
                                 // If resolution fails then we don't have a definition
                                 // within the set of translation units, and we don't incur a link dependency.
                                 // We record the missing dependency
-                                missing.add(import.prototype())
+                                missing.add(import)
                                 listOf()
                             }
                         }

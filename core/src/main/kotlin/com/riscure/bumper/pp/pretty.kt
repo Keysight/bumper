@@ -34,9 +34,13 @@ object Pretty {
     }
 
     @JvmStatic
-    fun declaration(ident: Ident, type: Type): String {
-        val (remainingType, decl) = namePart(type, ident)
-        return "${maybeAttrs(remainingType.attrsOnType)}${typePrefix(remainingType)} $decl".trim()
+    fun declaration(ident: Ident, type: Type): String = when (type) {
+        is Type.Fun ->
+            signature(ident, type.params, type.vararg, type.returnType)
+        else -> {
+            val (remainingType, decl) = namePart(type, ident)
+            "${maybeAttrs(remainingType.attrsOnType)}${typePrefix(remainingType)} $decl".trim()
+        }
     }
 
     @JvmStatic
@@ -417,8 +421,7 @@ class AstWriters<Exp, Stmt>(
          * ASTs.
          */
         @JvmStatic
-        fun usingExtraction(tuid: TUID): AstWriters<SourceRange, SourceRange> {
-            val extractor = Extractor(tuid.main.toFile())
+        fun usingExtraction(extractor: Extractor): AstWriters<SourceRange, SourceRange> {
             fun rangePrinter(it: SourceRange) = extractor.extract(it)
             return AstWriters(::rangePrinter, ::rangePrinter)
         }

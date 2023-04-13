@@ -1,16 +1,16 @@
+@file:UseSerializers(NothingSerializer::class)
 package com.riscure.bumper.index
+
+import com.riscure.bumper.serialization.NothingSerializer
 
 import arrow.core.*
 import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Index.Entry
-import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.*
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.cbor.*
-import kotlinx.serialization.decodeFromByteArray
 import java.io.*
-import java.util.Base64
 
 /**
  * An [Index] maps identifiers to a set of matching [Entry]s.
@@ -21,7 +21,7 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
     @Serializable
     data class Entry(
         val tuid: TUID,
-        val proto: Prototype,
+        val proto: UnitDeclaration.Valuelike<Nothing,Nothing>,
         val meta: Meta
     ) {
         val name: String get() = proto.tlid.name
@@ -39,9 +39,14 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
         Index(symbols.zip(other.symbols) { _, l, r -> l + r })
 
     /**
+     * Find [match]ing definitions in the index for the given [id].
+     */
+    fun resolve(id: Ident): Set<Entry> = symbols.getOrDefault(id, setOf())
+
+    /**
      * Find [match]ing definitions in the index for the given [prototype].
      */
-    fun resolve(prototype: Prototype): Set<Entry> =
+    fun resolve(prototype: UnitDeclaration.Valuelike<*,*>): Set<Entry> =
         symbols
             .getOrDefault(prototype.tlid.name, setOf())
             .filter { decl -> match(prototype.type, decl.proto.type) }
@@ -87,11 +92,26 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
         fun of(unit: TranslationUnit<*, *>): Index {
             val exports = LinkAnalysis.objectInterface(unit).exports
             val symbols = exports.associateBy({ it.ident }) { export ->
-                setOf(Entry(unit.tuid, export.prototype(), export.meta))
+                setOf(Entry(unit.tuid, export.prototype, export.meta))
             }
 
             return Index(symbols)
         }
+
+        /**
+         * Index a bunch of [units]
+         */
+        fun of(units: Sequence<TranslationUnit<*, *>>): Index =
+            units
+                .flatMap { unit ->
+                    val exports = LinkAnalysis.objectInterface(unit).exports
+                    exports
+                        .asSequence()
+                        .map { export -> Entry(unit.tuid, export.prototype, export.meta) }
+                }
+                .groupBy { it.name }
+                .mapValues { (_, value) -> value.toSet() }
+                .let { Index(it) }
 
         /**
          * Combine a collection of [indexes] into one.

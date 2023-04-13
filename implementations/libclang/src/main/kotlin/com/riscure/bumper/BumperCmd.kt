@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.libclang.ClangParser
 import com.riscure.bumper.libclang.ClangUnitState
+import com.riscure.bumper.pp.SourceExtractor
 import com.riscure.dobby.clang.CompilationDb
 import picocli.CommandLine
 import picocli.CommandLine.*
@@ -41,7 +42,7 @@ class DoElab: Callable<Int> {
         // pretty-print it again
         val writer = System.out.writer()
         ClangUnitState
-            .pp(unit.tuid)
+            .pp(SourceExtractor(unit.tuid.main))
             .print(unit.ast)
             .getOrHandle { throw RuntimeException(it) }
             .writeTo(writer)

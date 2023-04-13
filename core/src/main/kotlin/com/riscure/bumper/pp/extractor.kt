@@ -2,18 +2,26 @@ package com.riscure.bumper.pp
 
 import arrow.core.*
 import com.riscure.bumper.ast.SourceRange
-import java.io.File
 import java.nio.charset.Charset
+import java.nio.file.Path
+import kotlin.io.path.readLines
 
 /**
- * A class to extract source ranges from a file.
+ * An interface to get source ranges as strings.
  */
-class Extractor(val file: File, charset: Charset = Charset.defaultCharset()) {
+interface Extractor {
+    fun extract(range: SourceRange): Either<String, String>
+}
+
+/**
+ * An extractor based on reading from a buffered file.
+ */
+class SourceExtractor(val source: Path, charset: Charset = Charset.defaultCharset()): Extractor {
     // We keep the whole thing buffered, because repeatedly
     // opening and scanning the file does not seem performant.
-    private val lines = file.readLines(charset = charset)
+    private val lines = source.readLines(charset = charset)
 
-    fun extract(range: SourceRange): Either<String, String> {
+    override fun extract(range: SourceRange): Either<String, String> {
         val endColInclusive = range.end.col - 1
 
         if (lines.size < range.end.row ||

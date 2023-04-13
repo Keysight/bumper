@@ -68,13 +68,11 @@ data class ClangUnitState(
          * assuming that the source file that was used to parse the unit is still available for reading.
          */
         @JvmStatic
-        fun pp(tuid: TUID): AstWriters<CXCursor, CXCursor> {
+        fun pp(extractor: Extractor): AstWriters<CXCursor, CXCursor> {
             // We could use libclang's pretty printing facilities here,
             // except that I've encountered corner cases where pretty printing returns "" incorrectly:
             // - https://github.com/llvm/llvm-project/issues/59155
             // So we fall back here on extracting lines from the source file instead.
-            val extractor = Extractor(tuid.main.toFile())
-
             fun cursorPrinter(c: CXCursor) =
                 c.getRange()
                     .toEither { "Failed to get source range for expression." }

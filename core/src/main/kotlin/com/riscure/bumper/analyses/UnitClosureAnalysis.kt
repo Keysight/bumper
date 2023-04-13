@@ -71,7 +71,7 @@ class UnitClosureAnalysis(
                 // if the unit contains a definition for the symbol,
                 // then it is not an external dependency.
                 if (decls.any { it.isDefinition }) setOf()
-                else setOf(DeclarationInUnit(state.tuid, decls.first().prototype()))
+                else setOf(DeclarationInUnit(state.tuid, decls.first()))
             }
     }
 

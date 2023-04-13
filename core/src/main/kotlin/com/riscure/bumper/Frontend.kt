@@ -35,7 +35,7 @@ open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
      * If the (contents of) the input file change, or the compilation options change,
      * this location also changes.
      */
-    fun preprocessedAt(entry: CompilationDb.Entry): File = with(entry) {
+    fun preprocessedAt(entry: CompilationDb.Entry): Path = with(entry) {
         val digest = resolvedMainSource.toString().digest().plus(command.digest())
         return cppStorage.inputAddressed(resolvedMainSource.nameWithoutExtension, digest, suffix = ".c")
     }
@@ -52,13 +52,13 @@ open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
         // compute the location of the preprocessed input.
         return preprocessedAt(entry).let { cpped ->
             // Preprocess the file.
-            val cppResult = preprocess(entry, cpped)
+            val cppResult = preprocess(entry, cpped.toFile())
             cppResult
                 .flatMap { cppInfo ->
                     // Call the parser with the preprocessed source.
                     // We make sure that the result will be identified by the right TUID.
                     parser
-                        .parse(entry.copy(mainSource = cpped.toPath()))
+                        .parse(entry.copy(mainSource = cpped))
                         .map {
                             it
                                 .withCppinfo(cppinfo = cppInfo)

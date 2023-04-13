@@ -1,3 +1,5 @@
+@file:UseSerializers(NothingSerializer::class)
+
 /**
  * This package contains a fully type-annotated C source AST *after elaboration*.
  *
@@ -11,11 +13,10 @@ package com.riscure.bumper.ast
 import arrow.core.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import com.riscure.bumper.serialization.NothingSerializer
 import com.riscure.bumper.serialization.OptionAsNullable
 import kotlinx.serialization.Serializable
-
-@Serializable
-data class Prototype(val tlid: TLID, val type: Type)
+import kotlinx.serialization.UseSerializers
 
 /* Attributes */
 @Serializable
@@ -132,6 +133,11 @@ data class Meta(
 ) {
     val presumedHeader get() = presumedLocation.filter { it.isHeader() }
 
+    val mostOriginalSource get() =
+        presumedLocation
+            .map { it.sourceFile }
+            .or(location.map { it.file })
+
     companion object {
         @JvmStatic
         val default = Meta(None, None, None, true)
@@ -141,6 +147,7 @@ data class Meta(
 /**
  * Encompassing any declaration that has a global name (so not including e.g. struct declarations in functions)
  */
+@Serializable
 sealed interface GlobalDeclaration {
     /**
      * Identifier (after elaboration).
@@ -167,6 +174,7 @@ typealias Enumerators = List<Enumerator>
  * @param E the type that represents expressions
  * @param S the type that represents statements
  */
+@Serializable
 sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
     override fun withIdent(id: Ident): UnitDeclaration<E, S>
@@ -175,6 +183,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
      * Whether this declaration is also a definition
      */
     val isDefinition: Boolean
+
+    fun erase(): UnitDeclaration<Unit,Unit>
 
     /**
      * Meta-data comprises the file and location in file for the
@@ -196,10 +206,17 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     /* Mixin */
 
     /** Everything that is visible to other translation units (non-types) */
+    @Serializable
     sealed interface Valuelike<out E, out S> : UnitDeclaration<E, S> {
         val type: Type
         fun ref() = Exp.Var(ident, type)
-        fun prototype() = Prototype(tlid, type)
+
+        val prototype: UnitDeclaration.Valuelike<Nothing, Nothing>
+
+        override fun erase() = when (this) {
+            is Fun -> this.mapBody {}
+            is Var -> this.mapRhs {}
+        }
     }
 
     /** Everything that declares a new type: Struct, Union, Enum */
@@ -210,6 +227,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
             is Enum    -> Type.Enum(this.tlid, this.attributes)
             is Typedef -> Type.Typedeffed(this.tlid, listOf())
         }
+
+        override fun erase() = this
     }
 
     /** Structs or Unions */
@@ -224,10 +243,11 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
             fields.fold({ initial }) { fs -> fs.foldFields(initial, f) }
     }
 
+    @Serializable
     data class Var<out Exp>(
         override val ident: Ident,
         override val type: Type,
-        val rhs: Option<Exp> = None,
+        val rhs: OptionAsNullable<Exp> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default
     ) : Valuelike<Exp, Nothing> {
@@ -239,17 +259,18 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val isDefinition: Boolean get() = rhs.isDefined()
         override val kind: EntityKind get() = EntityKind.Var
 
-        fun toPrototype() = copy(rhs = None)
+        override val prototype: Var<Nothing> get() = Var(ident, type, none(), storage, meta)
         fun <E> mapRhs(onExp: (Exp) -> E): Var<E> = Var(ident, type, rhs.map(onExp), storage, meta)
     }
 
+    @Serializable
     data class Fun<out Stmt>(
         override val ident: Ident,
         val inline: Boolean,
         val returnType: Type,
         val params: Params,
         val vararg: Boolean           = false,
-        val body: Option<Stmt>        = None,
+        val body: OptionAsNullable<Stmt>        = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): Valuelike<Nothing, Stmt> {
@@ -269,7 +290,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
         override val kind: EntityKind get() = EntityKind.Fun
 
-        fun toPrototype(): Fun<Nothing> =
+        override val prototype: Fun<Nothing> get() =
             Fun(ident, inline, returnType, params, vararg, none(), storage, meta)
 
         fun <S> mapBody(f: (body: Stmt) -> S): Fun<S> =
@@ -499,17 +520,6 @@ typealias ErasedTranslationUnit = TranslationUnit<Unit, Unit>
  */
 fun <E,T> TranslationUnit<E, T>.erase(): ErasedTranslationUnit =
     TranslationUnit(tuid, declarations.map { it.erase() })
-
-/**
- * Forget the expressions/statements on the RHS of definitions.
- */
-fun <E,T> UnitDeclaration<E,T>.erase(): ErasedDeclaration = when (this) {
-    is UnitDeclaration.TypeDeclaration -> this
-    is UnitDeclaration.Fun       -> UnitDeclaration.Fun(
-        ident, inline, returnType, params, vararg, body.map { Unit }, storage, meta
-    )
-    is UnitDeclaration.Var       -> UnitDeclaration.Var(ident, type, rhs.map { Unit }, storage, meta)
-}
 
 /**
  * Translation unit is functorial
