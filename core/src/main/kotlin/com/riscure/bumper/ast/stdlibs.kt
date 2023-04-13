@@ -19,8 +19,13 @@ open class Stdlibs(
     // stdlib functions
     @JvmField
     val malloc = UnitDeclaration.Fun<Nothing>("malloc", function(void.ptr(), Param("size", size_t)))
+    @JvmField
+    val free = UnitDeclaration.Fun<Nothing>("free", function(void.ptr()))
 
-    @JvmField val NULL = UnitDeclaration.Var("NULL", void.ptr(), cast(void.ptr(), constant(0, ptrKind)).some())
+    @JvmField
+    val NULL = UnitDeclaration
+        .Var("NULL", void.ptr(), cast(void.ptr(), constant(0, ptrKind)).some())
+        .withStorage(Storage.Static)
 
     /**
      * A precondition for [sizeof] is that [type] is complete so that the compiler can determine its size.
@@ -38,6 +43,7 @@ open class Stdlibs(
 
     val header: List<UnitDeclaration<Exp, Stmt>> = listOf(
         malloc,
+        free,
         NULL
     )
 
