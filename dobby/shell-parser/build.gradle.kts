@@ -1,6 +1,7 @@
 plugins {
     `maven-publish`
     antlr
+    id("org.jetbrains.dokka")
 }
 
 dependencies {
