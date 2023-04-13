@@ -115,6 +115,9 @@ data class CompilationDb(val entries: List<Entry> = listOf()) {
         constructor(workingDirectory: Path, mainSource: Path, command: Command)
                 : this(workingDirectory, mainSource, command.optArgs, none())
 
+        constructor(mainSource: Path, options: Options)
+                : this(mainSource.parent, mainSource, options, none())
+
         /**
          * Construct an entry using a command. The positional arguments of the command are discarded.
          */

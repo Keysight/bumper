@@ -21,6 +21,11 @@ data class IncludePath(
     val iquote: Set<IPath.Quote> = emptySet()
 ) {
 
+    fun plus(include: IPath) = when (include) {
+        is IPath.Quote -> copy(iquote  = iquote + include)
+        is IPath.Sys   -> copy(isystem = isystem + include)
+    }
+
     /**
      * Relativize an *absolute* path [that].
      * Finds the best prefix in this include path, returning a pair of that prefix [IPath] and the suffix.
@@ -33,10 +38,16 @@ data class IncludePath(
         return (isystem + iquote)
             .minBy { it.path.relativize(norm).toString().length }
             .let { best ->
-                if (that.startsWith(best.path)) {
+                if (norm.startsWith(best.path)) {
                     Pair(best, best.path.relativize(norm)).some()
                 } else none()
             }
+    }
+
+    companion object {
+        fun iquote(vararg paths: Path) = IncludePath(iquote = paths.map { IPath.Quote(it) }.toSet())
+        fun isystem(vararg paths: Path) = IncludePath(isystem = paths.map { IPath.Sys(it) }
+            .toSet())
     }
 }
 
