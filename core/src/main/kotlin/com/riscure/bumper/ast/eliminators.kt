@@ -1,6 +1,9 @@
+@file:Suppress("NAME_SHADOWING")
+
 package com.riscure.bumper.ast
 
 import arrow.core.getOrElse
+
 
 interface Visitor<C> {
     operator fun invoke(acc: C, exp: Exp): C  = acc
@@ -9,9 +12,9 @@ interface Visitor<C> {
 }
 
 fun <C> Initializer.fold(acc: C, visitor: (C, Exp) -> C): C = when (this) {
-    is Initializer.InitArray -> this.exps.fold(acc) { acc, e -> e.fold(acc, visitor) }
+    is Initializer.InitArray  -> this.exps.fold(acc) { acc, e -> e.fold(acc, visitor) }
     is Initializer.InitStruct -> this.initializers.values.fold(acc) { acc, s -> s.fold(acc, visitor) }
-    is Initializer.InitUnion -> this.initializers.values.fold(acc) { acc, s -> s.fold(acc, visitor) }
+    is Initializer.InitUnion  -> this.initializer.fold(acc) { acc, s -> s.fold(acc, visitor) }
     is Initializer.InitSingle -> this.exp.fold(acc, visitor::invoke)
 }
 

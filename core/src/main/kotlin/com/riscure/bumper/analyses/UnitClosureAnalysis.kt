@@ -6,7 +6,6 @@ import com.riscure.bumper.ast.EntityKind
 import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.index.Index
 import com.riscure.bumper.parser.ParseError
-import com.riscure.bumper.parser.Parser
 import com.riscure.dobby.clang.CompilationDb
 
 /**
@@ -39,7 +38,6 @@ class UnitClosureAnalysis(
      */
     private fun undefinedDependenciesOfOrThrow(definition: DeclarationInUnit): Collection<DeclarationInUnit> {
         // TODO we should probably avoid parsing the same unit more than once.
-        // TODO fix for linking globals?
         // so we should maybe add a local cache?
         val state = frontend
             .process(cdb, definition.tuid.main)
@@ -116,7 +114,7 @@ class UnitClosureAnalysis(
             else visited.add(decl)
 
             // try to resolve the prototype using the index
-            val options: Set<Index.Entry> = index.resolve(decl.proto)
+            val options: Set<Index.Entry> = index.findCandidateDefinitions(decl.proto)
 
             // check if we have an unambiguous resolution
             if (options.size == 1) {

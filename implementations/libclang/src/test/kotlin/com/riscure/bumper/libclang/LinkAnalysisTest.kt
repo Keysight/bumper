@@ -42,12 +42,12 @@ class LinkAnalysisTest: LibclangTestBase() {
             assertEquals(1, unit1Deps.bound.size)
             val gDep = unit1Deps.bound.first()
             assertEquals(unit2.first.tuid, gDep.definition.tuid)
-            assertEquals(unit2.first.functions.find { it.ident == "g" }.assertOK().prototype(), gDep.definition.proto)
+            assertEquals(unit2.first.functions.find { it.ident == "g" }.assertOK().prototype, gDep.definition.proto)
 
             assertEquals(1, unit2Deps.bound.size)
             val fDep = unit2Deps.bound.first()
             assertEquals(unit1.first.tuid, fDep.definition.tuid)
-            assertEquals(unit1.first.functions.find { it.ident == "f" }.assertOK().prototype(), fDep.definition.proto)
+            assertEquals(unit1.first.functions.find { it.ident == "f" }.assertOK().prototype, fDep.definition.proto)
         }
     }
 

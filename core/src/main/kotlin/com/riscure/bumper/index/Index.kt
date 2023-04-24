@@ -39,19 +39,24 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
         Index(symbols.zip(other.symbols) { _, l, r -> l + r })
 
     /**
-     * Find [match]ing definitions in the index for the given [id].
+     * Find definitions in the index for the given [id].
+     *
      */
     fun resolve(id: Ident): Set<Entry> = symbols.getOrDefault(id, setOf())
 
     /**
      * Find [match]ing definitions in the index for the given [prototype].
+     * The function [match] only performs a weak type check, checking only arity.
      */
-    fun resolve(prototype: UnitDeclaration.Valuelike<*,*>): Set<Entry> =
+    fun findCandidateDefinitions(prototype: UnitDeclaration.Valuelike<*,*>): Set<Entry> =
         symbols
             .getOrDefault(prototype.tlid.name, setOf())
             .filter { decl -> match(prototype.type, decl.proto.type) }
             .toSet()
 
+    /**
+     * Serialize the index as a CBOR binary to [stream].
+     */
     @OptIn(ExperimentalSerializationApi::class)
     fun write(stream: OutputStream) {
         Cbor
@@ -63,6 +68,9 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
     }
 
     companion object {
+        /**
+         * Read and deserialize and index from a CBOR binary [stream].
+         */
         @OptIn(ExperimentalSerializationApi::class)
         fun read(stream: InputStream): Either<Exception, Index> = try {
             Cbor

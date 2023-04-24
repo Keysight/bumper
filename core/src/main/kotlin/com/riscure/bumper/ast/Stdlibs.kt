@@ -1,7 +1,6 @@
 package com.riscure.bumper.ast
 
 import arrow.core.some
-import com.riscure.bumper.ast.Exp.*
 import com.riscure.bumper.ast.Exp.Companion.call
 import com.riscure.bumper.ast.Exp.Companion.cast
 import com.riscure.bumper.ast.Exp.Companion.constant
@@ -9,6 +8,9 @@ import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.ast.Type.Companion.void
 import com.riscure.bumper.ast.Type.Companion.function
 
+/**
+ * A collection of references and definitions from the C standard library.
+ */
 open class Stdlibs(
     val sizeKind: IKind,
     val ptrKind: IKind

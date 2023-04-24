@@ -23,10 +23,10 @@ class PrettyPrinterTest {
     fun `sum-of-mul`() = assertEquals(
         "x + y * z",
         Pretty.exp(
-            op(OAdd,
-                Var("x", Type.uint),
-                op(OMul, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
-                Type.uint
+            op(OpAdd,
+               Var("x", Type.uint),
+               op(OpMul, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
+               Type.uint
             )
         )
     )
@@ -35,10 +35,10 @@ class PrettyPrinterTest {
     fun `mul-of-sum`() = assertEquals(
         "x * (y + z)",
         Pretty.exp(
-            op(OMul,
-                Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
-                Type.uint
+            op(OpMul,
+               Var("x", Type.uint),
+               op(OpAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint),
+               Type.uint
             )
         )
     )
@@ -47,10 +47,10 @@ class PrettyPrinterTest {
     fun `mul-of-left-assoc-sum`() = assertEquals(
         "x * (y + z + u)",
         Pretty.exp(
-            op(OMul,
-                Var("x", Type.uint),
-                op(OAdd, op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint), Var("u", Type.uint), Type.uint),
-                Type.uint
+            op(OpMul,
+               Var("x", Type.uint),
+               op(OpAdd, op(OpAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint), Var("u", Type.uint), Type.uint),
+               Type.uint
             )
         )
     )
@@ -59,10 +59,10 @@ class PrettyPrinterTest {
     fun `mul-of-right-assoc-sum`() = assertEquals(
         "x * (y + (z + u))",
         Pretty.exp(
-            op(OMul,
-                Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), op(OAdd, Var("z", Type.uint), Var("u", Type.uint), Type.uint), Type.uint),
-                Type.uint
+            op(OpMul,
+               Var("x", Type.uint),
+               op(OpAdd, Var("y", Type.uint), op(OpAdd, Var("z", Type.uint), Var("u", Type.uint), Type.uint), Type.uint),
+               Type.uint
             )
         )
     )
@@ -73,7 +73,7 @@ class PrettyPrinterTest {
         Pretty.exp(
             assign(
                 Var("x", Type.uint),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
+                op(OpAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
             )
         )
     )
@@ -84,7 +84,7 @@ class PrettyPrinterTest {
         Pretty.exp(
             assign(
                 dot(Var("x", Type.uint), Field.Named("m", Type.uint)),
-                op(OAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
+                op(OpAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
             )
         )
     )

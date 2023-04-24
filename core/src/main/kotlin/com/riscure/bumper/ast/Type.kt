@@ -4,53 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.serialization.OptionAsNullable
 import kotlinx.serialization.Serializable
 
-private typealias TypeLookup<T> = Either<TypeEnv.Missing, T>
-interface TypeEnv {
-    data class Missing(val type: TLID): Exception() {
-        override val message: String?
-            get() = "Failed to lookup definition of ${type.kind.toString().lowercase()} ${type.name}"
-    }
-
-    val builtins: Builtins
-
-    /**
-     * Return a definition of the type identified by [tlid].
-     */
-    fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
-
-    fun typedefs(tlid: TLID): TypeLookup<UnitDeclaration.Typedef> =
-        lookup(tlid)
-            .flatMap {
-                if (it is UnitDeclaration.Typedef) it.right()
-                else Missing(tlid).left()
-            }
-    fun structs(tlid: TLID): TypeLookup<UnitDeclaration.Struct> =
-        lookup(tlid)
-            .flatMap {
-                if (it is UnitDeclaration.Struct) it.right()
-                else Missing(tlid).left()
-            }
-    fun unions(tlid: TLID): TypeLookup<UnitDeclaration.Union> =
-        lookup(tlid)
-            .flatMap {
-                if (it is UnitDeclaration.Union) it.right()
-                else Missing(tlid).left()
-            }
-    fun enums(tlid: TLID): TypeLookup<UnitDeclaration.Enum> =
-        lookup(tlid)
-            .flatMap {
-                if (it is UnitDeclaration.Enum) it.right()
-                else Missing(tlid).left()
-            }
-    fun fields(tlid: TLID): TypeLookup<FieldDecls> =
-        lookup(tlid)
-            .flatMap {
-                if (it is UnitDeclaration.Compound) it.fields.toEither { Missing(tlid) }
-                else Missing(tlid).left()
-            }
-}
-
-/** Different integer kinds */
+/** All the different integer kinds of C */
 @Serializable enum class IKind {
     IBoolean
     , IChar, ISChar, IUChar
@@ -60,12 +14,16 @@ interface TypeEnv {
     , ILongLong, IULongLong
 }
 
-/** Different float kinds */
+/** All the different float kinds of C */
 @Serializable enum class FKind {
     FFloat, FDouble, FLongDouble
 }
 
-
+/**
+ * Some types are accessed by value, other by value, yet others by copying.
+ *
+ * @see Type.Core.accessMode
+ */
 @Serializable enum class AccessMode {
     ByValue,
     ByCopy,
@@ -73,12 +31,15 @@ interface TypeEnv {
     None
 }
 
-typealias Attrs = List<Attr>
-
+/**
+ * A model of C types.
+ */
 @Serializable sealed interface Type {
 
     /**
-     * The core C types. All properties of C types are defined on the core types.
+     * The core C types.
+     *
+     * All properties of C types are defined on the core types.
      * Typedeffed types and opaque implementation defined types get their properties
      * from their eventual expansion to core types.
      */
@@ -113,7 +74,7 @@ typealias Attrs = List<Attr>
         }
 
         /**
-         * A type is complete w.r.t. a given type environment when its size can be computed.
+         * A type is complete w.r.t. a given type environment iff its size can be computed.
          */
         override fun isComplete(typeEnv: TypeEnv): Boolean = when (this) {
             is Array ->
@@ -145,7 +106,7 @@ typealias Attrs = List<Attr>
                     && this !is Fun
 
         /**
-         * Some types decay to pointers
+         * Some types decay to pointers if necessary.
          */
         fun decay(): Core = when (this) {
             is Array -> this.elementType.ptr()
@@ -154,7 +115,7 @@ typealias Attrs = List<Attr>
         }
 
         /**
-         * Whether the type is constant.
+         * Whether the type is considered constant.
          */
         override fun isConstant(typeEnv: TypeEnv) =
             attributes(typeEnv).contains(Attr.Constant) || when (this) {
@@ -388,4 +349,3 @@ typealias Attrs = List<Attr>
 
     }
 }
-

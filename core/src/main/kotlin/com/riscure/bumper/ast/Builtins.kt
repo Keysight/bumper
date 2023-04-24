@@ -1,7 +1,11 @@
 package com.riscure.bumper.ast
 
 /**
- * Platform dependent compiler builtins
+ * Platform dependent compiler builtins.
+ * These are **standardized** builtin definitions.
+ *
+ * For some analyses we depend on knowing what builtins the compiler assumes.
+ * In that case we can depend on a particular implementation of this interface.
  */
 interface Builtins {
     val __builtin_va_list: UnitDeclaration.Typedef

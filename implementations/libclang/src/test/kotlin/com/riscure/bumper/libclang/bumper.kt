@@ -18,7 +18,7 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
             .getOrHandle { throw it }
 
     override fun roundtrip(program: String, opts: Options, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
-        bumped(program, opts) { ast1, unit1 ->
+        bumped(program, opts) { ast1, _ ->
             val pp1 = ClangUnitState.pp(ast1.tuid).print(ast1).assertOK().writeTo()
             bumped(pp1, opts) { ast2, unit2 ->
                 ast1.declarations.zip(ast2.declarations) { l, r ->

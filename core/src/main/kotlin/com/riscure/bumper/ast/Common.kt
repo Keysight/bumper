@@ -3,14 +3,7 @@ package com.riscure.bumper.ast
 import arrow.core.compareTo
 import com.riscure.bumper.serialization.PathAsString
 import kotlinx.serialization.Serializable
-import java.nio.file.Path
 import kotlin.io.path.extension
-
-/** The type of raw identifiers */
-typealias Ident = String
-
-typealias TypeRef  = TLID
-typealias Ref = TLID
 
 /**
  * This is a comparator for ranges of declarations in the same unit.

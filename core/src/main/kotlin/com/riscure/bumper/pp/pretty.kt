@@ -4,7 +4,6 @@ import arrow.core.*
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.BinaryOp.*
 import com.riscure.bumper.ast.UnaryOp.*
-import com.riscure.bumper.index.TUID
 
 /**
  * Total pretty printing functions.
@@ -53,7 +52,6 @@ object Pretty {
             Attr.Constant     -> "const"
             Attr.Restrict     -> "restrict"
             Attr.Volatile     -> "volatile"
-            is Attr.NamedAttr -> TODO()
         }}
 
     private fun formals(params: List<Param>): String =
@@ -190,11 +188,23 @@ object Pretty {
 
     @JvmStatic
     fun initializer(i: Initializer): String = when (i) {
-        is Initializer.InitArray  -> TODO()
-        is Initializer.InitStruct -> TODO()
-        is Initializer.InitUnion  -> TODO()
+        is Initializer.InitArray  -> initArray(i)
+        is Initializer.InitStruct -> initStruct(i)
+        is Initializer.InitUnion  -> initUnion(i)
         is Initializer.InitSingle -> exp(i.exp)
     }
+
+    fun initArray(i: Initializer.InitArray) = "{${i.exps.joinToString(", ") { exp(it) }}}"
+    fun initUnion(i: Initializer.InitUnion) = "{${initializeField(i.designator, i.initializer)}}"
+    fun initStruct(i: Initializer.InitStruct) = "{${initializeFields(i.initializers)}}"
+
+    private fun initializeFields(initializers: Map<Ident, Initializer>): String =
+        initializers.entries.joinToString(", ") {
+            (field, init) -> initializeField(field, init)
+        }
+
+    private fun initializeField(designator: String, init: Initializer): String =
+        ".${designator} = ${initializer(init)}"
 
     @JvmStatic
     fun stmt(s: Stmt): String = when (s) {
@@ -204,26 +214,35 @@ object Pretty {
                 ${stmt(Stmt.seq(s.stmts))};
             }
             """
-        is Stmt.Break -> "break;"
+        is Stmt.Break ->
+            "break;"
         is Stmt.Conditional ->
             """
             if (${exp(s.condition)}) {
                 ${stmt(s.thenBranch)}
             } ${if (s.elseBranch is Stmt.Skip) "" else stmt(s.elseBranch)}
             """.trimIndent()
-        is Stmt.Continue -> "continue;"
+        is Stmt.Continue ->
+            "continue;"
         is Stmt.Decl -> with(s) {
             "${storage(storage)} ${declaration(ident, type)}${maybeInit(init)};"
         }
-        is Stmt.Do -> "${exp(s.todo)};"
-        is Stmt.DoWhile -> TODO()
+        is Stmt.Do ->
+            "${exp(s.todo)};"
+        is Stmt.DoWhile ->
+            """
+            do {
+                ${stmt(s.body)}
+            } while (${exp(s.condition)})
+            """.trimIndent()
         is Stmt.For ->
             """
             for (${stmt(s.before)} ${exp(s.condition)}; ${exp(s.after)}) {
                 ${stmt(s.body)}
             }
             """.trimIndent()
-        is Stmt.Goto -> TODO()
+        is Stmt.Goto ->
+            "goto ${s.label};"
         is Stmt.Labeled ->
             """
             ${s.label}:
@@ -250,7 +269,12 @@ object Pretty {
                 ${stmt(s.body)}
             }
             """.trimIndent()
-        is Stmt.While -> TODO()
+        is Stmt.While ->
+            """
+            while (${exp(s.condition)}) {
+                ${stmt(s.body)}
+            }
+            """.trimIndent()
         Stmt.Skip -> ""
     }
 
@@ -268,7 +292,8 @@ object Pretty {
                 Pair(prec + 1, prec)
 
         val ePrint = when (e) {
-            is Exp.Alignof -> TODO()
+            is Exp.Alignof ->
+                "__alignof(${type(e.type)})"
             is Exp.Call -> {
                 val args = e.args.joinToString(separator = ", ") { exp(it, 2) };
 
@@ -277,73 +302,87 @@ object Pretty {
                     else       -> "(${exp(e.funRef, prec)})($args)"
                 }
             }
-            is Exp.Cast -> "(${type(e.toType)}) ${exp(e.exp)}"
-            is Exp.Compound -> TODO()
-            is Exp.Conditional -> TODO()
+            is Exp.Cast ->
+                "(${type(e.toType)}) ${exp(e.exp)}"
+            is Exp.Compound ->
+                compoundLiteral(e.initializer)
+            is Exp.Conditional ->
+                "${exp(e.condition, 4)} ? ${exp(e.thenBranch, 4)} : ${exp(e.elseBranch, 4)}"
             is Exp.Const -> when (val c = e.constant) {
                 is Constant.CInt   -> c.value.toString()
                 is Constant.CFloat -> TODO()
                 is Constant.CStr   -> TODO()
             }
-            is Exp.Sizeof -> "sizeof(${type(e.type)})"
-            is Exp.Var -> e.name
+            is Exp.Sizeof ->
+                "sizeof(${type(e.type)})"
+            is Exp.Var ->
+                e.name
             is Exp.BinOp -> {
                 val l = exp(e.left, prec1)
                 val r = exp(e.right, prec2)
                 when (e.op) {
-                    OAdd -> "$l + $r"
-                    OSub -> "$l - $r"
-                    OMul -> "$l * $r"
-                    ODiv -> "$l / $r"
-                    OMod -> "$l % $r"
-                    OAnd -> "$l & $r"
-                    OLogAnd -> "$l && $r"
-                    OOr -> "$l | $r"
-                    OLogOr -> "$l || $r"
-                    OXor -> "$l ^ $r"
-                    OShl -> "$l << $r"
-                    OShr -> "$l >> $r"
-                    OEq -> "$l == $r"
-                    ONe -> "$l != $r"
-                    OLt -> "$l < $r"
-                    OGt -> "$l > $r"
-                    OLe -> "$l <= $r"
-                    OGe -> "$l >= $r"
-                    OIndex -> "$l[${exp(e.right, 0)}]"
-                    OAssign -> "$l = $r"
-                    OAddAssign -> "$l += $r"
-                    OSubAssign -> "$l -= $r"
-                    OMulAssign -> "$l *= $r"
-                    ODivAssign -> "$l /= $r"
-                    OModAssign -> "$l %= $r"
-                    OAndAssign -> "$l &= $r"
-                    OOrAssign -> "$l |= $r"
-                    OXorAssign -> "$l ^= $r"
-                    OShlAssign -> "$l <<= $r"
-                    OShrAssign -> "$l >>= $r"
-                    OComma -> "$l, $r"
+                    OpAdd -> "$l + $r"
+                    OpSub -> "$l - $r"
+                    OpMul -> "$l * $r"
+                    OpDiv -> "$l / $r"
+                    OpMod   -> "$l % $r"
+                    OpAnd    -> "$l & $r"
+                    OpLogAnd -> "$l && $r"
+                    OpOr    -> "$l | $r"
+                    OpLogOr -> "$l || $r"
+                    OpXor   -> "$l ^ $r"
+                    OpShl  -> "$l << $r"
+                    OpShr -> "$l >> $r"
+                    OpEq -> "$l == $r"
+                    OpNe -> "$l != $r"
+                    OpLt -> "$l < $r"
+                    OpGt -> "$l > $r"
+                    OpLe    -> "$l <= $r"
+                    OpGe    -> "$l >= $r"
+                    OpIndex    -> "$l[${exp(e.right, 0)}]"
+                    OpAssign    -> "$l = $r"
+                    OpAddAssign -> "$l += $r"
+                    OpSubAssign -> "$l -= $r"
+                    OpMulAssign -> "$l *= $r"
+                    OpDivAssign  -> "$l /= $r"
+                    OpModAssign -> "$l %= $r"
+                    OpAndAssign -> "$l &= $r"
+                    OpOrAssign -> "$l |= $r"
+                    OpXorAssign -> "$l ^= $r"
+                    OpShlAssign -> "$l <<= $r"
+                    OpShrAssign -> "$l >>= $r"
+                    OpComma -> "$l, $r"
                 }
             }
             is Exp.UnOp  -> {
                 val l = exp(e.operand, prec)
                 when (e.op) {
-                    is OArrow -> "$l->${e.op.member}"
-                    is ODot -> "$l.${e.op.member}"
-                    OAddrOf -> "&$l"
-                    ODeref -> "*$l"
-                    OLogNot -> "!$l"
-                    OMinus -> "-$l"
-                    ONot -> "~$l"
-                    OPlus -> "+$l"
-                    OPostDecr -> "$l--"
-                    OPostIncr -> "$l++"
-                    OPreDecr -> "--$l"
-                    OPreIncr -> "++$l"
+                    is OpArrow -> "$l->${e.op.member}"
+                    is OpDot -> "$l.${e.op.member}"
+                    OpAddrOf -> "&$l"
+                    OpDeref  -> "*$l"
+                    OpLogNot -> "!$l"
+                    OpMinus  -> "-$l"
+                    OpNot   -> "~$l"
+                    OpPlus  -> "+$l"
+                    OpPostDecr -> "$l--"
+                    OpPostIncr -> "$l++"
+                    OpPreDecr  -> "--$l"
+                    OpPreIncr  -> "++$l"
                 }
             }
         }
 
         return if (prec < atPrec) "($ePrint)" else ePrint
+    }
+
+    private fun compoundLiteral(i: Initializer.Compound): String = when (i) {
+        is Initializer.InitArray  ->
+            "(${i.elementType}[]) ${initArray(i)}"
+        is Initializer.InitStruct ->
+            "(struct ${i.struct.name}) ${initStruct(i)}"
+        is Initializer.InitUnion  ->
+            "(union ${i.union.name})  ${initUnion(i)}"
     }
 
     @JvmStatic
