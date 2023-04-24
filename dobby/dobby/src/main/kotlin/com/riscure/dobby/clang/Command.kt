@@ -6,22 +6,43 @@ import org.apache.commons.lang3.SystemUtils
 import java.nio.file.Path
 import com.riscure.dobby.shell.Arg as ShellArg
 
+/**
+ * The type of compile-command option lists.
+ */
 typealias Options = List<Arg>
 
+/**
+ * Model of a single include path element.
+ * The only two concrete types are IPath.Sys and IPath.Quote.
+ */
 sealed interface IPath {
     val path: Path
+
+    /**
+     * A so-called system include path.
+     * When invoking a compiler, these are set with `-isystem` or `-I`.
+     */
     data class Sys(override val path: Path): IPath
+
+    /**
+     * A so-called quoted include path.
+     * When invoking a compiler, these are set with `-iquote`.
+     */
     data class Quote(override val path: Path): IPath
 }
 
+/**
+ * Model of the include path as a whole.
+ */
 data class IncludePath(
-    /** The search path for <...> includes */
-    val isystem: Set<IPath.Sys> = emptySet(),
-    /** The search path for "..." includes */
-    val iquote: Set<IPath.Quote> = emptySet()
+    val isystem: Set<IPath.Sys>   = emptySet(),
+    val iquote : Set<IPath.Quote> = emptySet()
 ) {
 
-    fun plus(include: IPath) = when (include) {
+    /**
+     * Create an [IncludePath] that extends with [include].
+     */
+    operator fun plus(include: IPath) = when (include) {
         is IPath.Quote -> copy(iquote  = iquote + include)
         is IPath.Sys   -> copy(isystem = isystem + include)
     }
