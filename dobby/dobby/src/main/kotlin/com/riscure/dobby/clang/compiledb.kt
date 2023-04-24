@@ -45,17 +45,17 @@ data class PlainCompilationDb(val entries: List<Entry>) {
 }
 
 /** Semantic model of a compilation database */
-data class CompilationDb(val entries: List<Entry>) {
+data class CompilationDb(val entries: List<Entry> = listOf()) {
     private val byMain: Map<Path, Entry> = entries.associateBy {
         // mainSource can be relative to the working directory according to
         // the specification of compilation databases
         it.resolvedMainSource
     }
 
-    fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
+    operator fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
     fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
-    fun plus(entries: List<Entry>): CompilationDb  = copy(entries = entries.plus(entries))
-    fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
+    operator fun plus(other: List<Entry>): CompilationDb  = copy(entries = entries.plus(other))
+    operator fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
 
     /**
      * Apply a path mapping to the entries' resolvedMainSource, obtaining a new database.
@@ -99,18 +99,30 @@ data class CompilationDb(val entries: List<Entry>) {
          * Use with caution!
          */
         val mainSource: Path,
-        val command: Command,
+        val options: Options,
 
         /** The compiler executable */
-        val executable: Option<String>
+        val executable: Option<String> = none()
     ) {
-        // We define this using overloading to make it also accessible from Java
-        constructor(workingDirectory: Path, mainSource: Path, command: Command) : this(
-            workingDirectory,
-            mainSource,
-            command,
-            none()
-        )
+        val command get() = Command(options, listOf(resolvedMainSource.toString()))
+
+        constructor(workingDirectory: Path, mainSource: Path)
+                : this(workingDirectory, mainSource, listOf(), none())
+
+        /**
+         * Construct an entry using a command. The positional arguments of the command are discarded.
+         */
+        constructor(workingDirectory: Path, mainSource: Path, command: Command)
+                : this(workingDirectory, mainSource, command.optArgs, none())
+
+        constructor(mainSource: Path, options: Options)
+                : this(mainSource.parent, mainSource, options, none())
+
+        /**
+         * Construct an entry using a command. The positional arguments of the command are discarded.
+         */
+        constructor(workingDirectory: Path, mainSource: Path, command: Command, exe: Option<String>)
+                : this(workingDirectory, mainSource, command.optArgs, exe)
 
         val resolvedMainSource: Path get() = workingDirectory.resolve(mainSource).normalize()
     }
