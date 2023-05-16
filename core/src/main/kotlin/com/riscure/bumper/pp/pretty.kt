@@ -4,6 +4,7 @@ import arrow.core.*
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.BinaryOp.*
 import com.riscure.bumper.ast.UnaryOp.*
+import com.riscure.bumper.pp.AstWriters.Companion.cstring
 
 /**
  * Total pretty printing functions.
@@ -310,8 +311,10 @@ object Pretty {
                 "${exp(e.condition, 4)} ? ${exp(e.thenBranch, 4)} : ${exp(e.elseBranch, 4)}"
             is Exp.Const -> when (val c = e.constant) {
                 is Constant.CInt   -> c.value.toString()
-                is Constant.CFloat -> TODO()
-                is Constant.CStr   -> TODO()
+                is Constant.CFloat -> c.value.let { (hex, int, frac, exp) ->
+                    if (hex) "0x$int.${frac}P$exp" else "$int.${frac}E$exp"
+                }
+                is Constant.CStr   -> cstring(c.value)
             }
             is Exp.Sizeof ->
                 "sizeof(${type(e.type)})"
@@ -453,6 +456,24 @@ class AstWriters<Exp, Stmt>(
     }
 
     companion object {
+
+        /**
+         * Encode a string as a C string literal.
+         */
+        fun cstring(s: String): String =
+            s.toList().joinToString(separator="") { c ->
+                when (c) {
+                    '\t' -> "\\t"
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '"'  -> "\\\""
+                    '\\' -> "\\\\"
+                    else ->
+                        // ascii range
+                        if (c in ' '..'~') "$c"
+                        else "\\u${c.code.toString(16).padStart(4, '0')}"
+                }
+            }
 
         /**
          * An instance of AstWriters for translation units whose expressions and statements
