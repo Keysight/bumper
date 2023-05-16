@@ -1,3 +1,8 @@
+// This package implements a "pretty"-printer for C ASTs to strings.
+// The quotes around ""pretty"" are meant to denote that it is a non-aesthetic type of pretty.
+// Please use clang-format or similar on the output to produce the indenting.
+// We may eventually build in some sort of boxes intermediate representation to get
+// an aesthetically pleasing pretty-printer, but not today.
 package com.riscure.bumper.pp
 
 import arrow.core.*
