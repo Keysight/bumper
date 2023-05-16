@@ -105,6 +105,8 @@ import kotlinx.serialization.Serializable
                     && this !is Array
                     && this !is Fun
 
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Core>
+
         /**
          * Some types decay to pointers if necessary.
          */
@@ -164,7 +166,7 @@ import kotlinx.serialization.Serializable
      *
      * @returns none if typedef could not be resolved.
      */
-    fun toCore(env: TypeEnv): TypeLookup<Type.Core> = when (this) {
+    fun toCore(env: TypeEnv): TypeLookup<Core> = when (this) {
         is Core -> this.right()
         is Typedeffed -> env
             .typedefs(ref)
@@ -175,22 +177,47 @@ import kotlinx.serialization.Serializable
             .map { it.modifyAttrs { it.plus(attrsOnType) } }
     }
 
+    /**
+     * Fully normalize the type to the subset [Core].
+     *
+     * In contrast to [toCore] this also normalizes children of this type,
+     * so you can expect that, for example, the pointee or the element type of an [Array] are
+     * [Core] instances.
+     */
+    fun normalize(typeEnv: TypeEnv): TypeLookup<Core> = toCore(typeEnv)
+        .flatMap { it.normalize(typeEnv) }
+
+    /**
+     * @see Core.isComplete
+     */
     fun isComplete(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
         .map { it.isComplete(typeEnv) }
         .getOrElse { false }
 
+    /**
+     * @see Core.isModifiable
+     */
     fun isModifiable(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
         .map { it.isModifiable(typeEnv) }
         .getOrElse { false }
 
+    /**
+     * @see Core.isConstant
+     */
     fun isConstant(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
         .map { it.isConstant(typeEnv) }
         .getOrElse { false }
 
+    /**
+     * @see Core.isReturnable
+     */
     fun isReturnable(typeEnv: TypeEnv): Boolean = toCore(typeEnv)
         .map { it.isReturnable(typeEnv) }
         .getOrElse { false }
 
+    /**
+     * @see Core.attributes
+     */
     fun attributes(typeEnv: TypeEnv): Attrs = toCore(typeEnv)
         .map { it.attributes(typeEnv) }
         .getOrElse { listOf() }
@@ -215,40 +242,60 @@ import kotlinx.serialization.Serializable
     @Serializable
     data class Void(
         override val attrsOnType: Attrs = listOf()
-    ) : Core
+    ) : Core {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Void> = this.right()
+    }
 
     @Serializable
     data class Int(
         val kind: IKind,
         override val attrsOnType: Attrs = listOf()
-    ) : Scalar
+    ) : Scalar {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Int> = this.right()
+    }
 
     @Serializable
     data class Float(
         val kind: FKind,
         override val attrsOnType: Attrs = listOf()
-    ) : Scalar
+    ) : Scalar {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Float> = this.right()
+    }
 
     @Serializable
     data class Ptr(
         val pointeeType: Type,
         override val attrsOnType: Attrs = listOf()
-    ) : Scalar
+    ) : Scalar {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Ptr> = this.right()
+    }
 
     @Serializable
     data class Array(
         val elementType: Type,
         val size: OptionAsNullable<Long> = None,
         override val attrsOnType: Attrs = listOf()
-    ) : Aggregate
+    ) : Aggregate {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Array> = this.right()
+    }
 
     @Serializable
     data class Fun(
         val returnType: Type,
-        val params: List<Param>,
+        val params: Params = listOf(),
         val vararg: Boolean = false,
         override val attrsOnType: Attrs = listOf()
-    ) : Core
+    ) : Core {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Fun> =
+            params
+                .map { it.normalizeType(typeEnv) }
+                .sequence()
+                .flatMap { ps ->
+                    returnType
+                        .normalize(typeEnv)
+                        .map { retty -> Fun(retty, ps) }
+                }
+    }
 
     /**
      * Reference to a top-level typedef.
@@ -263,7 +310,10 @@ import kotlinx.serialization.Serializable
      * Reference to a top-level struct
      */
     @Serializable
-    data class Struct(override val ref: TypeRef, override val attrsOnType: Attrs = listOf()) : Record
+    data class Struct(override val ref: TypeRef, override val attrsOnType: Attrs = listOf()) :
+        Record {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Struct> = this.right()
+    }
 
     /**
      * Reference to a top-level union
@@ -272,7 +322,9 @@ import kotlinx.serialization.Serializable
     data class Union(
         override val ref: TypeRef,
         override val attrsOnType: Attrs = listOf()
-    ) : Record
+    ) : Record {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Union> = this.right()
+    }
 
     /**
      * Reference to a top-level enum
@@ -281,7 +333,9 @@ import kotlinx.serialization.Serializable
     data class Enum(
         override val ref: TypeRef,
         override val attrsOnType: Attrs = listOf()
-    ) : Scalar, Defined
+    ) : Scalar, Defined {
+        override fun normalize(typeEnv: TypeEnv): TypeLookup<Enum> = this.right()
+    }
 
 
     /**

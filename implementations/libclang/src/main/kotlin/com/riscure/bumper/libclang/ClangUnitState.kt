@@ -35,6 +35,8 @@ data class ClangUnitState(
     override fun withCppinfo(cppinfo: CPPInfo): ClangUnitState = copy(cppinfo = cppinfo)
     override fun withTUID(tuid: TUID): ClangUnitState = copy(ast = ast.copy(tuid = tuid))
 
+    override val typeEnv: TypeEnv by lazy { ast.typeEnv(Builtins.clang) }
+
     override fun erase() = Either
         .catch({ e -> close(); e.message!! }) {
             fun rangeExtractor(c: CXCursor) = c.getRange().getOrElse {
@@ -45,7 +47,7 @@ data class ClangUnitState(
                 .map(::rangeExtractor, ::rangeExtractor)
                 .let { ast ->
                     this@ClangUnitState.close()
-                    UnitData(ast, dependencies)
+                    UnitData(ast, typeEnv, dependencies)
                 }
         }
 

@@ -141,7 +141,10 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         fun withDefinition(stmt: @UnsafeVariance Stmt) = this.copy(body = stmt.some())
 
-        override val type get(): Type = Type.Fun(returnType, params, vararg)
+        override val type get() = Type.Fun(returnType, params, vararg)
+        fun withType(ty: Type.Fun) = copy(
+            returnType = ty.returnType, params = ty.params, vararg = ty.vararg
+        )
 
         override val isDefinition: Boolean get() = body.isDefined()
 
