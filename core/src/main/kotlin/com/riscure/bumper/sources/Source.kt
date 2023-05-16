@@ -8,23 +8,19 @@ import com.riscure.bumper.pp.AstWriters
 import java.io.Writer
 import kotlin.io.path.nameWithoutExtension
 
-sealed interface Preproc {
-    fun pretty(): String
+data class Include(
+    /** Excluding quotes, but including angular brackets if applicable */
+    private val header: String
+) {
+    val quoted: String get() =
+        if (header.isNotEmpty() && header.first() != '<') "\"$header\""
+        else header
 
-    data class Include(
-        /** Excluding quotes, but including angular brackets if applicable */
-        private val header: String
-    ): Preproc {
-        val quoted: String get() =
-            if (header.isNotEmpty() && header.first() != '<') "\"$header\""
-            else header
-
-        override fun pretty() = "#include $quoted"
-    }
+    fun pretty() = "#include $quoted"
 }
 
 data class Source(
-    val cppHeader: List<Preproc> = listOf(),
+    val cppHeader: List<Include> = listOf(),
     val description: List<String> = listOf(),
     val unit: TranslationUnit<Exp, Stmt>
 ) {
