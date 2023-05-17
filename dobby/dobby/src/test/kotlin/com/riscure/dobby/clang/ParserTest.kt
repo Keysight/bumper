@@ -83,6 +83,13 @@ internal class ParserTest {
         assertEquals(listOf("bjcmt-migrate-literal"), cmd2.optArgs[0].values)
     }
 
+    @Test
+    fun xclang() {
+        val result = ClangParser.parseArguments(listOf("-Xclang", "-load", "-Xclang", "/some/path.so" ))
+        val cmd = assertIs<Either.Right<Command>>(result).value
+        assertEquals(2, cmd.optArgs.size)
+    }
+
     //--------------------------------------------------
     // some tickets that we want to be fixed using dobby
     //--------------------------------------------------
@@ -119,33 +126,4 @@ internal class ParserTest {
         assertEquals(listOf("<arg1>", "<arg2>", "<arg3>"), sectcreate.values)
     }
 
-    // https://jira.riscure.com/browse/TC-2573
-    @Test
-    fun tc2573() {
-//        with(Spec.clang11) {
-//            val result = Parser.parseClangArguments(listOf("-osomefile.o"))
-//            assertTrue(result.isRight())
-//            val cmd = (result as Either.Right).value
-//
-//            val cmd4 = cmd.filter(Parser.optionsFromPrefix("/o"))
-//            assertTrue(cmd4.optArgs.isEmpty())
-//
-//            val cmd5 = cmd.filter(Parser.optionsFromPrefix("-o"))
-//            assertTrue(cmd5.optArgs.isEmpty())
-//
-//            val x = Parser.optionsFromPrefix("--output=")
-//            val y = x.aliasClosure()
-//            val cmd2 = cmd.filter(Parser.optionsFromPrefix("--output=").aliasClosure())
-//            assertTrue(cmd2.optArgs.isEmpty())
-//
-//            val cmd3 = cmd.filter(Parser.optionsFromPrefix("--output"))
-//            assertTrue(cmd3.optArgs.isEmpty())
-//
-//            val cmd6 = cmd.filter(Parser.optionsFromPrefix("-f"))
-//            assertTrue(cmd6.optArgs.isNotEmpty())
-//
-//            val cmd7 = cmd.filter(Parser.optionsFromPrefix("-O"))
-//            assertTrue(cmd7.optArgs.isNotEmpty())
-//        }
-    }
 }
