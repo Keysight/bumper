@@ -37,8 +37,7 @@ tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs +
-                "-Xjvm-default=all" +
-                "-Xskip-prerelease-check"
+                "-Xjvm-default=all"
     }
 }
 
@@ -46,8 +45,7 @@ tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
         freeCompilerArgs = freeCompilerArgs +
-                "-Xjvm-default=all" +
-                "-xskip-prerelease-check"
+                "-Xjvm-default=all"
     }
 }
 
