@@ -12,7 +12,7 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Empty main")
-    fun test00() = parsedAndRoundtrip("""
+    fun test00() = roundtrip("""
         void main() {}
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -28,7 +28,7 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Function param local struct definition reference")
-    fun test01() = parsedAndRoundtrip("""
+    fun test01() = roundtrip("""
         void f(struct A { int i; } a1, struct A a2);
     """.trimIndent()){ ast ->
         assertEquals(2, ast.declarations.size)
@@ -72,7 +72,7 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
 
     @Test
     @DisplayName("Vararg function")
-    fun test04() = parsedAndRoundtrip("""
+    fun test04() = roundtrip("""
         void f(int x, ...) {
           return;
         }

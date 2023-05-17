@@ -25,7 +25,7 @@ interface TypeTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
             "int * const i;",
             "const int i[];",
             "const int i[1][2];",
-            "const enum { X } MyEnum; MyEnum i;",
+            "enum MyEnum { X }; const enum MyEnum i;",
             "const struct { int m; } A; struct A i;",
             "const union  { int m; } A; union A i;",
         ).map { Arguments.of(it) }
@@ -59,28 +59,28 @@ interface TypeTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
 
     @ParameterizedTest(name = "type of if in {0} is constant")
     @MethodSource("constTypes")
-    fun testConstant(program: String) = parsedAndRoundtrip(program) { ast ->
+    fun testConstant(program: String) = roundtrip(program) { ast ->
         val i = assertIs<UnitDeclaration.Var<*>>(ast.variables.find { it.ident == "i" })
         assertTrue(i.type.isConstant(ast.typeEnv(Builtins.clang)))
     }
 
     @ParameterizedTest(name = "type of if in {0} is not constant")
     @MethodSource("notConstTypes")
-    fun testNotConstant(program: String) = parsedAndRoundtrip(program) { ast ->
+    fun testNotConstant(program: String) = roundtrip(program) { ast ->
         val i = assertIs<UnitDeclaration.Var<*>>(ast.variables.find { it.ident == "i" })
         assertFalse(i.type.isConstant(ast.typeEnv(Builtins.clang)))
     }
 
     @ParameterizedTest(name = "type of if in {0} is complete")
     @MethodSource("completeTypes")
-    fun testComplete(program: String) = parsedAndRoundtrip(program) { ast ->
+    fun testComplete(program: String) = roundtrip(program) { ast ->
         val i = assertIs<UnitDeclaration.Valuelike<*,*>>(ast.declarations.find { it.ident == "i" })
         assertTrue(i.type.isComplete(ast.typeEnv(Builtins.clang)))
     }
 
     @ParameterizedTest(name = "type of if in {0} is incomplete")
     @MethodSource("incompleteTypes")
-    fun testIncomplete(program: String) = parsedAndRoundtrip(program) { ast ->
+    fun testIncomplete(program: String) = roundtrip(program) { ast ->
         val i = assertIs<UnitDeclaration.Valuelike<*,*>>(ast.declarations.find { it.ident == "i" })
         assertFalse(i.type.isComplete(ast.typeEnv(Builtins.clang)))
     }

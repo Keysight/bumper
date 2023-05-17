@@ -12,7 +12,7 @@ interface GlobalParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Global array initialization")
-    fun test00() = parsedAndRoundtrip("""
+    fun test00() = roundtrip("""
         static const int xs[1] = { 42, };
     """.trimIndent()) { ast, unit ->
         val xs = ast.variables[0]
@@ -23,7 +23,7 @@ interface GlobalParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Global 2D-array initialization")
-    fun test01() = parsedAndRoundtrip("""
+    fun test01() = roundtrip("""
         static const int xs[1][2] = { {42, 18}, };
     """.trimIndent(), ClangParser.parseOptions(listOf("-Werror=excess-initializers")).assertOK()) { ast, unit ->
         val xs = ast.variables[0]

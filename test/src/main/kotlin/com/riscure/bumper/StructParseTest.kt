@@ -1,7 +1,6 @@
 package com.riscure.bumper
 
 import arrow.core.None
-import arrow.core.getOrElse
 import arrow.core.some
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
@@ -14,7 +13,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Empty anonymous struct definition")
-    fun test00() = parsedAndRoundtrip("""
+    fun test00() = roundtrip("""
         struct {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -34,7 +33,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct declaration")
-    fun test02() = parsedAndRoundtrip("""
+    fun test02() = roundtrip("""
         struct A;
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -49,7 +48,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Empty named struct definition")
-    fun test03() = parsedAndRoundtrip("""
+    fun test03() = roundtrip("""
         struct A {};
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -64,7 +63,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct with single member")
-    fun test06() = parsedAndRoundtrip("""
+    fun test06() = roundtrip("""
         struct A { int i; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -75,7 +74,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Named struct with two members")
-    fun test07() = parsedAndRoundtrip("""
+    fun test07() = roundtrip("""
         struct A { int i; double j; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -98,7 +97,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested named struct in named struct")
-    fun test20() = parsedAndRoundtrip("""
+    fun test20() = roundtrip("""
         struct A { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -110,7 +109,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested struct in anonymous struct")
-    fun test21() = parsedAndRoundtrip("""
+    fun test21() = roundtrip("""
         struct { struct B {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -122,7 +121,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested anonymous struct in named struct")
-    fun test22() = parsedAndRoundtrip("""
+    fun test22() = roundtrip("""
         struct A { struct {} b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -136,7 +135,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Ignored anonymous struct field")
-    fun test29() = parsedAndRoundtrip("""
+    fun test29() = roundtrip("""
         struct s {
             int;
             unsigned int x;
@@ -151,7 +150,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Anonymous union member in struct")
-    fun test30() = parsedAndRoundtrip("""
+    fun test30() = roundtrip("""
         struct A { union { char alpha; int num; }; };
         void f(struct A a) { a.num = 42; } // check if union members are accessible
     """.trimIndent()) { ast ->
@@ -174,7 +173,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Nested anonymous struct in anonymous struct member")
-    fun test31() = parsedAndRoundtrip("""
+    fun test31() = roundtrip("""
         struct Scope { struct { int i; }; };
     """.trimIndent()) { ast ->
         assertEquals(1, ast.declarations.size)
@@ -204,7 +203,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Pointer to forward declaration of struct is complete")
-    fun test41() = parsedAndRoundtrip("""
+    fun test41() = roundtrip("""
         struct A { struct B *b; }; // struct B is incomplete, but under pointer, so type A is complete
         struct B { int i; };
     """.trimIndent()) { ast ->
@@ -215,7 +214,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Inline defined struct field is complete")
-    fun test42() = parsedAndRoundtrip("""
+    fun test42() = roundtrip("""
         struct A { struct B { int i; } b; };
     """.trimIndent()) { ast ->
         assertEquals(2, ast.declarations.size)
@@ -231,7 +230,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
     // struct B above struct A. But this property is not tested.)
     @Test
     @DisplayName("Pointer to forward declaration of struct respects dependencies")
-    fun test43() = parsedAndRoundtrip("""
+    fun test43() = roundtrip("""
         struct A { struct B *b; };
         typedef int MyInt;
         struct B { MyInt i; };
@@ -256,7 +255,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Recursive struct through pointer is complete")
-    fun test46() = parsedAndRoundtrip("""
+    fun test46() = roundtrip("""
         struct A { struct A *a; };
     """.trimIndent()) { _ -> }
 
@@ -265,7 +264,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("Tricky union fields")
-    fun test47() = parsedAndRoundtrip("""
+    fun test47() = roundtrip("""
         struct __pthread_cond_s
         {
           __extension__ union
@@ -298,7 +297,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("anonymous nested struct")
-    fun test48() = parsedAndRoundtrip("""
+    fun test48() = roundtrip("""
         struct X {
           union U {
             struct X* x;
@@ -364,7 +363,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
 
     @Test
     @DisplayName("typedeffed structs")
-    fun test49() = parsedAndRoundtrip("""
+    fun test49() = roundtrip("""
         typedef struct {
             int x;
             int y;

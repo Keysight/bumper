@@ -1,8 +1,9 @@
 package com.riscure.bumper.libclang
 
-import arrow.core.*
+import arrow.core.getOrHandle
 import com.riscure.bumper.*
 import com.riscure.bumper.ast.TranslationUnit
+import com.riscure.bumper.pp.SourceExtractor
 import com.riscure.dobby.clang.Options
 import org.bytedeco.llvm.clang.CXCursor
 import java.nio.file.Path
@@ -17,21 +18,38 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
             .temporary("test-storage")
             .getOrHandle { throw it }
 
-    override fun roundtrip(program: String, opts: Options, whenOk: (TranslationUnit<CXCursor, CXCursor>) -> Unit) {
-        bumped(program, opts) { ast1, _ ->
-            val pp1 = ClangUnitState.pp(ast1.tuid).print(ast1).assertOK().writeTo()
-            bumped(pp1, opts) { ast2, unit2 ->
-                ast1.declarations.zip(ast2.declarations) { l, r ->
-                    try {
-                        eq(l, r.withMeta(l.meta))
-                    } catch (e: Throwable) {
-                        println("Pretty 1:\n")
-                        println(ClangUnitState.pp(ast1.tuid).print(l).assertOK().writeTo())
-                        println("Pretty 2:\n")
-                        println(ClangUnitState.pp(ast1.tuid).print(r).assertOK().writeTo())
-                        throw e
-                    }
-                }
+    override fun roundtrip(program: Path, opts: Options, whenOk: (TranslationUnit<CXCursor, CXCursor>, ClangUnitState) -> Unit) {
+        // parse
+        val (cpp1, unit1) = process(program, opts)
+        val ast1 = unit1.use { it.ast }
+
+        // pretty print
+        val pp1 = ClangUnitState
+            .pp(SourceExtractor(cpp1))
+            .print(ast1)
+            .assertOK()
+            .writeTo()
+
+        // now we go again:
+        // parse the pretty-printed result
+        val (cpp2, unit2) = process(program, opts)
+        val ast2 = unit2.use { it.ast }
+
+        // assert the roundtrip equality property
+        ast1.declarations.zip(ast2.declarations) { l, r ->
+            try {
+                eq(l, r.withMeta(l.meta))
+            } catch (e: Throwable) {
+                println("Expected parsed declarations to be structurally equal, but they weren't.")
+
+                // give a nice error comparing the pretty-printed versions of the two models
+                println("Pretty left:\n")
+                println(ClangUnitState.pp(SourceExtractor(cpp1)).print(l).assertOK().writeTo())
+                println("Pretty right:\n")
+                println(ClangUnitState.pp(SourceExtractor(cpp2)).print(r).assertOK().writeTo())
+
+                // rethrow the assertion error
+                throw e
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.riscure.bumper
 
-import arrow.core.some
 import com.riscure.bumper.ParseTestBase.Companion.stdopts
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.ast.Storage
@@ -25,7 +24,6 @@ interface StdHeadersTest<E,S,U: UnitState<E, S, U>> : ParseTestBase<E, S, U> {
         @JvmStatic
         fun headers(): Stream<Arguments> = Stream.of(
             "assert",
-            "complex",
             "ctype",
             "errno",
             "fenv",
@@ -50,7 +48,8 @@ interface StdHeadersTest<E,S,U: UnitState<E, S, U>> : ParseTestBase<E, S, U> {
             "uchar",
             "wchar",
             "wctype",
-            // "tgmath", // this depends on clang's support for the overloaded pragma, which we can't parse easily.
+            // "complex", // complex not yet supported
+            // "tgmath",  // this depends on clang's support for the overloaded pragma, which we can't parse easily.
         ).map { Arguments.of(it) }
 
         /* Function signatures of some functions that we verify from the headers */

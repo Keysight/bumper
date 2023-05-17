@@ -172,7 +172,7 @@ class ClangDependencyAnalysisTest: LibclangTestBase() {
 
     @Test
     @DisplayName("local enumerator declaration induces no dependency")
-    fun test11() = parsedAndRoundtrip("""
+    fun test11() = roundtrip("""
         int f(int i) {
           enum { SALT = 0x1, LENGTH = 0x2, INFO = 0x4 };
           switch (i) {

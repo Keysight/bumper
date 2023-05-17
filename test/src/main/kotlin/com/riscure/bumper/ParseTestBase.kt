@@ -58,11 +58,16 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
 
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
+    val storage: Storage
 
     fun mkTempCFile(program: String): Path = kotlin.io.path
         .createTempFile(suffix = ".c")
         .apply { writeText(program) }
 
+    /**
+     * Store [program] in a temporary file and run [withFile] with the resulting path.
+     * After [withFile] returns, the temporary file will be registered for deletion on JVM exit.
+     */
     private fun <T> withTemp(program: String, withFile: (file: Path) -> T): T {
         val file = mkTempCFile(program)
         return try {
@@ -74,6 +79,9 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
         }
     }
 
+    /**
+     * @see [withTemp]
+     */
     private fun <T> withTemp(programs: List<String>, withFiles: (files: List<Path>) -> T): T {
         val files = programs.map { mkTempCFile(it) }
         return try {
@@ -85,29 +93,60 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
         }
     }
 
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: Path, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>, U) -> Unit)
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: Path, opts: Options = listOf()): Unit = roundtrip(program, opts) { _, _ -> Unit }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>, U) -> Unit) =
+        withTemp(program) { path ->
+            roundtrip(path, opts, whenOk)
+        }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit) =
+        withTemp(program) { path ->
+            roundtrip(path, opts) { ast, _ -> whenOk(ast) }
+        }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program, opts) { _, _ -> Unit }
+
+
+    /**
+     * Assert that [program] parses and continue with [whenOk].
+     */
     fun parsed(program: String, whenOk: (ast: TranslationUnit<*, *>) -> Unit) = withTemp(program) { file ->
         parsed(file, whenOk)
     }
 
-    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>) -> Unit) =
-        parsedAndRoundtrip(program, opts) { ast, _ -> whenOk(ast) }
-
-    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit) =
-        bumped(program, opts) { ast, unit ->
-            // TODO improve, now we parse thrice.
-            roundtrip(program, opts)
-            whenOk(ast, unit)
-        }
-
+    /**
+     * Assert that the program stored at [test] parses and continue with [whenOk].
+     */
     fun parsed(test: Path, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
-        val unit = parser.parse(CompilationDb.Entry(test, listOf())).assertOK()
+        val unit = parser.parse(CompilationDb.Entry(test.parent, test)).assertOK()
         whenOk(unit.ast)
         return unit.ast
     }
 
-    fun invalid(vararg program: String) {
+    /**
+     * Assert that [programs] do not parse.
+     */
+    fun invalid(vararg programs: String) {
         try {
-            program.forEach { parsed(it) {} }
+            programs.forEach { parsed(it) {} }
         } catch (e: AssertionFailedError) { /* test succeeds */
             return // early
         }
@@ -115,50 +154,54 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
         fail("Expected parse error.")
     }
 
-    // Some temporary storage
-    val storage: Storage
-
+    /**
+     * Preprocess [program] and assert that the result parses. Continue with [whenOk]
+     */
     fun bumped(
         program: String,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ): Unit = withTemp(program) { file -> bumped(file, opts, whenOk) }
 
+    /**
+     * Preprocess [programs] and assert that the results parse. Continue with [whenOk]
+     */
     fun bumped(
         vararg programs: String,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
     ): Unit = withTemp(programs.toList()) { files -> bumped(files, opts, whenOk) }
 
+    /**
+     * Preprocess the program in [file] and assert that the result parses. Continue with [whenOk]
+     */
     fun bumped(
         file: Path,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ) {
-        val (ast, unit) = process(file, opts)
-        whenOk(ast, unit)
+        val (cppPath, unit) = process(file, opts)
+        whenOk(unit.ast, unit)
     }
 
-    fun bumped(
-        file: Path,
-        cdb: CompilationDb,
-        whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
-    ): Unit = process(file, cdb[file].assertOK().options).let { whenOk(it.first, it.second) }
-
+    /**
+     * Preprocess the programs in [files] and assert that the results parse. Continue with [whenOk]
+     */
     fun bumped(
         files: List<Path>,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
-    ) = whenOk(files.map { process(it, opts) })
+    ) = whenOk(files
+        .map { path: Path ->
+            process(path, opts)
+                .let { (_, unit) -> Pair(unit.ast, unit) }
+        }
+    )
 
-    private fun process(file: Path, opts: Options): Pair<TranslationUnit<E, S>, U> {
+    fun process(file: Path, opts: Options): Pair<Path, U> {
         val entry = CompilationDb.Entry(file, opts)
-        println("Preprocessed input at: ${frontend.preprocessedAt(entry)}")
-        return frontend.process(entry).map { Pair(it.ast, it) }.assertOK()
+        return Pair(frontend.preprocessedAt(entry), frontend.process(entry).assertOK())
     }
-
-    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)
-    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program, opts) {}
 
     fun eq(s1: Symbol, s2: Symbol) {
         assertEquals(s1.tlid, s2.tlid)

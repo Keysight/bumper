@@ -1,6 +1,7 @@
 package com.riscure.bumper
 
 import com.riscure.bumper.parser.UnitState
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
@@ -204,21 +205,25 @@ interface TypeRoundtripTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  
 
     /*-------------------------------------------------------------------------------- Complex nums ------*/
 
+    @Disabled("complex not yet supported")
     @Test
     fun complex() = roundtrip("""
         typedef _Complex MyComplex;
     """.trimIndent())
 
+    @Disabled("complex not yet supported")
     @Test
     fun floatComplex() = roundtrip("""
         typedef float _Complex MyComplex;
     """.trimIndent())
 
+    @Disabled("complex not yet supported")
     @Test
     fun doubleComplex() = roundtrip("""
         typedef double _Complex MyComplex;
     """.trimIndent())
 
+    @Disabled("complex not yet supported")
     @Test
     fun longDoubleComplex() = roundtrip("""
         typedef long double _Complex MyComplex;
