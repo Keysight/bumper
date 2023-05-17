@@ -11,9 +11,18 @@ data class FloatConstant(
 
 /** A model of syntax for integer and float constants */
 sealed interface Constant {
-    data class CInt  (val value: Long, val kind: IKind): Constant
+    data class CInt(val value: Long, val kind: IKind): Constant
     data class CFloat(val value: FloatConstant, val kind: FKind): Constant
-    data class CStr  (val value: String): Constant
+    data class CStr(
+        /**
+         * The value of the string literal.
+         *
+         * That is: [value] is *not* encoded as a C string literal but is the decoded value of
+         * that literal. That is, the [value] for the C string literal "\t" is not "\\t", but "   ",
+         * if you catch my drift.
+         */
+        val value: String
+    ): Constant
     // data class CWStr (val value: List<String>): Constant()
     // data class CEnum (val value: Pair<Ref, Int>): Constant()
 }
