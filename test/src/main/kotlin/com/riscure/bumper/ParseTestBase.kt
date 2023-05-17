@@ -7,7 +7,6 @@ import com.riscure.bumper.parser.Parser
 import com.riscure.bumper.parser.UnitState
 import com.riscure.dobby.clang.*
 import org.opentest4j.AssertionFailedError
-import java.io.File
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.copyTo
@@ -28,7 +27,7 @@ fun <T> T?.assertOK(): T = assertNotNull(this)
 fun <T> Option<T>.assertOK(): T =
     this.getOrElse { fail("Expected some, got none") }
 
-interface ParseTestBase<E,S,U: UnitState<E, S>> {
+interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
 
     companion object {
 
@@ -59,57 +58,95 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
 
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
+    val storage: Storage
 
-    fun mkTempCFile(program: String): File = kotlin.io.path
+    fun mkTempCFile(program: String): Path = kotlin.io.path
         .createTempFile(suffix = ".c")
         .apply { writeText(program) }
-        .toFile()
 
-    private fun <T> withTemp(program: String, withFile: (file: File) -> T): T {
+    /**
+     * Store [program] in a temporary file and run [withFile] with the resulting path.
+     * After [withFile] returns, the temporary file will be registered for deletion on JVM exit.
+     */
+    private fun <T> withTemp(program: String, withFile: (file: Path) -> T): T {
         val file = mkTempCFile(program)
         return try {
             withFile(file)
         } finally {
             // Delete this when the JVM quits, so we have time to read it
             // when we pause the JVM during debug
-            file.deleteOnExit()
+            file.toFile().deleteOnExit()
         }
     }
 
-    private fun <T> withTemp(programs: List<String>, withFiles: (files: List<File>) -> T): T {
+    /**
+     * @see [withTemp]
+     */
+    private fun <T> withTemp(programs: List<String>, withFiles: (files: List<Path>) -> T): T {
         val files = programs.map { mkTempCFile(it) }
         return try {
             withFiles(files)
         } finally {
             for (file in files) {
-                file.deleteOnExit()
+                file.toFile().deleteOnExit()
             }
         }
     }
 
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: Path, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>, U) -> Unit)
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: Path, opts: Options = listOf()): Unit = roundtrip(program, opts) { _, _ -> Unit }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>, U) -> Unit) =
+        withTemp(program) { path ->
+            roundtrip(path, opts, whenOk)
+        }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit) =
+        withTemp(program) { path ->
+            roundtrip(path, opts) { ast, _ -> whenOk(ast) }
+        }
+
+    /**
+     * Assert hat [program] satisfies the parse -> pretty-print -> parse roundtrip property and continue with [whenOk].
+     */
+    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program, opts) { _, _ -> Unit }
+
+
+    /**
+     * Assert that [program] parses and continue with [whenOk].
+     */
     fun parsed(program: String, whenOk: (ast: TranslationUnit<*, *>) -> Unit) = withTemp(program) { file ->
         parsed(file, whenOk)
     }
 
-    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>) -> Unit) =
-        parsedAndRoundtrip(program, opts) { ast, _ -> whenOk(ast) }
-
-    fun parsedAndRoundtrip(program: String, opts: List<Arg> = listOf(), whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit) =
-        bumped(program, opts) { ast, unit ->
-            // TODO improve, now we parse thrice.
-            roundtrip(program, opts)
-            whenOk(ast, unit)
-        }
-
-    fun parsed(test: File, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
-        val unit = parser.parse(test).assertOK()
+    /**
+     * Assert that the program stored at [test] parses and continue with [whenOk].
+     */
+    fun parsed(test: Path, whenOk: (ast: TranslationUnit<*, *>) -> Unit): TranslationUnit<E, S> {
+        val unit = parser.parse(CompilationDb.Entry(test.parent, test)).assertOK()
         whenOk(unit.ast)
         return unit.ast
     }
 
-    fun invalid(vararg program: String) {
+    /**
+     * Assert that [programs] do not parse.
+     */
+    fun invalid(vararg programs: String) {
         try {
-            program.forEach { parsed(it) {} }
+            programs.forEach { parsed(it) {} }
         } catch (e: AssertionFailedError) { /* test succeeds */
             return // early
         }
@@ -117,49 +154,54 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         fail("Expected parse error.")
     }
 
-    // Some temporary storage
-    val storage: Storage
-
+    /**
+     * Preprocess [program] and assert that the result parses. Continue with [whenOk]
+     */
     fun bumped(
         program: String,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ): Unit = withTemp(program) { file -> bumped(file, opts, whenOk) }
 
+    /**
+     * Preprocess [programs] and assert that the results parse. Continue with [whenOk]
+     */
     fun bumped(
         vararg programs: String,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
     ): Unit = withTemp(programs.toList()) { files -> bumped(files, opts, whenOk) }
 
+    /**
+     * Preprocess the program in [file] and assert that the result parses. Continue with [whenOk]
+     */
     fun bumped(
-        file: File,
+        file: Path,
         opts: Options = listOf(),
         whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
     ) {
-        val (ast, unit) = process(file, opts)
-        whenOk(ast, unit)
+        val (cppPath, unit) = process(file, opts)
+        whenOk(unit.ast, unit)
     }
 
+    /**
+     * Preprocess the programs in [files] and assert that the results parse. Continue with [whenOk]
+     */
     fun bumped(
-            file: Path,
-            opts: Options = listOf(),
-            whenOk: (ast: TranslationUnit<E, S>, unit: U) -> Unit
-    ): Unit = bumped(file.toFile(), opts, whenOk)
-
-    fun bumped(
-        files: List<File>,
+        files: List<Path>,
         opts: Options = listOf(),
         whenOk: (ast: List<Pair<TranslationUnit<E, S>, U>>) -> Unit
-    ) = whenOk(files.map { process(it, opts) })
+    ) = whenOk(files
+        .map { path: Path ->
+            process(path, opts)
+                .let { (_, unit) -> Pair(unit.ast, unit) }
+        }
+    )
 
-    private fun process(file: File, opts: Options): Pair<TranslationUnit<E, S>, U> {
-        println("Preprocessed input at: ${frontend.preprocessedAt(file, opts)}")
-        return frontend.process(file, opts).map { Pair(it.ast, it) }.assertOK()
+    fun process(file: Path, opts: Options): Pair<Path, U> {
+        val entry = CompilationDb.Entry(file, opts)
+        return Pair(frontend.preprocessedAt(entry), frontend.process(entry).assertOK())
     }
-
-    fun roundtrip(program: String, opts: Options = listOf(), whenOk: (TranslationUnit<E, S>) -> Unit)
-    fun roundtrip(program: String, opts: Options = listOf()): Unit = roundtrip(program, opts) {}
 
     fun eq(s1: Symbol, s2: Symbol) {
         assertEquals(s1.tlid, s2.tlid)
@@ -186,10 +228,14 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
         assertEquals(d1.storage, d2.storage)
 
         when (d1) {
-            is UnitDeclaration.Composite -> {
+            is UnitDeclaration.Union -> {
                 val c1 = d1
-                val c2 = assertIs<UnitDeclaration.Composite>(d2)
-                assertEquals(c1.structOrUnion, c2.structOrUnion)
+                val c2 = assertIs<UnitDeclaration.Union>(d2)
+                eq(c1.fields, c2.fields)
+            }
+            is UnitDeclaration.Struct -> {
+                val c1 = d1
+                val c2 = assertIs<UnitDeclaration.Struct>(d2)
                 eq(c1.fields, c2.fields)
             }
             is UnitDeclaration.Enum      -> {
@@ -228,23 +274,31 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
     fun eq(l: Enumerator, r: Enumerator) {
         assertEquals(l.ident, r.ident)
         assertEquals(l.key, r.key)
-        eq(l.enum, r.enum)
+        assertEquals(l.enum, r.enum)
     }
 
-    fun eq(f1: Field, f2: Field) {
-        assertEquals(f1.name, f2.name)
-        assertEquals(f1.bitfield, f2.bitfield)
-        eq(f1.type, f2.type)
+    fun eq(f1: Field, f2: Field) = when(f1) {
+        is Field.Anonymous -> {
+            val a2 = assertIs<Field.Anonymous>(f2)
+            assertEquals(f1.structOrUnion, a2.structOrUnion)
+            eq(f1.subfields, a2.subfields)
+        }
+        is Field.Named -> {
+            val n2 = assertIs<Field.Named>(f2)
+            assertEquals(f1.name, n2.name)
+            assertEquals(f1.bitfield, n2.bitfield)
+            eq(f1.type, n2.type)
+        }
     }
 
-    fun eq(t1: FieldType, t2: FieldType) {
-        assertEquals(t1.attrs, t2.attrs)
+    fun eq(t1: Type, t2: Type) {
+        assertEquals(t1.attrsOnType, t2.attrsOnType)
 
         when (t1) {
             is Type.Int               -> assertEquals(t1, t2)
             is Type.Float             -> assertEquals(t1, t2)
             is Type.Void              -> assertEquals(t1, t2)
-            is Type.Complex           -> assertEquals(t1, t2)
+//            is Type.Complex           -> assertEquals(t1, t2)
             is Type.VaList            -> assertIs<Type.VaList>(t2)
 
             is Type.Array             -> {
@@ -252,10 +306,10 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
                 assertEquals(t1.size, a2.size)
                 eq(t1.elementType, a2.elementType)
             }
-            is Type.Atomic            -> {
-                val a2 = assertIs<Type.Atomic>(t2)
-                eq(t1.elementType, a2.elementType)
-            }
+//            is Type.Atomic            -> {
+//                val a2 = assertIs<Type.Atomic>(t2)
+//                eq(t1.elementType, a2.elementType)
+//            }
             is Type.Fun               -> {
                 val f2 = assertIs<Type.Fun>(t2)
                 eq(t1.returnType, f2.returnType)
@@ -282,11 +336,6 @@ interface ParseTestBase<E,S,U: UnitState<E, S>> {
             is Type.Union             -> {
                 val u2 = assertIs<Type.Union>(t2)
                 assertEquals(t1.ref, u2.ref)
-            }
-            is FieldType.AnonComposite -> {
-                val c2 = assertIs<FieldType.AnonComposite>(t2)
-                assertEquals(t1.structOrUnion, c2.structOrUnion)
-                eq(t1.fields, c2.fields)
             }
         }
     }

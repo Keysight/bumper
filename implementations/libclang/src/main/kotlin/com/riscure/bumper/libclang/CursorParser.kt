@@ -42,9 +42,8 @@ open class CursorParser(
     val tuid: TUID,
 
     /**
-     * Declarations that were referenced and need to be elaborated
-     * to top-level definitions. Because we elaborate during parsing, we may
-     * (re)name the declaration.
+     * Declarations that need to be elaborated to top-level definitions.
+     * Because we elaborate during parsing, we may (re)name the declaration.
      *
      * We store in this map the symbol with the generated/elaborated name.
      * References should be consistently renamed to use the elaborated name.
@@ -70,15 +69,15 @@ open class CursorParser(
     }
 
     /**
-     * Parse the list of [elaborated] definitions.
+     * Parse the list of [toBeElaborated] definitions.
      * Every parsed definition is removed from that list.
      */
-    private fun pleaseDoElaborate(done: Set<CursorHash>): Result<List<Pair<CXCursor, ClangDeclaration>>> {
+    private fun pleaseDoElaborate(): Result<List<Pair<CXCursor, ClangDeclaration>>> {
         // We use [toBeElaborated] as a worklist
         // Parsing a declaration can add new items to the worklist as a side-effect.
         // When parsing fails, we immediately return the failure.
         return Either.catch({ it.message!! }) {
-            val alreadyParsed = done.toMutableSet()
+            val alreadyParsed = mutableSetOf<CursorHash>()
             val results = mutableListOf<Pair<CXCursor, ClangDeclaration>>()
 
             // work loop
@@ -91,7 +90,13 @@ open class CursorParser(
                     .getOrHandle { throw Throwable(it) } // escalate
 
                 alreadyParsed.add(cursor.hash())
-                results.add(Pair(cursor, decl))
+
+                // name the anonymous declarations correctly.
+                // TODO it might be better to solve this in getIdentifier() to avoid inconsistencies
+                val sym = cursor.getElaboratedSymbol()
+                    .getOrHandle { throw RuntimeException("Invariant violation: missing elaborated name for elaborated cursor.") }
+
+                results.add(Pair(cursor, decl.withIdent(sym.name)))
             }
 
             results
@@ -115,38 +120,28 @@ open class CursorParser(
 
     fun CXCursor.asTranslationUnit(): Result<UnitWithCursorData> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
-            // We parse the top-level declarations
-            val topLevelDeclarations = children()
+            // Add all top-level declarations in the clang AST to the work list
+            // of things to be elaborated
+            children()
                 // somehow e.g. an empty ';' results in top-level UnexposedDecls
                 .filter { cursor -> (cursor.kind() != CXCursor_UnexposedDecl) }
-                .map    { cursor -> cursor.asDeclaration().map { d -> Pair(cursor, d) }}
-                .sequence() // propagate errors
+                .forEach { cursor -> cursor.lazyElaborate() }
 
-            topLevelDeclarations.flatMap { tlds ->
-                // In addition, we elaborate some definitions that we encountered but perhaps did not yet
-                // parse while parsing types.
-                val done = tlds.map { it.first.hash() }.toMutableSet()
-                val decls = pleaseDoElaborate(done).map { r -> tlds + r }
-
-                // elaborate all the declarations
-                decls
-                    // we sort these, because we don't know from the traversal order where
-                    // the elaborated declarations should appear. And the order is relevant for type completeness
-                    // of structs and unions.
-                    .map { it.sortedWith(myDependencyOrder) }
-                    .flatMap { ds ->
-                        ds
-                            .map { (cursor, decl) ->
-                                // rename the declaration from the programmer-written name to the elaborated name.
-                                cursor
-                                    .getSymbol()
-                                    .map { Pair(cursor.hash(), decl.withIdent(it.name)) }
-                            }
-                            .sequence()
-                    }
-                    // and finally collect the outputs in a translation unit model.
-                    .map { ds -> UnitWithCursorData(TranslationUnit(tuid, ds.map { it.second }), ds.toMap()) }
-            }
+            // We now run the worklist algorithm to parse all nodes marked for elaboration.
+            // While doing the work, we may see new nodes that need elaboration.
+            pleaseDoElaborate()
+                // we sort these, because we don't know from the traversal order where
+                // the elaborated declarations should appear. And the order is relevant for type completeness
+                // of structs and unions.
+                .map { it.sortedWith(myDependencyOrder) }
+                .map { ds -> ds.map { (cursor, decl) -> Pair(cursor.hash(), decl) }}
+                // and finally collect the outputs in a translation unit model.
+                .map { ds ->
+                    UnitWithCursorData(
+                        TranslationUnit(tuid, ds.map { it.second }),
+                        ds.toMap()
+                    )
+                }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,
             // because we are possibly extending the visibility of elaborated declarations,
@@ -160,7 +155,7 @@ open class CursorParser(
         val decl = when (kind()) {
             CXCursor_FunctionDecl -> this.asFunction()
             CXCursor_StructDecl   -> this.asStruct()
-            CXCursor_UnionDecl    -> this.elaborateUnion()
+            CXCursor_UnionDecl    -> this.asUnion()
             CXCursor_VarDecl      -> this.asVariable()
             CXCursor_TypedefDecl  -> this.asTypedef()
             CXCursor_EnumDecl     -> this.asEnum()
@@ -241,29 +236,26 @@ open class CursorParser(
     fun CXCursor.asEnum(): Result<UnitDeclaration.Enum> =
         ifKind(CXCursor_EnumDecl, "enum declaration") {
             if (clang_isCursorDefinition(this).toBool()) {
-                getSymbol().flatMap { symbol ->
+                lazyElaborate().flatMap { symbol ->
                     children()
-                        .map { it.asEnumerator(symbol) }
+                        .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
-                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators.some()) }
+                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators) }
                 }
             } else {
-                getSymbol().map { symbol -> UnitDeclaration.Enum(symbol.name, None)}
+                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name) }
             }
         }
 
-    fun CXCursor.asEnumerator(enum: Symbol): Result<Enumerator> =
+    fun CXCursor.asEnumerator(enum: TLID): Result<Enumerator> =
         ifKind(CXCursor_EnumConstantDecl, "enumerator") {
             val name  = spelling()
             val const = clang_getEnumConstantDeclValue(this)
             Enumerator(name, const, enum).right()
         }
 
-    private fun CXCursor.asComposite(): Result<UnitDeclaration.Composite> {
-        // We check if this is the definition, because the field visitor
-        // will just poke through the declaration into the related definition
-        // and visit the fields there.
-        val fields = if (clang_isCursorDefinition(this).toBool()) {
+    private fun CXCursor.getCompoundFields() =
+        if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
                 .mapIndexed { i, it -> it.asField() }
@@ -274,22 +266,26 @@ open class CursorParser(
             None.right()
         }
 
-        return fields
-            .flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Composite(id, StructOrUnion.Struct, fs) }
-            }
-    }
-
-    fun CXCursor.asStruct(): Result<UnitDeclaration.Composite> =
+    fun CXCursor.asStruct(): Result<UnitDeclaration.Struct> =
         ifKind(CXCursor_StructDecl, "struct declaration") {
-            asComposite()
-                .map { c -> c.copy(structOrUnion = StructOrUnion.Struct) }
+            // We check if this is the definition, because the field visitor
+            // will just poke through the declaration into the related definition
+            // and visit the fields there.
+
+            getCompoundFields().flatMap { fs ->
+                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs) }
+            }
         }
 
-    fun CXCursor.elaborateUnion(): Result<UnitDeclaration.Composite> =
+    fun CXCursor.asUnion(): Result<UnitDeclaration.Union> =
         ifKind(CXCursor_UnionDecl, "union declaration") {
-            asComposite()
-                .map { c -> c.copy(structOrUnion = StructOrUnion.Union) }
+            // We check if this is the definition, because the field visitor
+            // will just poke through the declaration into the related definition
+            // and visit the fields there.
+
+            getCompoundFields().flatMap { fs ->
+                getIdentifier().map { id -> UnitDeclaration.Union(id, fs) }
+            }
         }
 
     fun CXType.fields(): List<CXCursor> {
@@ -310,21 +306,27 @@ open class CursorParser(
         return ts
     }
 
-    fun CXCursor.asField(): Result<Field> {
-        return type()
-            .asFieldType()
-            .flatMap { type ->
-                val attrs = this.cursorAttributes(type())
-                getIdentifier()
-                    .map { id ->
-                        Field(
-                            id,
-                            type.withAttrs(type.attrs + attrs),
-                            clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) }
-                        )
+    fun CXCursor.asField(): Result<Field> =
+        getIdentifier()
+            .flatMap { id ->
+                when {
+                    id.isBlank() ->
+                        type()
+                            .asAnonType()
+                            .map { t -> Field.Anonymous(t.first, t.second) }
+                    else -> {
+                        val attrs = this.cursorAttributes(type())
+                        type()
+                            .asType()
+                            .map { t ->
+                                Field.Named(
+                                    id,
+                                    t,
+                                    clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) })
+                            }
                     }
+                }
             }
-    }
 
     fun CXCursor.asVariable(): Result<UnitDeclaration.Var<CXCursor>> =
         ifKind(CXCursor_VarDecl, "variable declaration") {
@@ -423,9 +425,12 @@ open class CursorParser(
             .mapLeft { "Failed to get elaborated name for cursor." }
 
     /**
-     * Return a symbol for the definition under the cursor, elaborating one if necessary.
+     * Mark the CXCursor for elaboration (if it has not been already) and return
+     * a symbol for the definition under the cursor.
+     * The returned symbol is stable and can be used to reference the
+     * AST node that will be generated by the elaborated possibly later.
      */
-    fun CXCursor.getSymbol(): Result<Symbol> =
+    fun CXCursor.lazyElaborate(): Result<Symbol> =
         // elaboration may have already (re)named the definition under the cursor,
         // so we check our tables
         getElaboratedSymbol()
@@ -455,11 +460,16 @@ open class CursorParser(
 
     /**
      * Field types are treated a little different,
-     * because anonymouse inline struct/union type definitions need
-     * not to be elaborated. That would change the visibility of the
-     * nested members.
+     * because anonymous inline struct/union type definitions cannot be
+     * elaborated, because that would change the visibility of the nested members.
+     *
+     * For example:
+     * struct Scope { struct { int a; int b; }; }
+     * has no elaborated counterpart such that the inner struct has a separate declaration
+     * but that still enables direct access of the innermost fields `a` and `b` on a value
+     * of the outermost struct type.
      */
-    fun CXType.asFieldType(): Result<FieldType> =
+    fun CXType.asAnonType(): Result<Pair<StructOrUnion, FieldDecls>> =
         when (kind()) {
             // anonymous union/struct field are treated differently
             CXType_Record -> {
@@ -469,12 +479,13 @@ open class CursorParser(
                         // sanity check
                         assert(d.ident == "")
                         when (d) {
-                            is UnitDeclaration.Composite -> FieldType.AnonComposite(d.structOrUnion, d.fields).right()
+                            is UnitDeclaration.Struct -> Pair(StructOrUnion.Struct, d.fields.getOrElse { listOf() }).right()
+                            is UnitDeclaration.Union  -> Pair(StructOrUnion.Union , d.fields.getOrElse { listOf() }).right()
                             else -> "Invariant violation: failed to parse anonymous field.".left()
                         }
                     }
             }
-            else -> asType()
+            else -> "Invariant violation: failed to parse anonymous field.".left()
         }
 
     fun CXType.asType(): Result<Type> =
@@ -496,15 +507,15 @@ open class CursorParser(
             CXType_Float           -> Type.Float(FKind.FFloat).right()
             CXType_Double          -> Type.Float(FKind.FDouble).right()
             CXType_LongDouble      -> Type.Float(FKind.FLongDouble).right()
-            CXType_Complex         ->
-                clang_getElementType(this)
-                    .asType()
-                    .flatMap {
-                        when (it) {
-                            is Type.Float -> Type.Complex(it.kind).right()
-                            else          -> "Complex element type is not a float.".left()
-                        }
-                    }
+            CXType_Complex         -> "_Complex is not yet supported".left()
+//                clang_getElementType(this)
+//                    .asType()
+//                    .flatMap {
+//                        when (it) {
+//                            is Type.Float -> Type.Complex(it.kind).right()
+//                            else          -> "Complex element type is not a float.".left()
+//                        }
+//                    }
 
             CXType_Pointer         ->
                 clang_getPointeeType(this)
@@ -521,7 +532,7 @@ open class CursorParser(
                             Type.VaList().right()
                         } else {
                             cursor
-                                .getSymbol()
+                                .lazyElaborate()
                                 .map { Type.Typedeffed(it.tlid) }
                         }
                     }
@@ -568,10 +579,10 @@ open class CursorParser(
                             .map { args -> Type.Fun(retType, args, false) }
                     }
 
-            CXType_Atomic          ->
-                clang_Type_getValueType(this)
-                    .asType()
-                    .map { Type.Atomic(it) }
+            CXType_Atomic          -> "_Atomic is not yet supported".left()
+//                clang_Type_getValueType(this)
+//                    .asType()
+//                    .map { Type.Atomic(it) }
 
             // Special type kind for inline declarations are elaborated by clang.
             CXType_Elaborated      ->
@@ -580,7 +591,7 @@ open class CursorParser(
 
             CXType_Record          -> {
                 clang_getTypeDeclaration(this)
-                    .getSymbol()
+                    .lazyElaborate()
                     .flatMap { sym ->
                         when (sym.kind) {
                             EntityKind.Struct -> Type.Struct(sym.tlid).right()
@@ -592,7 +603,7 @@ open class CursorParser(
 
             CXType_Enum            -> {
                 clang_getTypeDeclaration(this)
-                    .getSymbol()
+                    .lazyElaborate()
                     .map { sym -> Type.Enum(sym.tlid) }
             }
 
@@ -646,7 +657,7 @@ open class CursorParser(
     CXCursor_WarnUnusedResultAttr -> TODO()
     */
 
-        else                 -> "Not a recognized attribute?".left()
+        else                 -> "Not a recognized attribute of kind ${kindName()}".left()
     }
 
     fun CXType.getAlignment(): Option<Long> {

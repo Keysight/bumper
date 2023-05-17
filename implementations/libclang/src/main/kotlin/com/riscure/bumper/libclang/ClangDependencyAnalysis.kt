@@ -14,6 +14,7 @@ import org.bytedeco.llvm.global.clang.*
  */
 class ClangDependencyAnalysis(
     private val ast: ClangTranslationUnit,
+    /** A mapping from clang cursors (identified by their hash) and declarations in the [ast] */
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
 ) : UnitDependencyAnalysis<CXCursor, CXCursor> {
 
@@ -42,7 +43,7 @@ class ClangDependencyAnalysis(
                     ast.resolve(def.spelling())
                         .filterIsInstance<Enumerator>()
                         // the mention of the enumerator induces a dependency on the surrounding enum
-                        .map { setOf(it.enum.tlid) }
+                        .map { setOf(it.enum) }
                         // if resolve did not return an Enumerator,
                         // it may have been a local declaration, and no global dependencies are induced.
                         .getOrElse { setOf() }

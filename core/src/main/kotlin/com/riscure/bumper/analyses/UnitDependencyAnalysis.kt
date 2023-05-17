@@ -2,7 +2,6 @@ package com.riscure.bumper.analyses
 
 import arrow.core.*
 import com.riscure.bumper.ast.*
-import com.riscure.bumper.index.Symbol
 
 typealias Result<T> = Either<String, Set<T>>
 
@@ -43,7 +42,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
                 .map { ofExp(it) }
                 .getOrElse { nil() }
                 .union(ofType(decl.type))
-        is UnitDeclaration.Composite ->
+        is UnitDeclaration.Compound ->
             decl.fields
                 .map(::ofFields)
                 .getOrElse { nil() }
@@ -58,30 +57,40 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
             ofType(decl.underlyingType)
     }
 
-    fun ofFields(fields: FieldDecls) =
+    fun ofFields(fields: FieldDecls): Result<TLID> =
         fields
-            .map { ofType(it.type) }
+            .map { f: Field ->
+                when (f) {
+                    is Field.Anonymous -> ofFields(f.subfields)
+                    is Field.Named -> ofType(f.type)
+
+                }
+            }
             .sequence()
             .map { it.flatten().toSet() }
 
-    fun ofType(type: FieldType): Result<TLID> = when (type) {
-        is Type.Fun                ->
+    fun ofType(type: Type): Result<TLID> = when (type) {
+        is Type.Fun       ->
             ofType(type.returnType)
                 .union(ofParams(type.params))
-        is Type.Array              -> ofType(type.elementType)
-        is Type.Ptr                -> ofType(type.pointeeType)
-        is Type.Typedeffed         -> setOf(type.ref).right()
-        is Type.Struct             -> setOf(type.ref).right()
-        is Type.Union              -> setOf(type.ref).right()
-        is Type.Enum               -> setOf(type.ref).right()
-        is Type.Int                -> nil()
-        is Type.Float              -> nil()
-        is Type.Void               -> nil()
-        is Type.Atomic             -> ofType(type.elementType)
-        is Type.Complex            -> nil()
-        is Type.VaList             -> nil()
-        is FieldType.AnonComposite -> ofFields(type.fields.getOrElse { listOf() })
+        is Type.Array     -> ofType(type.elementType)
+        is Type.Ptr       -> ofType(type.pointeeType)
+        is Type.Typedeffed-> setOf(type.ref).right()
+        is Type.Struct    -> setOf(type.ref).right()
+        is Type.Union     -> setOf(type.ref).right()
+        is Type.Enum      -> setOf(type.ref).right()
+        is Type.Int       -> nil()
+        is Type.Float     -> nil()
+        is Type.Void      -> nil()
+//        is Type.Atomic    -> ofType(type.elementType)
+//        is Type.Complex   -> nil()
+        is Type.VaList    -> nil()
     }
+
+    fun ofExps(exps: List<Exp>) = exps
+        .map { ofExp(it) }
+        .sequence()
+        .map { it.flatten().toSet() }
 
     private fun ofParams(params: List<Param>): Result<TLID> =
         params

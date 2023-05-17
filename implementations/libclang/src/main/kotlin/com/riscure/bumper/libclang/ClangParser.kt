@@ -13,6 +13,7 @@ import org.bytedeco.javacpp.PointerPointer
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.io.File
+import java.nio.file.Path
 
 private fun Int.asSeverity(): Option<Severity> =
     if (this == CXDiagnostic_Error || this == CXDiagnostic_Fatal) {
@@ -49,7 +50,9 @@ private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
  */
 class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
 
-    override fun parse(file: File, opts: Options, tuid: TUID): Either<ParseError, ClangUnitState> {
+    override fun parse(entry: CompilationDb.Entry): Either<ParseError, ClangUnitState> = with (entry) {
+        val tuid = TUID.mk(entry)
+
         // escalate some warnings to errors
         val warnErrors   = if (badWarnings.isNotEmpty()) {
             listOf(
@@ -59,14 +62,14 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
         } else listOf()
 
         val cmd: Command = with(Spec.clang11) {
-            Command(opts + warnErrors, listOf())
+            Command(options + warnErrors, listOf())
         }
         val args = cmd.toArguments()
 
         // We allocate the arguments.
         val c_index: CXIndex = clang_createIndex(0, 0)
         val c_tu = CXTranslationUnit()
-        val c_sourceFile = BytePointer(file.absolutePath.toString())
+        val c_sourceFile = BytePointer(resolvedMainSource.toString())
         val c_arg_pointers = args.map { BytePointer(it) }
         val c_args = PointerPointer<BytePointer>(args.size.toLong())
         val c_parseOptions = CXTranslationUnit_SingleFileParse
@@ -111,6 +114,12 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
             return if (diagnostics.any { it.severity == Severity.ERROR }) {
                 ParseError.ParseFailed(tuid, cmd.optArgs, diagnostics).left()
             } else {
+                val rootCursor = clang_getTranslationUnitCursor(c_tu)
+                with(CursorParser(tuid)) {
+                    rootCursor
+                        .asTranslationUnit()
+                        .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors) }
+                }
                 ClangUnitState
                     .create(tuid, c_tu)
                     .mapLeft { msg -> ParseError.InternalError(tuid, msg) }
@@ -123,12 +132,10 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
     }
 
     companion object {
-        private val spec = Spec.clang11
-
         // Use this to escalate some warnings to errors.
         // For example, if you want to specify '-Werror=missing-declarations',
         // add "missing-declarations" to the list.
-        val badWarnings = listOf<String>(
+        val badWarnings = listOf(
             // LinkAnalyses does not handle implicit function declarations correctly.
             // So by escalating this warning, we avoid bugs downstream. See LinkAnalysisTest
             "implicit-function-declaration"

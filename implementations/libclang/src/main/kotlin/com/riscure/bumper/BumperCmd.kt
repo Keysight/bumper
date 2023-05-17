@@ -3,7 +3,9 @@ package com.riscure.bumper
 import arrow.core.*
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.libclang.ClangParser
-import com.riscure.bumper.pp.Printer
+import com.riscure.bumper.libclang.ClangUnitState
+import com.riscure.bumper.pp.SourceExtractor
+import com.riscure.dobby.clang.CompilationDb
 import picocli.CommandLine
 import picocli.CommandLine.*
 import picocli.CommandLine.Option
@@ -29,19 +31,21 @@ class DoElab: Callable<Int> {
 
     override fun call(): Int {
         val file = cfile.orElseGet { throw RuntimeException("Not input file given.") }
+        val pwd = Path.of(".")
 
         // parse the input
         val parser = ClangParser()
         val unit = parser
-            .parse(file.toFile())
+            .parse(CompilationDb.Entry(pwd, file))
             .getOrHandle { throw it }
 
         // pretty-print it again
         val writer = System.out.writer()
-        unit.printer
+        ClangUnitState
+            .pp(SourceExtractor(unit.tuid.main))
             .print(unit.ast)
             .getOrHandle { throw RuntimeException(it) }
-            .write(Printer.of(writer))
+            .writeTo(writer)
         writer.flush()
 
         return 0
@@ -58,11 +62,12 @@ class DoDeps: Callable<Int> {
 
     override fun call(): Int {
         val file = cfile.orElseGet { throw RuntimeException("Not input file given.") }
+        val pwd = Path.of(".")
 
         // parse the input
         val parser = ClangParser()
         val unit = parser
-            .parse(file.toFile())
+            .parse(CompilationDb.Entry(pwd, file))
             .getOrHandle { throw it }
 
         // construct the graph
@@ -82,7 +87,7 @@ class DoDeps: Callable<Int> {
             }
             .dependencies
 
-        fun nodeId(s: Symbol) = "${s.name}"
+        fun nodeId(s: Symbol) = s.name
         fun nodeDisplay(s: Symbol) = "${s.kind} ${s.name}"
 
         // produce the DOT declarations

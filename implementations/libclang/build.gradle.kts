@@ -5,6 +5,8 @@ description = "Riscure True Code C Frontend -- Libclang Implementation"
 
 plugins {
     kotlin("jvm") version "1.7.20"
+    id("org.jetbrains.dokka")
+
     `maven-publish`
     application
 }
@@ -14,17 +16,16 @@ application {
 }
 
 dependencies {
-    implementation("org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+    implementation(kotlinx.coroutines.core)
 
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("com.github.pgreze:kotlin-process:1.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
-    implementation("info.picocli:picocli:4.6.3")
-
-    implementation("com.riscure:riscure-dobby:0.1.0")
+    implementation(libs.bytedeco)
+    implementation(libs.process)
+    implementation(libs.arrow.core)
+    implementation(libs.dobby)
+    implementation(libs.picocli)
     implementation(project(":bumper-core"))
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.8.2")
+    testImplementation(libs.junit)
     testImplementation(project(":bumper-test"))
     testImplementation(kotlin("test"))
 }
@@ -40,14 +41,14 @@ tasks.named<Test>("test") {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs
     }
 }
 

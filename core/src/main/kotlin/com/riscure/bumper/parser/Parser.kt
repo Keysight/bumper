@@ -2,20 +2,29 @@ package com.riscure.bumper.parser
 
 import arrow.core.*
 import com.riscure.bumper.ast.Location
-import com.riscure.dobby.clang.Options
 import com.riscure.bumper.index.TUID
-import java.io.File
+import com.riscure.dobby.clang.CompilationDb
+import java.nio.file.Path
 
 
 enum class Severity {
-    INFO,
+    // in order of high severity to low.
+    // This defines the natural order used by [this.compareTo] of the type's values,
+    // so the order is relevant.
+    ERROR,
     WARNING,
-    ERROR;
+    INFO;
 
     override fun toString() = when (this) {
         INFO    -> "info"
         WARNING -> "warning"
         ERROR   -> "error"
+    }
+
+    val symbol get() = when (this) {
+        INFO    -> "-"
+        WARNING -> "?"
+        ERROR   -> "!"
     }
 }
 data class Diagnostic(
@@ -36,56 +45,25 @@ data class Diagnostic(
             .map { "\n              originally at $it" } // indent is trimmed
             .getOrElse { "" }
         return """
-            - $severity
+            ${severity.symbol} $severity
               at $loc$presumed
               because: $headline
         """.trimIndent() + (details.map { "\n\n$${it.prependIndent("  ")}" } .getOrElse { "" })
     }
 }
 
-sealed class ParseError: Exception() {
-    /**
-     * Errors on the file-level, without a source location
-     */
-    data class FileFailed(
-        val tuid: TUID,
-        val options: Options,
-        override val message: String
-    ): ParseError()
+val List<Diagnostic>.sortedBySeverity get() =
+    this.sortedBy { it.severity }
 
-    /**
-     * Errors during parsing, may contain multiple diagnostics,
-     * each with a source location.
-     */
-    data class ParseFailed(
-        val tuid: TUID,
-        val options: Options,
-        val diagnostics: List<Diagnostic>
-    ): ParseError() {
-        override val message: String
-            get() = "Failed to parse ${tuid.main}:\n${diagnostics.joinToString("\n") { it.format() }}"
-    }
+fun interface Parser<Exp, Stmt, S : UnitState<Exp, Stmt, S>> {
 
-    /**
-     * Internal errors indicative of a bug. User can't directly do much about these.
-     */
-    data class InternalError(
-        val tuid: TUID,
-        override val message: String,
-        override val cause: Throwable? = null // JDK choice
-    ): ParseError()
-}
-
-fun interface Parser<Exp, Stmt, out S : UnitState<Exp, Stmt>> {
+    fun parse(cdb: CompilationDb, main: Path): Either<ParseError, S> =
+        cdb[main].toEither { ParseError.MissingCompileCommand(main, cdb) }
+            .flatMap { parse(it) }
 
     /**
      * Given a file, preprocess and parse it. As a side-effect, this may perform
      * static analysis of the file, so this can fail on illtyped C programs.
-     *
-     * Some options are removed, namely any option conflicting with -E,
-     * and any option specifying output.
      */
-    fun parse(file: File, opts: Options, tuid: TUID) : Either<ParseError, S>
-    fun parse(file: File, opts: Options) : Either<ParseError, S> = parse(file, opts, TUID(file.toPath()))
-    fun parse(file: File) : Either<ParseError, S> = parse(file, listOf())
+    fun parse(entry: CompilationDb.Entry) : Either<ParseError, S>
 }

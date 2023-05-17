@@ -48,13 +48,12 @@ data class Digest(val bytes: ByteArray) {
     }
 }
 
-fun File.digest(): Digest {
-    return DigestInputStream(this.inputStream(), Digest.hasher())
+fun File.digest(): Digest =
+    DigestInputStream(this.inputStream(), Digest.hasher())
         .use {
             it.readAllBytes()
             Digest(it.messageDigest.digest())
         }
-}
 
 fun Int.digest(): Digest = Digest.of(this.toString())
 fun String.digest(): Digest = Digest.of(this.toByteArray())

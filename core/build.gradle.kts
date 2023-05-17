@@ -6,7 +6,7 @@ description = "Riscure True Code C Frontend"
 plugins {
     kotlin("jvm") version "1.7.20"
     kotlin("plugin.serialization") version "1.7.20"
-    id("org.jetbrains.dokka") version "1.7.20"
+    id("org.jetbrains.dokka")
 
     `maven-publish`
 }
@@ -14,7 +14,7 @@ plugins {
 dependencies {
     implementation(kotlinx.coroutines.core)
     implementation(kotlinx.serialization.core)
-    implementation(kotlinx.serialization.protobuf)
+    implementation(kotlinx.serialization.cbor)
 
     implementation(libs.slf4j)
     implementation(libs.arrow.core)
@@ -36,14 +36,16 @@ tasks.named<Test>("test") {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs +
+                "-Xjvm-default=all"
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs +
+                "-Xjvm-default=all"
     }
 }
 

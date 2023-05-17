@@ -1,38 +1,31 @@
 package com.riscure.bumper.pp
 
 import java.io.StringWriter
+import java.io.Writer
 
-/* Something we can write string output to */
-fun interface Printer {
-    fun print(s: String)
+/**
+ *  The thing that writes prettily.
+ *  A [PP] pretty printer can be invoked multiple times.
+ */
+fun interface PP {
+    fun writeTo(output: Writer)
 
-    companion object {
-        @JvmStatic
-        fun of(jwriter: java.io.Writer) = Printer { jwriter.write(it) }
-    }
-}
-
-/* The thing that writes to a printer */
-fun interface Writer {
-    fun write(output: Printer)
-
-    fun write(): String {
-        val s = StringWriter()
-        write(Printer.of(s))
-        return s.toString()
-    }
+    fun writeTo(): String =
+        StringWriter()
+            .apply { writeTo(this) }
+            .toString()
 }
 
 /* Sequential composition of writers */
-infix fun Writer.andThen(that: Writer): Writer = Writer { w -> write(w); that.write(w) }
+infix fun PP.andThen(that: PP): PP = PP { w -> writeTo(w); that.writeTo(w) }
 
-val empty: Writer = Writer { }
-fun text(s: String): Writer = Writer { it.print(s) }
+val empty: PP = PP { }
+fun text(s: String): PP = PP { it.write(s) }
 
-fun sequence(writers: Iterable<Writer>, separator: Writer = empty): Writer =
+fun sequence(writers: Iterable<PP>, separator: PP = empty): PP =
     sequence(writers.iterator(), separator)
 
-private fun sequence(writers: Iterator<Writer>, separator: Writer = empty): Writer =
+private fun sequence(writers: Iterator<PP>, separator: PP = empty): PP =
     if (writers.hasNext()) {
         val w = writers.next()
 

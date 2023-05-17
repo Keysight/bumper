@@ -25,10 +25,10 @@ repositories {
 
 dependencies {
     implementation(project(":bumper-core"))
-    implementation("com.riscure:riscure-dobby:0.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("org.junit.jupiter:junit-jupiter:5.8.2")
+    implementation(libs.dobby)
+    implementation(libs.arrow.core)
+    implementation(kotlinx.serialization.json)
+    implementation(libs.junit)
     implementation(kotlin("test"))
     implementation(files("./src/main/resources"))
 }
@@ -36,13 +36,13 @@ dependencies {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers" + "-Xskip-prerelease-check"
+        freeCompilerArgs = freeCompilerArgs
     }
 }

@@ -11,7 +11,7 @@ interface Storage {
     /**
      * Returns a path that is stable and unique for the given inputs.
      */
-    fun inputAddressed(prefix: String, vararg inputs: Digest, suffix: String = ""): File
+    fun inputAddressed(prefix: String, vararg inputs: Digest, suffix: String = ""): Path
 
     companion object {
         /**
@@ -35,11 +35,9 @@ interface Storage {
 }
 
 class FileStorage(val directory: Path): Storage {
-    override fun inputAddressed(prefix: String, vararg inputs: Digest, suffix: String): File {
+    override fun inputAddressed(prefix: String, vararg inputs: Digest, suffix: String): Path {
         val hash = Digest.combineAll(inputs.toList()).makeKey(15)
-        return directory
-            .resolve("${prefix}-${hash}${suffix}")
-            .toFile()
+        return directory.resolve("${prefix}-${hash}${suffix}")
     }
 }
 
