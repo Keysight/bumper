@@ -407,19 +407,29 @@ object Pretty {
  * A class that knows how to text ASTs as long as you provide
  * the method for writing the bodies of top-level definitions.
  */
-class AstWriters<Exp, Stmt>(
-    val expWriter : (exp: Exp)  -> Either<String, String>,
-    val stmtWriter: (stm: Stmt) -> Either<String, String>
+class AstWriters<Exp, Body>(
+    /**
+     * Pretty-print an expression [exp] or produce an error message.
+     */
+    val prettyExp: (exp: Exp)  -> Either<String, String>,
+
+    /**
+     * Pretty-print a function [body] or produce an error message.
+     * A function body is generally expected to be bracketed.
+     * Hence, to get a syntactically correct C program out,
+     * the produced string should be of the form "{...}".
+     */
+    val prettyFunBody: (body: Body) -> Either<String, String>
 ) {
     private val semicolon = text(";")
 
-    fun print(unit: TranslationUnit<Exp, Stmt>): Either<String, PP> =
+    fun print(unit: TranslationUnit<Exp, Body>): Either<String, PP> =
         unit.declarations
             .map { print(it) }
             .sequence()
             .map { writers -> sequence(writers, separator = text("\n")) }
 
-    fun print(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, PP> =
+    fun print(toplevel: UnitDeclaration<Exp, Body>): Either<String, PP> =
         rhs(toplevel).map { rhs ->
             text(Pretty.lhs(toplevel))
                 .andThen(rhs)
@@ -446,14 +456,14 @@ class AstWriters<Exp, Stmt>(
              */
         }
 
-    fun rhs(toplevel: UnitDeclaration<Exp, Stmt>): Either<String, PP> = when (toplevel) {
+    fun rhs(toplevel: UnitDeclaration<Exp, Body>): Either<String, PP> = when (toplevel) {
         is UnitDeclaration.Var       -> when (val exp = toplevel.rhs) {
-            is Some -> expWriter(exp.value).map { text(" = $it;") }
+            is Some -> prettyExp(exp.value).map { text(" = $it;") }
             is None -> semicolon.right()
         }
 
         is UnitDeclaration.Fun       -> when (val stmt = toplevel.body) {
-            is Some -> stmtWriter(stmt.value).map { text("{\n$it\n}") }
+            is Some -> prettyFunBody(stmt.value).map { text(it) }
             is None -> semicolon.right()
         }
 
@@ -503,7 +513,10 @@ class AstWriters<Exp, Stmt>(
          * are C expression/statements ASTs.
          */
         @JvmStatic
-        fun usingPretty(): AstWriters<Exp, Stmt> = AstWriters({ Pretty.exp(it).right() }, { Pretty.stmt(it).right() })
+        fun usingPretty(): AstWriters<Exp, Stmt> = AstWriters(
+            { Pretty.exp(it).right() },
+            { "{\n${Pretty.stmt(it)}\n}".right() }
+        )
 
     }
 }
