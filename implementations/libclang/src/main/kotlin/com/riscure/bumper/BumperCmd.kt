@@ -87,7 +87,7 @@ class DoDeps: Callable<Int> {
             }
             .dependencies
 
-        fun nodeId(s: Symbol) = "${s.name}"
+        fun nodeId(s: Symbol) = s.name
         fun nodeDisplay(s: Symbol) = "${s.kind} ${s.name}"
 
         // produce the DOT declarations
