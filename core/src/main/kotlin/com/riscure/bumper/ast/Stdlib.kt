@@ -71,7 +71,7 @@ object StdlibsHeader: IStdlib {
     override val preamble = Preamble(
         listOf(
             Include("<stddef.h>"),
-            Include("<stdlib.h")
+            Include("<stdlib.h>")
         ),
         listOf()
     )
