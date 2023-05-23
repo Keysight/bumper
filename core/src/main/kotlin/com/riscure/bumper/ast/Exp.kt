@@ -140,7 +140,7 @@ sealed interface Exp {
         }
 
         @JvmStatic
-        fun sizeOf(typ: Type, sizeKind: IKind) = Sizeof(typ, Type.Int(sizeKind))
+        fun sizeOf(typ: Type, sizeType: Type) = Sizeof(typ, sizeType)
 
         @JvmStatic
         fun assign(lhs: Exp, rhs: Exp) = BinOp(BinaryOp.OpAssign, lhs, rhs, lhs.etype, lhs.etype)

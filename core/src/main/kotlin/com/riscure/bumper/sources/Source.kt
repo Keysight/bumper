@@ -4,6 +4,7 @@ import arrow.core.Either
 import com.riscure.bumper.ast.Exp
 import com.riscure.bumper.ast.Stmt
 import com.riscure.bumper.ast.TranslationUnit
+import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.pp.AstWriters
 import java.io.Writer
 import kotlin.io.path.nameWithoutExtension
@@ -17,6 +18,29 @@ data class Include(
         else header
 
     fun pretty() = "#include $quoted"
+}
+
+data class Preamble(
+    val cppHeader: List<Include> = listOf(),
+    val declarations: Collection<UnitDeclaration<Exp, Stmt>>
+) {
+    /**
+     * Prepend this preamble to [source].
+     */
+    operator fun plus(source: Source) = source.copy(
+        cppHeader = cppHeader + source.cppHeader,
+        unit = source.unit.copy(
+            declarations = declarations + source.unit.declarations
+        )
+    )
+
+    /**
+     * Append [other] to this.
+     */
+    fun plus(other: Preamble) = copy(
+        cppHeader + other.cppHeader,
+        declarations + other.declarations
+    )
 }
 
 data class Source(
