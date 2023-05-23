@@ -5,8 +5,9 @@ import com.riscure.bumper.ast.Exp.Companion.call
 import com.riscure.bumper.ast.Exp.Companion.cast
 import com.riscure.bumper.ast.Exp.Companion.constant
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
-import com.riscure.bumper.ast.Type.Companion.void
 import com.riscure.bumper.ast.Type.Companion.function
+import com.riscure.bumper.ast.Type.Companion.void
+import org.apache.commons.lang3.SystemUtils.IS_OS_WINDOWS
 
 /**
  * A collection of references and definitions from the C standard library.
@@ -50,7 +51,11 @@ open class Stdlibs(
     )
 
     companion object {
-        @JvmStatic
-        val x64 = Stdlibs(IKind.IULong, IKind.IULongLong) // TODO check if this is correct!
+        // these choices are tested by BumperStdlibTest
+        @JvmStatic val x64Linux = Stdlibs(IKind.IULong, IKind.IULongLong)
+        @JvmStatic val x64Win   = Stdlibs(IKind.IULongLong, IKind.IULongLong)
+
+        /** The standard library implementation for any (supported) 64-bit host platform */
+        @JvmStatic val x64host: Stdlibs = if (IS_OS_WINDOWS) x64Win else x64Linux
     }
 }

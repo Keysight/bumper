@@ -50,7 +50,7 @@ pluginManagement {
 
             create("libs") {
                 library("arrow.core"     , "io.arrow-kt:arrow-core:1.1.2")
-                library("apache.commons" , "org.apache.commons:commons-lang3:3.8.1")
+                library("apache.lang3"   , "org.apache.commons:commons-lang3:3.8.1")
                 library("slf4j"          , "org.slf4j:slf4j-api:1.7.25")
                 library("process"        , "com.github.pgreze:kotlin-process:1.4")
                 library("junit"          , "org.junit.jupiter:junit-jupiter:5.8.2")

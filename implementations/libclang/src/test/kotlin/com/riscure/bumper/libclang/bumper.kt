@@ -66,3 +66,4 @@ class LibclangStdHeadersTest    : LibclangTestBase(), StdHeadersTest<CXCursor, C
 class LibclangGlobalParseTest   : LibclangTestBase(), GlobalParseTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangTypeTest          : LibclangTestBase(), TypeTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangIndexTest         : LibclangTestBase(), IndexTest<CXCursor, CXCursor, ClangUnitState>
+class LibclangStdlibTest        : LibclangTestBase(), BumperStdlibTest<CXCursor, CXCursor, ClangUnitState>

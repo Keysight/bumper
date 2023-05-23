@@ -6,6 +6,7 @@ import arrow.core.none
 import arrow.core.some
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import com.riscure.bumper.pp.Pretty
 import com.riscure.bumper.serialization.OptionAsNullable
 import kotlinx.serialization.Serializable
 
@@ -241,3 +242,5 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         EntityKind.Var     -> this is Var
     }
 }
+
+fun UnitDeclaration<Exp,Stmt>.show() = Pretty.unitDeclaration(this)

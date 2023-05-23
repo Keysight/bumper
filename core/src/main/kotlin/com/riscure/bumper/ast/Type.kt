@@ -1,6 +1,7 @@
 package com.riscure.bumper.ast
 
 import arrow.core.*
+import com.riscure.bumper.pp.Pretty
 import com.riscure.bumper.serialization.OptionAsNullable
 import kotlinx.serialization.Serializable
 
@@ -35,6 +36,8 @@ import kotlinx.serialization.Serializable
  * A model of C types.
  */
 @Serializable sealed interface Type {
+
+    fun show() = Pretty.type(this)
 
     /**
      * The core C types.

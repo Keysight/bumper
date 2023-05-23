@@ -3,6 +3,7 @@ package com.riscure.bumper
 import arrow.core.Either
 import arrow.core.flatMap
 import com.riscure.Digest
+import com.riscure.bumper.ast.Stdlibs
 import com.riscure.bumper.index.TUID
 import com.riscure.bumper.parser.ParseError
 import com.riscure.bumper.parser.Parser
@@ -22,6 +23,9 @@ import kotlin.io.path.nameWithoutExtension
  * translation units.
  */
 open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
+    /** A standard library that matches the frontend */
+    val stdlib: Stdlibs,
+
     private val preprocessor: Preprocessor,
     private val parser: Parser<Exp, Stmt, S>,
     private val cppStorage: Storage
