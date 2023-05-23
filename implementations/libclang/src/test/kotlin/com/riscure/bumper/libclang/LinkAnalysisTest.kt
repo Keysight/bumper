@@ -31,24 +31,22 @@ class LinkAnalysisTest: LibclangTestBase() {
         """.trimIndent()
 
     ) { units ->
-        run {
-            // We test the link graph
-            val graph = LinkAnalysis(units.map { it.first }).assertOK()
-            val (unit1, unit2) = units
+        // We test the link graph
+        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val (unit1, unit2) = units
 
-            val unit1Deps = graph[unit1.first.tuid].assertOK()
-            val unit2Deps = graph[unit2.first.tuid].assertOK()
+        val unit1Deps = graph[unit1.first.tuid].assertOK()
+        val unit2Deps = graph[unit2.first.tuid].assertOK()
 
-            assertEquals(1, unit1Deps.bound.size)
-            val gDep = unit1Deps.bound.first()
-            assertEquals(unit2.first.tuid, gDep.definition.tuid)
-            eq(unit2.first.functions.find { it.ident == "g" }.assertOK().prototype, gDep.definition.proto.prototype)
+        assertEquals(1, unit1Deps.bound.size)
+        val gDep = unit1Deps.bound.first()
+        assertEquals(unit2.first.tuid, gDep.definition.tuid)
+        eq(unit2.first.functions.find { it.ident == "g" }.assertOK().prototype, gDep.definition.proto.prototype)
 
-            assertEquals(1, unit2Deps.bound.size)
-            val fDep = unit2Deps.bound.first()
-            assertEquals(unit1.first.tuid, fDep.definition.tuid)
-            eq(unit1.first.functions.find { it.ident == "f" }.assertOK().prototype, fDep.definition.proto.prototype)
-        }
+        assertEquals(1, unit2Deps.bound.size)
+        val fDep = unit2Deps.bound.first()
+        assertEquals(unit1.first.tuid, fDep.definition.tuid)
+        eq(unit1.first.functions.find { it.ident == "f" }.assertOK().prototype, fDep.definition.proto.prototype)
     }
 
     @Test
@@ -62,55 +60,47 @@ class LinkAnalysisTest: LibclangTestBase() {
             """.trimIndent()
 
     ) { units ->
-        run {
-            val graph = LinkAnalysis(units.map { it.first }).assertOK()
-            val (unit1, unit2) = units
+        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val (unit1, unit2) = units
 
-            val objectInterface1 = LinkAnalysis.objectInterface(unit1.first)
-            val objectInterface2 = LinkAnalysis.objectInterface(unit2.first)
+        val objectInterface1 = LinkAnalysis.objectInterface(unit1.first)
+        val objectInterface2 = LinkAnalysis.objectInterface(unit2.first)
 
-            assertEquals(1, objectInterface1.imports.size)
-            assertEquals("f", objectInterface1.imports.first().ident)
-            assertEquals(0, objectInterface1.exports.size)
+        assertEquals(1, objectInterface1.imports.size)
+        assertEquals("f", objectInterface1.imports.first().ident)
+        assertEquals(0, objectInterface1.exports.size)
 
-            assertEquals(0, objectInterface2.imports.size)
-            assertEquals(1, objectInterface2.exports.size)
-            assertEquals("f", objectInterface2.exports.first().ident)
+        assertEquals(0, objectInterface2.imports.size)
+        assertEquals(1, objectInterface2.exports.size)
+        assertEquals("f", objectInterface2.exports.first().ident)
 
-            val unit1Deps = graph[unit1.first.tuid].assertOK()
-            val unit2Deps = graph[unit2.first.tuid].assertOK()
+        val unit1Deps = graph[unit1.first.tuid].assertOK()
+        val unit2Deps = graph[unit2.first.tuid].assertOK()
 
-            assertEquals(0, unit2Deps.bound.size)
-            assertEquals(1, unit1Deps.bound.size)
-            val edge = unit1Deps.bound.first()
-            assertNotNull(edge.definition)
-            assertEquals("f", edge.definition.proto.tlid.name)
-
-        }
+        assertEquals(0, unit2Deps.bound.size)
+        assertEquals(1, unit1Deps.bound.size)
+        val edge = unit1Deps.bound.first()
+        assertNotNull(edge.definition)
+        assertEquals("f", edge.definition.proto.tlid.name)
     }
 
-    /** See test03 */
+    // check that extern global is found to be linked to global with the same name in another unit.
     @Test
-    fun test02() = invalid(
-            """
-            void f(int);
-            void g() { printf("general kenobi"); } // implicit declaration
-            """.trimIndent(),
-            """
-            void f(int x) {}
-            """.trimIndent()
+    fun test02() = bumped(
+        """
+            extern int myInt;
+        """.trimIndent(),
+        """
+            const int myInt = 42;
+        """.trimIndent()
+    ) { units ->
+        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val (unit1, unit2) = units
 
-    ) /* { units ->
-        run {
-            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
-            val (unit1, _) = units
-            val unit1Deps = graph[unit1.first.tuid].assertOK()
-            assertEquals(1, unit1Deps.size)
-            val edge = unit1Deps.first()
-            assertNotNull(edge.definition)
-            assertEquals("f", edge.definition.decl.ident)
-        }
-    }*/
+        val (_, u1) = unit1
+        val linking1 = graph[u1.tuid].assertOK()
+        assertEquals(1, linking1.bound.size)
+    }
 
     /**
      * This actually goes through clang usually and links
@@ -143,40 +133,4 @@ class LinkAnalysisTest: LibclangTestBase() {
         }
     } */
 
-// The linkgraph only contains external dependencies,
-// whereas this test tries to query a graph presupposing it also contains internal dependencies.
-// needs fixing.
-//    @Test
-//    fun test04() = bumped(
-//            """
-//            b();
-//            void a() { b(); }
-//            """.trimIndent(),
-//            """
-//            c();
-//            void b() { c(); }
-//            """.trimIndent(),
-//            """
-//            void c() {}
-//            """.trimIndent()
-//
-//    ) { units ->
-//        run {
-//            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
-//            val (unit1, unit2, unit3) = units
-//            val unit1Deps = graph[unit1.first.tuid].assertOK()
-//            val unit2Deps = graph[unit2.first.tuid].assertOK()
-//            val unit3Deps = graph[unit3.first.tuid].assertOK()
-//            assertEquals(1, unit1Deps.size)
-//            assertEquals(1, unit2Deps.size)
-//            assertEquals(0, unit3Deps.size)
-//            val a = unit1.first.functions.find { it.ident == "a" }!!.mkSymbol(unit1.first.tuid)
-//            val reachable = graph.externalDependencyGraph.reachable(setOf(a))
-//            println(reachable)
-//            // `c` is reachable from calling `b`.
-//            // `c` is also reachable from calling `a` (because `a` calls `b`).
-//            // `c` is also reachable by itself (by calling `c`).
-//            assertEquals(3, reachable.size)
-//        }
-//    }
 }

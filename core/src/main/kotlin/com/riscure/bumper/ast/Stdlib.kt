@@ -38,7 +38,7 @@ interface IStdlib {
  * This is a target-specific implementation of the [IStdlib] interface,
  * modeling every part of it completely. In other words, it does not depend on any headers.
  */
-class Stdlibs(val sizeKind: IKind): IStdlib {
+class Stdlib(val sizeKind: IKind): IStdlib {
     override val size_t: Type = Type.Int(sizeKind)
 
     @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void.ptr()))
@@ -55,16 +55,16 @@ class Stdlibs(val sizeKind: IKind): IStdlib {
 
     companion object {
         // these choices are tested by BumperStdlibTest
-        @JvmStatic val x64Linux = Stdlibs(IKind.IULong)
-        @JvmStatic val x64Win   = Stdlibs(IKind.IULongLong)
+        @JvmStatic val x64Linux = Stdlib(IKind.IULong)
+        @JvmStatic val x64Win   = Stdlib(IKind.IULongLong)
 
         /** The standard library implementation for any (supported) 64-bit host platform */
-        @JvmStatic val x64host: Stdlibs = if (IS_OS_WINDOWS) x64Win else x64Linux
+        @JvmStatic val x64host: Stdlib = if (IS_OS_WINDOWS) x64Win else x64Linux
     }
 }
 
 /**
- * An implementation of [Stdlibs] that is agnostic of the platform (not choosing any
+ * An implementation of [Stdlib] that is agnostic of the platform (not choosing any
  * particular implementation of opaque types), but dependent on inclusion of the [headers]
  */
 object StdlibsHeader: IStdlib {
