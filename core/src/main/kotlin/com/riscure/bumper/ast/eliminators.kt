@@ -107,7 +107,9 @@ fun <C> Stmt.fold(acc: C, visitor: Visitor<C>): C = when (this) {
             .let { acc -> visitor(acc, this) }
 }
 
-fun <C> Type.fold(acc: C, visitor: (C, Type) -> C): C = when (this) {
+typealias TypeVisitor<C> = (acc: C, type: Type) -> C
+
+fun <C> Type.fold(acc: C, visitor: TypeVisitor<C>): C = when (this) {
     is Type.Array ->
         this.elementType.fold(acc, visitor)
             .let { acc -> visitor(acc, this) }
@@ -126,4 +128,32 @@ fun <C> Type.fold(acc: C, visitor: (C, Type) -> C): C = when (this) {
             .let { acc -> visitor(acc, this) }
     is Type.Void -> visitor(acc, this)
     is Type.VaList -> visitor(acc, this)
+}
+
+/**
+ * Fold over a field, visiting any type that we encounter.
+ */
+fun <C> Field.fold(acc: C, visitor: TypeVisitor<C>): C = when (this) {
+    is Field.Anonymous -> subfields.fold(acc) { acc, field ->
+        field.fold(acc, visitor)
+    }
+    is Field.Named     -> visitor(acc, this.type)
+}
+
+/**
+ * Fold over a type declaration, visiting any type that we encounter.
+ */
+fun <C> UnitDeclaration.TypeDeclaration.fold(acc: C, visitor: TypeVisitor<C>) = when (this) {
+    is UnitDeclaration.Enum    -> acc
+    is UnitDeclaration.Struct  -> fields.fold({ acc }) { fs ->
+        fs.fold(acc) { acc, field ->
+            field.fold(acc, visitor)
+        }
+    }
+    is UnitDeclaration.Union   -> fields.fold({ acc }) { fs ->
+        fs.fold(acc) { acc, field ->
+            field.fold(acc, visitor)
+        }
+    }
+    is UnitDeclaration.Typedef -> visitor(acc, underlyingType)
 }
