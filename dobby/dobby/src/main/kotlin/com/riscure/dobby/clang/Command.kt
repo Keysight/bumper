@@ -3,74 +3,12 @@ package com.riscure.dobby.clang
 import arrow.core.*
 import com.riscure.dobby.shell.Val
 import org.apache.commons.lang3.SystemUtils
-import java.nio.file.Path
 import com.riscure.dobby.shell.Arg as ShellArg
 
 /**
  * The type of compile-command option lists.
  */
 typealias Options = List<Arg>
-
-/**
- * Model of a single include path element.
- * The only two concrete types are IPath.Sys and IPath.Quote.
- */
-sealed interface IPath {
-    val path: Path
-
-    /**
-     * A so-called system include path.
-     * When invoking a compiler, these are set with `-isystem` or `-I`.
-     */
-    data class Sys(override val path: Path): IPath
-
-    /**
-     * A so-called quoted include path.
-     * When invoking a compiler, these are set with `-iquote`.
-     */
-    data class Quote(override val path: Path): IPath
-}
-
-/**
- * Model of the include path as a whole.
- */
-data class IncludePath(
-    val isystem: Set<IPath.Sys>   = emptySet(),
-    val iquote : Set<IPath.Quote> = emptySet()
-) {
-
-    /**
-     * Create an [IncludePath] that extends with [include].
-     */
-    operator fun plus(include: IPath) = when (include) {
-        is IPath.Quote -> copy(iquote  = iquote + include)
-        is IPath.Sys   -> copy(isystem = isystem + include)
-    }
-
-    /**
-     * Relativize an *absolute* path [that].
-     * Finds the best prefix in this include path, returning a pair of that prefix [IPath] and the suffix.
-     * The best root is defined as the one that has the shortest suffix.
-     * Returns empty Option if the given path is not relative to any of the IPaths.
-     */
-    fun relativize(that: Path): Option<Pair<IPath,Path>> {
-        val norm = that.normalize();
-
-        return (isystem + iquote)
-            .minBy { it.path.relativize(norm).toString().length }
-            .let { best ->
-                if (norm.startsWith(best.path)) {
-                    Pair(best, best.path.relativize(norm)).some()
-                } else none()
-            }
-    }
-
-    companion object {
-        fun iquote(vararg paths: Path) = IncludePath(iquote = paths.map { IPath.Quote(it) }.toSet())
-        fun isystem(vararg paths: Path) = IncludePath(isystem = paths.map { IPath.Sys(it) }
-            .toSet())
-    }
-}
 
 /**
  * The semantic model of Clang compilation commands
