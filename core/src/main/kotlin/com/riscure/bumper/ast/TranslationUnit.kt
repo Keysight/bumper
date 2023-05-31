@@ -66,6 +66,20 @@ data class TranslationUnit<out E, out T> (
     val typeDeclarations  : List<UnitDeclaration.TypeDeclaration> get() = declarations.typeDeclarations
     val valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
 
+    val valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>>  get() =
+        declarations
+            .filterIsInstance<UnitDeclaration.Valuelike<E, T>>()
+            .filter { it.isDefinition }
+            .filter { isNotVar( it ) || !varIsInitializedElsewhere( it as UnitDeclaration.Var<*>) }
+
+    private fun isNotVar(declaration: UnitDeclaration<E, T>) = declaration !is UnitDeclaration.Var
+
+    private fun varIsInitializedElsewhere(globalVariable: UnitDeclaration.Var<*>) : Boolean =
+        !globalVariable.rhs.isDefined()
+                && declarations.filterIsInstance<UnitDeclaration.Var<*>>()
+                    .filter { it.tlid.name.equals(globalVariable.tlid.name) }
+                    .any { it.rhs.isDefined() }
+
     fun filter(predicate: (d: UnitDeclaration<E, T>) -> Boolean) =
         copy(declarations = declarations.filter(predicate))
 
@@ -103,7 +117,9 @@ data class TranslationUnit<out E, out T> (
 
     fun definitionFor(id: TLID): Option<UnitDeclaration<E,T>> =
         byIdentifier[id]
-            ?.find { it.isDefinition }
+            ?.filter { it.isDefinition }
+            ?.filter { isNotVar( it ) || !varIsInitializedElsewhere( it as UnitDeclaration.Var<*> ) }
+            ?.first()
             .toOption()
 
     /**
