@@ -66,14 +66,11 @@ data class TranslationUnit<out E, out T> (
     val typeDeclarations  : List<UnitDeclaration.TypeDeclaration> get() = declarations.typeDeclarations
     val valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() = declarations.valuelikeDeclarations
     val functionDefinitions: List<UnitDeclaration.Fun<T>> get() = declarations.functionDefinitions
-    val varDefinitions: List<UnitDeclaration.Var<E>>  get() {
-        val varDefMap = LinkedHashMap<TLID, UnitDeclaration.Var<E>>()
-        declarations.filterIsInstance<UnitDeclaration.Var<E>>().filter { it.isDefinition }.forEach { varDecl ->
-            if (varDefMap[varDecl.tlid] == null || varDecl.rhs.isDefined()) varDefMap[varDecl.tlid] = varDecl
-        }
-        return varDefMap.values.toList();
-    }
-    val valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>>  get() = functionDefinitions + varDefinitions
+    val varDefinitions: List<UnitDeclaration.Var<E>> get() = declarations.varDefinitions
+    val valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>>  get() = declarations.valuelikeDefinitions
+
+    fun filter(predicate: (d: UnitDeclaration<E, T>) -> Boolean) =
+        copy(declarations = declarations.filter(predicate))
 
     /** Map locations to top-level declarations */
     fun getAtLocation(loc: Location): Option<UnitDeclaration<E, T>> =
@@ -107,14 +104,23 @@ data class TranslationUnit<out E, out T> (
         if (sym.unit == tuid) byIdentifier.getOrDefault(sym.tlid, listOf())
         else listOf()
 
-    fun definitionFor(id: TLID): Option<UnitDeclaration<E, T>> =
+    fun definitionFor(id: TLID): Option<UnitDeclaration<E, T>> {
+        val declMap = LinkedHashMap<TLID, UnitDeclaration<E, T>>()
         byIdentifier[id]
+            ?.asSequence()
             ?.filter { it.isDefinition }
-            ?.map { if (it !is UnitDeclaration.Var) it else initializationFor(it).getOrElse { it } }
-            ?.first()
-            .toOption()
+            ?.forEach { decl ->
+                when (decl) {
+                    is UnitDeclaration.Var -> {
+                        if (declMap[decl.tlid] == null || decl.rhs.isDefined()) declMap[decl.tlid] = decl
+                    }
+                    else -> declMap[decl.tlid] = decl
+                }
+            }
+        return Option.fromNullable(declMap[id]);
+    }
 
-    fun initializationFor(globalVariable: UnitDeclaration.Var<*>): Option<UnitDeclaration<E, T>> =
+    fun initializationFor(globalVariable: UnitDeclaration.Var<@UnsafeVariance E>): Option<UnitDeclaration<E, T>> =
         byIdentifier[globalVariable.tlid]
             ?.filterIsInstance<UnitDeclaration.Var<E>>()
             ?.find { it.rhs.isDefined() }
@@ -204,3 +210,19 @@ val <E, T> List<UnitDeclaration<E, T>>.valuelikeDeclarations: List<UnitDeclarati
 
 val <E, T> List<UnitDeclaration<E, T>>.functionDefinitions: List<UnitDeclaration.Fun<T>> get() =
     filterIsInstance<UnitDeclaration.Fun<T>>()
+        .filter { it.isDefinition }
+
+val <E, T> List<UnitDeclaration<E,T>>.varDefinitions: List<UnitDeclaration.Var<E>> get() {
+    val varDefMap = LinkedHashMap<TLID, UnitDeclaration.Var<E>>()
+    this
+        .asSequence()
+        .filterIsInstance<UnitDeclaration.Var<E>>()
+        .filter { it.isDefinition }
+        .forEach { varDecl ->
+            if (varDefMap[varDecl.tlid] == null || varDecl.rhs.isDefined()) varDefMap[varDecl.tlid] = varDecl
+        }
+    return varDefMap.values.toList();
+}
+
+val <E, T> List<UnitDeclaration<E, T>>.valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>> get() =
+    functionDefinitions + varDefinitions
