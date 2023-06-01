@@ -119,7 +119,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
 
-        override val isDefinition: Boolean get() = storage !is Storage.Extern
+        // An extern global variable with initialization is seen as a defined symbol by linker
+        override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
         override val kind: EntityKind get() = EntityKind.Var
 
         override val prototype: Var<Nothing> get() = Var(ident, type, none(), storage, meta)
