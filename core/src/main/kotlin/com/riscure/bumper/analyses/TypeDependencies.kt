@@ -14,7 +14,7 @@ private fun gatherDeps(acc: Set<TLID>, type: Type): Set<TLID> =
 /**
  * Extract the set of *direct* type identifiers that [type] depends on.
  */
-fun typeDependencies(type: Type): Set<TLID> = type.fold(setOf(), ::gatherDeps)
+fun typeDependencies(type: Type): Set<TLID> = type.bottomUp(setOf(), ::gatherDeps)
 
 /**
  * Extract the set of *direct* type identifiers that [types] depends on.
@@ -26,4 +26,4 @@ fun typeDependencies(types: Collection<Type>): Set<TLID> =
  * Extract the set of *direct* type identifiers that [type] depends on.
  */
 fun typeDependencies(type: UnitDeclaration.TypeDeclaration) =
-    type.fold(setOf(), ::gatherDeps)
+    type.bottomUp(setOf(), ::gatherDeps)

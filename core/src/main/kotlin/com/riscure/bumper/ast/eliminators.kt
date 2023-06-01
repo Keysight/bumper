@@ -11,107 +11,127 @@ interface Visitor<C> {
 
 }
 
-fun <C> Initializer.fold(acc: C, visitor: (C, Exp) -> C): C = when (this) {
-    is Initializer.InitArray  -> this.exps.fold(acc) { acc, e -> e.fold(acc, visitor) }
-    is Initializer.InitStruct -> this.initializers.values.fold(acc) { acc, s -> s.fold(acc, visitor) }
-    is Initializer.InitUnion  -> this.initializer.fold(acc) { acc, s -> s.fold(acc, visitor) }
-    is Initializer.InitSingle -> this.exp.fold(acc, visitor::invoke)
+/**
+ * Visit all the expressions in this initializer in a bottom-up order,
+ * accumulating a value of type [C].
+ */
+fun <C> Initializer.bottomUp(acc: C, visitor: (C, Exp) -> C): C = when (this) {
+    is Initializer.InitArray  -> this.exps.fold(acc) { acc, e -> e.bottomUp(acc, visitor) }
+    is Initializer.InitStruct -> this.initializers.values.fold(acc) { acc, s -> s.bottomUp(acc, visitor) }
+    is Initializer.InitUnion  -> this.initializer.bottomUp(acc) { acc, s -> s.bottomUp(acc, visitor) }
+    is Initializer.InitSingle -> this.exp.bottomUp(acc, visitor::invoke)
 }
 
-fun <C> Exp.fold(acc: C, visitor: (C, Exp) -> C): C = when (this) {
+/**
+ * Visit all the expressions in this expression in a bottom-up order,
+ * accumulating a value of type [C].
+ */
+fun <C> Exp.bottomUp(acc: C, visitor: (C, Exp) -> C): C = when (this) {
     is Exp.Alignof -> visitor(acc, this)
     is Exp.BinOp ->
-        this.left.fold(acc, visitor)
-            .let { acc -> this.right.fold(acc, visitor) }
+        this.left.bottomUp(acc, visitor)
+            .let { acc -> this.right.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Exp.Call ->
-        this.funRef.fold(acc, visitor)
-            .let { acc -> this.args.fold(acc) { acc, e -> e.fold(acc, visitor) }}
+        this.funRef.bottomUp(acc, visitor)
+            .let { acc -> this.args.fold(acc) { acc, e -> e.bottomUp(acc, visitor) }}
             .let { acc -> visitor(acc, this) }
     is Exp.Cast ->
-        this.exp.fold(acc, visitor)
+        this.exp.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Exp.Compound ->
-        this.initializer.fold(acc, visitor)
+        this.initializer.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Exp.Conditional ->
-        this.condition.fold(acc, visitor)
-            .let { acc -> this.thenBranch.fold(acc, visitor) }
-            .let { acc -> this.elseBranch.fold(acc, visitor) }
+        this.condition.bottomUp(acc, visitor)
+            .let { acc -> this.thenBranch.bottomUp(acc, visitor) }
+            .let { acc -> this.elseBranch.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Exp.Const -> visitor(acc, this)
     is Exp.Sizeof -> visitor(acc, this)
     is Exp.UnOp ->
-        this.operand.fold(acc, visitor)
+        this.operand.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Exp.Var -> visitor(acc, this)
 }
 
-fun <C> List<Stmt>.fold(acc: C, visitor: Visitor<C>): C =
-    this.fold(acc) { acc, s -> s.fold(acc, visitor) }
+/**
+ * Visit all the expressions and statements in this list of statements in a bottom-up order,
+ * accumulating a value of type [C].
+ */
+fun <C> List<Stmt>.bottomUp(acc: C, visitor: Visitor<C>): C =
+    this.fold(acc) { acc, s -> s.bottomUp(acc, visitor) }
 
-fun <C> Stmt.fold(acc: C, visitor: Visitor<C>): C = when (this) {
+/**
+ * Visit all the statements in this statement in a bottom-up order,
+ * accumulating a value of type [C].
+ */
+fun <C> Stmt.bottomUp(acc: C, visitor: Visitor<C>): C = when (this) {
     Stmt.Break -> visitor(acc, this)
     Stmt.Continue -> visitor(acc, this)
     Stmt.Skip -> visitor(acc, this)
 
     is Stmt.Block ->
-        stmts.fold(acc, visitor)
+        stmts.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Stmt.Conditional ->
         condition
-            .fold(acc, visitor::invoke)
-            .let { acc -> thenBranch.fold(acc, visitor) }
-            .let { acc -> elseBranch.fold(acc, visitor) }
+            .bottomUp(acc, visitor::invoke)
+            .let { acc -> thenBranch.bottomUp(acc, visitor) }
+            .let { acc -> elseBranch.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Stmt.Decl ->
         init
-            .map { it.fold(acc, visitor::invoke) }
+            .map { it.bottomUp(acc, visitor::invoke) }
             .getOrElse { acc }
     is Stmt.Do ->
         this.todo
-            .fold(acc, visitor::invoke)
+            .bottomUp(acc, visitor::invoke)
             .let { acc -> visitor(acc, this) }
     is Stmt.DoWhile ->
         this.condition
-            .fold(acc, visitor::invoke)
-            .let { acc -> body.fold(acc, visitor) }
+            .bottomUp(acc, visitor::invoke)
+            .let { acc -> body.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Stmt.For ->
         this.before
-            .fold(acc, visitor)
-            .let { acc -> this.condition.fold(acc, visitor::invoke) }
-            .let { acc -> this.after.fold(acc, visitor::invoke) }
-            .let { acc -> this.body.fold(acc, visitor) }
+            .bottomUp(acc, visitor)
+            .let { acc -> this.condition.bottomUp(acc, visitor::invoke) }
+            .let { acc -> this.after.bottomUp(acc, visitor::invoke) }
+            .let { acc -> this.body.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Stmt.Goto ->
         visitor(acc, this)
     is Stmt.Labeled ->
-        this.stmt.fold(acc, visitor)
+        this.stmt.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Stmt.Return ->
         this.value
-            .map { it.fold(acc, visitor::invoke) }.getOrElse { acc }
+            .map { it.bottomUp(acc, visitor::invoke) }.getOrElse { acc }
             .let { acc -> visitor(acc, this) }
     is Stmt.Seq ->
-        this.first.fold(acc, visitor)
-            .let { acc -> this.second.fold(acc, visitor) }
+        this.first.bottomUp(acc, visitor)
+            .let { acc -> this.second.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Stmt.Switch ->
-        this.scrutinee.fold(acc, visitor::invoke)
-            .let { acc -> this.body.fold(acc, visitor) }
+        this.scrutinee.bottomUp(acc, visitor::invoke)
+            .let { acc -> this.body.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
     is Stmt.While ->
-        this.condition.fold(acc, visitor::invoke)
-            .let { acc -> this.body.fold(acc, visitor) }
+        this.condition.bottomUp(acc, visitor::invoke)
+            .let { acc -> this.body.bottomUp(acc, visitor) }
             .let { acc -> visitor(acc, this) }
 }
 
 typealias TypeVisitor<C> = (acc: C, type: Type) -> C
 
-fun <C> Type.fold(acc: C, visitor: TypeVisitor<C>): C = when (this) {
+/**
+ * Visit all the types in this [Type] in a bottom-up order,
+ * accumulating a value of type [C].
+ */
+fun <C> Type.bottomUp(acc: C, visitor: TypeVisitor<C>): C = when (this) {
     is Type.Array ->
-        this.elementType.fold(acc, visitor)
+        this.elementType.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Type.Struct -> visitor(acc, this)
     is Type.Union -> visitor(acc, this)
@@ -121,39 +141,42 @@ fun <C> Type.fold(acc: C, visitor: TypeVisitor<C>): C = when (this) {
     is Type.Int -> visitor(acc, this)
     is Type.Fun ->
         this.returnType
-            .fold(acc, visitor)
-            .let { acc -> params.fold(acc) { acc, param -> param.type.fold(acc, visitor) }}
+            .bottomUp(acc, visitor)
+            .let { acc -> params.fold(acc) { acc, param -> param.type.bottomUp(acc, visitor) }}
+            .let { acc -> visitor(acc, this) }
     is Type.Ptr ->
-        this.pointeeType.fold(acc, visitor)
+        this.pointeeType.bottomUp(acc, visitor)
             .let { acc -> visitor(acc, this) }
     is Type.Void -> visitor(acc, this)
     is Type.VaList -> visitor(acc, this)
 }
 
 /**
- * Fold over a field, visiting any type that we encounter.
+ * Visit all the types in this [Field] in a bottom-up order,
+ * accumulating a value of type [C].
  */
-fun <C> Field.fold(acc: C, visitor: TypeVisitor<C>): C = when (this) {
+fun <C> Field.bottomUp(acc: C, visitor: TypeVisitor<C>): C = when (this) {
     is Field.Anonymous -> subfields.fold(acc) { acc, field ->
-        field.fold(acc, visitor)
+        field.bottomUp(acc, visitor)
     }
-    is Field.Named     -> visitor(acc, this.type)
+    is Field.Named     -> this.type.bottomUp(acc, visitor)
 }
 
 /**
- * Fold over a type declaration, visiting any type that we encounter.
+ * Visit all the types in this [UnitDeclaration] in a bottom-up order,
+ * accumulating a value of type [C].
  */
-fun <C> UnitDeclaration.TypeDeclaration.fold(acc: C, visitor: TypeVisitor<C>) = when (this) {
+fun <C> UnitDeclaration.TypeDeclaration.bottomUp(acc: C, visitor: TypeVisitor<C>) = when (this) {
     is UnitDeclaration.Enum    -> acc
     is UnitDeclaration.Struct  -> fields.fold({ acc }) { fs ->
         fs.fold(acc) { acc, field ->
-            field.fold(acc, visitor)
+            field.bottomUp(acc, visitor)
         }
     }
     is UnitDeclaration.Union   -> fields.fold({ acc }) { fs ->
         fs.fold(acc) { acc, field ->
-            field.fold(acc, visitor)
+            field.bottomUp(acc, visitor)
         }
     }
-    is UnitDeclaration.Typedef -> visitor(acc, underlyingType)
+    is UnitDeclaration.Typedef -> underlyingType.bottomUp(acc, visitor)
 }
