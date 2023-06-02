@@ -120,6 +120,12 @@ data class TranslationUnit<out E, out T> (
         return Option.fromNullable(declMap[id]);
     }
 
+    /**
+     * Within a translation unit, a global variable may have multiple definitions (e.g. int k; int k = 0;)
+     * but has only 0 or 1 initialization.
+     * @param globalVariable variable for which we search the initialization
+     * @return option of initialization for a global variable within a translation unit
+     */
     fun initializationFor(globalVariable: UnitDeclaration.Var<@UnsafeVariance E>): Option<UnitDeclaration<E, T>> =
         byIdentifier[globalVariable.tlid]
             ?.filterIsInstance<UnitDeclaration.Var<E>>()
