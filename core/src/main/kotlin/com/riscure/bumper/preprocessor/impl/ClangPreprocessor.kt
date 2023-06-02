@@ -40,7 +40,6 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
                     // It seems that in clang-16 it is.
                     .plus(Arg(Spec.clang11["O0"]))
                     .plus(Arg(Spec.clang11["E"]))
-                    .plus(Arg(Spec.clang11["working_directory"], entry.workingDirectory.toString()))
                     // We add -v to get the search paths out of stderr
                     .plus(Arg(Spec.clang11["v"]))
 
@@ -50,6 +49,7 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
             val res = process(
                 clang.toString(), *cmd.toExecArguments().toTypedArray(),
 
+                directory = workingDirectory.toFile(),
                 stdout = Redirect.SILENT,
                 stderr = Redirect.CAPTURE,
             )
