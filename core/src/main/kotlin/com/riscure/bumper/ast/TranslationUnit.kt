@@ -126,7 +126,7 @@ data class TranslationUnit<out E, out T> (
      * @param globalVariable variable for which we search the initialization
      * @return option of initialization for a global variable within a translation unit
      */
-    fun initializationFor(globalVariable: UnitDeclaration.Var<@UnsafeVariance E>): Option<UnitDeclaration<E, T>> =
+    fun initializationFor(globalVariable: UnitDeclaration.Var<*>): Option<UnitDeclaration<E, T>> =
         byIdentifier[globalVariable.tlid]
             ?.filterIsInstance<UnitDeclaration.Var<E>>()
             ?.find { it.rhs.isDefined() }
