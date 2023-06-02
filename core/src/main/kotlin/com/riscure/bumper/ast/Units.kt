@@ -37,7 +37,12 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     override fun withIdent(id: Ident): UnitDeclaration<E, S>
 
     /**
-     * Whether this declaration is also a definition
+     * Whether this declaration is also a definition.
+     *
+     * For functions, we can only have one definition per unit,
+     * but for globals, we may have multiple (but only one with an initializer).
+     *
+     * @see valueLikeDefinitions
      */
     val isDefinition: Boolean
 
@@ -114,7 +119,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
 
-        override val isDefinition: Boolean get() = rhs.isDefined()
+        // An extern global variable with initialization is seen as a defined symbol by linker
+        override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
         override val kind: EntityKind get() = EntityKind.Var
 
         override val prototype: Var<Nothing> get() = Var(ident, type, none(), storage, meta)

@@ -133,4 +133,61 @@ class LinkAnalysisTest: LibclangTestBase() {
         }
     } */
 
+    @DisplayName("Global variable without initialization is a definition")
+    @Test
+    fun test04() = bumped(
+        """
+        int k;
+        """.trimIndent(),
+
+        """
+        extern int k;
+        int f() {
+          return k;
+        }
+        """.trimIndent()
+
+    ) { units ->
+        // We test the link graph
+        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val (unit1, unit2) = units
+
+        val unit1Deps = graph[unit1.first.tuid].assertOK()
+        val unit2Deps = graph[unit2.first.tuid].assertOK()
+
+        assertEquals(0, unit1Deps.bound.size)
+
+        assertEquals(1, unit2Deps.bound.size)
+        val fDep = unit2Deps.bound.first()
+        assertEquals("k", fDep.definition.name)
+    }
+
+    @DisplayName("Extern global variable with initialization is a definition")
+    @Test
+    fun test05() = bumped(
+        """
+        extern int k = 1;
+        """.trimIndent(),
+
+        """
+        extern int k;
+        int f() {
+          return k;
+        }
+        """.trimIndent()
+
+    ) { units ->
+        // We test the link graph
+        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val (unit1, unit2) = units
+
+        val unit1Deps = graph[unit1.first.tuid].assertOK()
+        val unit2Deps = graph[unit2.first.tuid].assertOK()
+
+        assertEquals(0, unit1Deps.bound.size)
+
+        assertEquals(1, unit2Deps.bound.size)
+        val fDep = unit2Deps.bound.first()
+        assertEquals("k", fDep.definition.name)
+    }
 }

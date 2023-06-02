@@ -265,13 +265,14 @@ object LinkAnalysis {
     fun <E, S> objectInterface(unit: TranslationUnit<E, S>): UnitInterface<E, S> {
         // compute the list of declarations that are visible
         // across linked units
-        val visible = unit
+        val exports = unit
+            .valuelikeDefinitions
+            .filter { decl -> decl.storage != Storage.Static }
+        val exportIndex = exports.map { it.tlid } .toSet()
+
+        val imports = unit
             .valuelikeDeclarations
             .filter { decl -> decl.storage != Storage.Static }
-
-        val exports = visible.filter { it.isDefinition }
-        val exportIndex = exports.map { it.tlid } .toSet()
-        val imports = visible
             .filter { decl -> !exportIndex.contains(decl.tlid) }
 
         return UnitInterface(imports.toSet(), exports.toSet())
