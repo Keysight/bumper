@@ -41,7 +41,7 @@ interface IStdlib {
 class Stdlib(val sizeKind: IKind): IStdlib {
     override val size_t: Type = Type.Int(sizeKind)
 
-    @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void.ptr()))
+    @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void, Param("ptr", void.ptr())))
 
     override fun malloc(sizeExp: Exp) = call(malloc.ref(), sizeExp)
 
