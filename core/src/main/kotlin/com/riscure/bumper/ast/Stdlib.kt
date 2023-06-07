@@ -4,7 +4,7 @@ import com.riscure.bumper.ast.Exp.Companion.call
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.ast.Type.Companion.function
 import com.riscure.bumper.ast.Type.Companion.void
-import com.riscure.bumper.sources.Include
+import com.riscure.dobby.clang.Include
 import com.riscure.bumper.sources.Preamble
 import org.apache.commons.lang3.SystemUtils.IS_OS_WINDOWS
 
@@ -70,8 +70,8 @@ class Stdlib(val sizeKind: IKind): IStdlib {
 object StdlibsHeader: IStdlib {
     override val preamble = Preamble(
         listOf(
-            Include("<stddef.h>"),
-            Include("<stdlib.h>")
+            Include.sys("stddef.h"),
+            Include.sys("stdlib.h")
         ),
         listOf()
     )
