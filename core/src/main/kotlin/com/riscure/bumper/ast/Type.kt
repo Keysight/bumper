@@ -155,9 +155,16 @@ import kotlinx.serialization.Serializable
     /** Some core types are called aggregate **/
     sealed interface Aggregate: Core
 
-    /** A defined type is one that has a definition in the translation unit */
+    /** A defined type is one that has a declaration in the translation unit */
     sealed interface Defined: Type {
         val ref: TypeRef
+
+        val kind get() = when (this) {
+            is Enum       -> EntityKind.Enum
+            is Struct     -> EntityKind.Struct
+            is Union      -> EntityKind.Union
+            is Typedeffed -> EntityKind.Typedef
+        }
     }
 
     /** Record types are aggregate defined types */

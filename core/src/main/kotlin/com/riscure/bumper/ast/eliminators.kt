@@ -180,3 +180,4 @@ fun <C> UnitDeclaration.TypeDeclaration.bottomUp(acc: C, visitor: TypeVisitor<C>
     }
     is UnitDeclaration.Typedef -> underlyingType.bottomUp(acc, visitor)
 }
+
