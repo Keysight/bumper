@@ -93,7 +93,7 @@ class PrettyPrinterTest {
     fun `sizeof-longlong-array`() = assertEquals(
         "sizeof(long long [100])",
         Pretty.exp(
-            sizeOf(Type.array(Type.longlong, 100), IKind.IULong)
+            sizeOf(Type.array(Type.longlong, 100), Stdlib.x64Linux.size_t)
         )
     )
 

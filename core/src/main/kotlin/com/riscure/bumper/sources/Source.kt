@@ -4,19 +4,33 @@ import arrow.core.Either
 import com.riscure.bumper.ast.Exp
 import com.riscure.bumper.ast.Stmt
 import com.riscure.bumper.ast.TranslationUnit
+import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.pp.AstWriters
+import com.riscure.dobby.clang.Include
 import java.io.Writer
 import kotlin.io.path.nameWithoutExtension
 
-data class Include(
-    /** Excluding quotes, but including angular brackets if applicable */
-    private val header: String
+data class Preamble(
+    val cppHeader: List<Include> = listOf(),
+    val declarations: Collection<UnitDeclaration<Exp, Stmt>> = listOf()
 ) {
-    val quoted: String get() =
-        if (header.isNotEmpty() && header.first() != '<') "\"$header\""
-        else header
+    /**
+     * Prepend this preamble to [source].
+     */
+    operator fun plus(source: Source) = source.copy(
+        cppHeader = cppHeader + source.cppHeader,
+        unit = source.unit.copy(
+            declarations = declarations + source.unit.declarations
+        )
+    )
 
-    fun pretty() = "#include $quoted"
+    /**
+     * Append [other] to this.
+     */
+    fun plus(other: Preamble) = copy(
+        cppHeader + other.cppHeader,
+        declarations + other.declarations
+    )
 }
 
 data class Source(

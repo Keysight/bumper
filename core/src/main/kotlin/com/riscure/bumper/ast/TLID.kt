@@ -11,6 +11,14 @@ import kotlinx.serialization.Serializable
 data class TLID(val name: Ident, val kind: EntityKind) {
     fun symbol(tuid: TUID) = Symbol(tuid, this)
 
+    val pretty get() = when (kind) {
+        EntityKind.Enum    -> "enum"
+        EntityKind.Struct  -> "struct"
+        EntityKind.Union   -> "union"
+        EntityKind.Typedef -> "typedef"
+        else               -> ""
+    } + " $name"
+
     companion object {
         @JvmStatic fun variable(name: Ident) = TLID(name, EntityKind.Var)
         @JvmStatic fun function(name: Ident) = TLID(name, EntityKind.Fun)

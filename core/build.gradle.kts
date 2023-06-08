@@ -17,6 +17,7 @@ dependencies {
     implementation(kotlinx.serialization.cbor)
 
     implementation(libs.slf4j)
+    implementation(libs.apache.lang3)
     implementation(libs.arrow.core)
     implementation(libs.process)
     implementation(libs.dobby)

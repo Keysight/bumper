@@ -6,6 +6,7 @@ import arrow.core.none
 import arrow.core.some
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import com.riscure.bumper.pp.Pretty
 import com.riscure.bumper.serialization.OptionAsNullable
 import kotlinx.serialization.Serializable
 
@@ -36,7 +37,12 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     override fun withIdent(id: Ident): UnitDeclaration<E, S>
 
     /**
-     * Whether this declaration is also a definition
+     * Whether this declaration is also a definition.
+     *
+     * For functions, we can only have one definition per unit,
+     * but for globals, we may have multiple (but only one with an initializer).
+     *
+     * @see valueLikeDefinitions
      */
     val isDefinition: Boolean
 
@@ -113,7 +119,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
 
-        override val isDefinition: Boolean get() = rhs.isDefined()
+        // An extern global variable with initialization is seen as a defined symbol by linker
+        override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
         override val kind: EntityKind get() = EntityKind.Var
 
         override val prototype: Var<Nothing> get() = Var(ident, type, none(), storage, meta)
@@ -164,9 +171,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val storage: Storage,
         override val meta: Meta
     ): Compound {
-        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, listOf(), fields,
-                                                                    Storage.Default, Meta.default
-        )
+        constructor(ident: Ident, fields: Option<FieldDecls> = none()):
+            this(ident, listOf(), fields, Storage.Default, Meta.default)
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -182,9 +188,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val storage: Storage,
         override val meta: Meta
     ): Compound {
-        constructor(ident: Ident, fields: Option<FieldDecls>): this(ident, listOf(), fields,
-                                                                    Storage.Default, Meta.default
-        )
+        constructor(ident: Ident, fields: Option<FieldDecls> = none()):
+            this(ident, listOf(), fields, Storage.Default, Meta.default)
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -241,3 +246,5 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         EntityKind.Var     -> this is Var
     }
 }
+
+fun UnitDeclaration<Exp,Stmt>.show() = Pretty.unitDeclaration(this)

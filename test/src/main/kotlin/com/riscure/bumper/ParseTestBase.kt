@@ -56,6 +56,7 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
             .assertOK()
     }
 
+    val builtins: Builtins
     val frontend: Frontend<E, S, U>
     val parser: Parser<E, S, U> get() = frontend
     val storage: Storage
