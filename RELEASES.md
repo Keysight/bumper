@@ -1,3 +1,12 @@
+# 0.1.5
+
+- Fix bug with `isDefinition` on global variables not accounting for 'extern'
+- Fix bug with wrong builtin type of `free` Stdlib function
+- Fix type dependency analysis; now differentiates between depending on declaration vs. definition.
+- Add TypeContext to represent type requirements.
+- Add TypeEnv.resolve(TypeContext): TypeResolutions to resolve type requirements to suitable definitions.
+- Add TypeResolutions.toPreamble to compute source-level definitions to reproduce a type resolution in another unit.
+
 # 0.1.4
 
 - Add AST and pretty-printer for (most of) expressions and syntax
