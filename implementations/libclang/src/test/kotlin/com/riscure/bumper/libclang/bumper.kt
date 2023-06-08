@@ -2,6 +2,7 @@ package com.riscure.bumper.libclang
 
 import arrow.core.getOrHandle
 import com.riscure.bumper.*
+import com.riscure.bumper.ast.Builtins
 import com.riscure.bumper.ast.TranslationUnit
 import com.riscure.bumper.pp.SourceExtractor
 import com.riscure.dobby.clang.Options
@@ -9,6 +10,8 @@ import org.bytedeco.llvm.clang.CXCursor
 import java.nio.file.Path
 
 open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
+    override val builtins: Builtins
+        get() = Builtins.clang
 
     override val frontend: Frontend<CXCursor, CXCursor, ClangUnitState>
         get() = frontend(Path.of("clang"), storage)
@@ -67,3 +70,4 @@ class LibclangGlobalParseTest   : LibclangTestBase(), GlobalParseTest<CXCursor, 
 class LibclangTypeTest          : LibclangTestBase(), TypeTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangIndexTest         : LibclangTestBase(), IndexTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangStdlibTest        : LibclangTestBase(), BumperStdlibTest<CXCursor, CXCursor, ClangUnitState>
+class LibclangTypeDependencyAnalysisTest : LibclangTestBase(), TypeDependencyAnalysisTest<CXCursor, CXCursor, ClangUnitState>
