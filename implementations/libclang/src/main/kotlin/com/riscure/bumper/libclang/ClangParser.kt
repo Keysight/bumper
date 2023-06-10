@@ -121,7 +121,7 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
                         .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors) }
                 }
                 ClangUnitState
-                    .create(tuid, c_tu)
+                    .create(tuid, c_tu, entry.workingDirectory)
                     .mapLeft { msg -> ParseError.InternalError(tuid, msg) }
             }
         }

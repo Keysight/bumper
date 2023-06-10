@@ -10,6 +10,7 @@ import com.riscure.bumper.pp.Extractor
 import com.riscure.bumper.preprocessor.CPPInfo
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
+import java.nio.file.Path
 
 /**
  * The Clang parser implementation now only analyzes upto expression/statements.
@@ -56,11 +57,11 @@ data class ClangUnitState(
 
     companion object {
         @JvmStatic
-        fun create(tuid: TUID, cxunit: CXTranslationUnit): Either<String, ClangUnitState> {
+        fun create(tuid: TUID, cxunit: CXTranslationUnit, workingDir: Path): Either<String, ClangUnitState> {
             val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
             return with(CursorParser(tuid)) {
                 rootCursor
-                    .asTranslationUnit()
+                    .asTranslationUnit(workingDir)
                     .map { (ast, cursors) -> ClangUnitState(ast, cxunit, cursors) }
             }
         }
