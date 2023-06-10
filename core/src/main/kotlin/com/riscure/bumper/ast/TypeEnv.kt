@@ -4,7 +4,6 @@ import arrow.core.*
 import com.riscure.bumper.sources.Preamble
 import com.riscure.dobby.clang.Include
 import com.riscure.dobby.clang.IncludePath
-import java.nio.file.Path
 
 /** The type of results for type definition lookups */
 typealias TypeLookup<T> = Either<TypeEnv.Missing, T>
@@ -124,11 +123,10 @@ interface TypeEnv {
  * If the type resolved to a definition in a C file, include the C file.
  *
  * Fails if the type resolutions contain definitions that have no location data.
- * @param workingDir path to resolve the relative path coming from presumedLocation.source
+ *
  * @return [Pair] of produced preamble, and a Set of types for which we had to include a C file.
  */
 fun TypeResolutions.toPreamble(
-    workingDir : Path,
     includePath: IncludePath,
 
     /**
@@ -146,7 +144,7 @@ fun TypeResolutions.toPreamble(
         val include = it.meta
             .presumedLocation
             // try to resolve it on the include path
-            .flatMap { includePath.relativize(workingDir.resolve(it.sourceFile)) }
+            .flatMap { includePath.relativize(it.sourceFile) }
             .getOrElse {
                 // I think this should not happen, because [ast] is supposed to come
                 // from the parser.
