@@ -115,13 +115,13 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
                 ParseError.ParseFailed(tuid, cmd.optArgs, diagnostics).left()
             } else {
                 val rootCursor = clang_getTranslationUnitCursor(c_tu)
-                with(CursorParser(tuid)) {
+                with(CursorParser(tuid, workingDirectory)) {
                     rootCursor
-                        .asTranslationUnit(entry.workingDirectory)
-                        .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors) }
+                        .asTranslationUnit()
+                        .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors, workingDirectory) }
                 }
                 ClangUnitState
-                    .create(tuid, c_tu, entry.workingDirectory)
+                    .create(tuid, c_tu, workingDirectory)
                     .mapLeft { msg -> ParseError.InternalError(tuid, msg) }
             }
         }

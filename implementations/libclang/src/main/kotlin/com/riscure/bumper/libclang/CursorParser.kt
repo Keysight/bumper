@@ -43,6 +43,12 @@ open class CursorParser(
     val tuid: TUID,
 
     /**
+     * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
+     * like file.string from clang_getPresumedLocation, with workingDir as base.
+     */
+    private val workingDir: Path,
+
+    /**
      * Declarations that need to be elaborated to top-level definitions.
      * Because we elaborate during parsing, we may (re)name the declaration.
      *
@@ -73,7 +79,7 @@ open class CursorParser(
      * Parse the list of [toBeElaborated] definitions.
      * Every parsed definition is removed from that list.
      */
-    private fun pleaseDoElaborate(workingDir: Path): Result<List<Pair<CXCursor, ClangDeclaration>>> {
+    private fun pleaseDoElaborate(): Result<List<Pair<CXCursor, ClangDeclaration>>> {
         // We use [toBeElaborated] as a worklist
         // Parsing a declaration can add new items to the worklist as a side-effect.
         // When parsing fails, we immediately return the failure.
@@ -87,7 +93,7 @@ open class CursorParser(
                 if (cursor.hash() in alreadyParsed) continue
 
                 val decl = cursor
-                    .asDeclaration(workingDir)
+                    .asDeclaration()
                     .getOrHandle { throw Throwable(it) } // escalate
 
                 alreadyParsed.add(cursor.hash())
@@ -119,7 +125,7 @@ open class CursorParser(
         return whenMatch()
     }
 
-    fun CXCursor.asTranslationUnit(workingDir: Path): Result<UnitWithCursorData> =
+    fun CXCursor.asTranslationUnit(): Result<UnitWithCursorData> =
         ifKind(CXCursor_TranslationUnit, "translation unit") {
             // Add all top-level declarations in the clang AST to the work list
             // of things to be elaborated
@@ -130,7 +136,7 @@ open class CursorParser(
 
             // We now run the worklist algorithm to parse all nodes marked for elaboration.
             // While doing the work, we may see new nodes that need elaboration.
-            pleaseDoElaborate(workingDir)
+            pleaseDoElaborate()
                 // we sort these, because we don't know from the traversal order where
                 // the elaborated declarations should appear. And the order is relevant for type completeness
                 // of structs and unions.
@@ -152,11 +158,11 @@ open class CursorParser(
             // parse statements and expressions at the moment, so we cannot perform renaming there.
         }
 
-    private fun CXCursor.asDeclaration(workingDir: Path): Result<ClangDeclaration> {
+    private fun CXCursor.asDeclaration(): Result<ClangDeclaration> {
         val decl = when (kind()) {
             CXCursor_FunctionDecl -> this.asFunction()
-            CXCursor_StructDecl   -> this.asStruct(workingDir)
-            CXCursor_UnionDecl    -> this.asUnion(workingDir)
+            CXCursor_StructDecl   -> this.asStruct()
+            CXCursor_UnionDecl    -> this.asUnion()
             CXCursor_VarDecl      -> this.asVariable()
             CXCursor_TypedefDecl  -> this.asTypedef()
             CXCursor_EnumDecl     -> this.asEnum()
@@ -167,7 +173,7 @@ open class CursorParser(
         return decl
             .map {
                 it
-                    .withMeta(getMetadata(workingDir))
+                    .withMeta(getMetadata())
                     .withStorage(getStorage())
             }
     }
@@ -214,7 +220,7 @@ open class CursorParser(
     /**
      * Collects metadata for a toplevel declaration cursor.
      */
-    fun CXCursor.getMetadata(workingDir: Path): Meta {
+    fun CXCursor.getMetadata(): Meta {
         // FIXME? No doc available
         val comment = clang_Cursor_getBriefCommentText(this).getOption()
 
@@ -255,11 +261,11 @@ open class CursorParser(
             Enumerator(name, const, enum).right()
         }
 
-    private fun CXCursor.getCompoundFields(workingDir: Path) =
+    private fun CXCursor.getCompoundFields() =
         if (clang_isCursorDefinition(this).toBool()) {
             type()
                 .fields()
-                .mapIndexed { i, it -> it.asField(workingDir) }
+                .mapIndexed { i, it -> it.asField() }
                 .sequence()
                 .map { it.some() }
         } else {
@@ -267,24 +273,24 @@ open class CursorParser(
             None.right()
         }
 
-    fun CXCursor.asStruct(workingDir: Path): Result<UnitDeclaration.Struct> =
+    fun CXCursor.asStruct(): Result<UnitDeclaration.Struct> =
         ifKind(CXCursor_StructDecl, "struct declaration") {
             // We check if this is the definition, because the field visitor
             // will just poke through the declaration into the related definition
             // and visit the fields there.
 
-            getCompoundFields(workingDir).flatMap { fs ->
+            getCompoundFields().flatMap { fs ->
                 getIdentifier().map { id -> UnitDeclaration.Struct(id, fs) }
             }
         }
 
-    fun CXCursor.asUnion(workingDir: Path): Result<UnitDeclaration.Union> =
+    fun CXCursor.asUnion(): Result<UnitDeclaration.Union> =
         ifKind(CXCursor_UnionDecl, "union declaration") {
             // We check if this is the definition, because the field visitor
             // will just poke through the declaration into the related definition
             // and visit the fields there.
 
-            getCompoundFields(workingDir).flatMap { fs ->
+            getCompoundFields().flatMap { fs ->
                 getIdentifier().map { id -> UnitDeclaration.Union(id, fs) }
             }
         }
@@ -307,13 +313,13 @@ open class CursorParser(
         return ts
     }
 
-    fun CXCursor.asField(workingDir: Path): Result<Field> =
+    fun CXCursor.asField(): Result<Field> =
         getIdentifier()
             .flatMap { id ->
                 when {
                     id.isBlank() ->
                         type()
-                            .asAnonType(workingDir)
+                            .asAnonType()
                             .map { t -> Field.Anonymous(t.first, t.second) }
                     else -> {
                         val attrs = this.cursorAttributes(type())
@@ -470,12 +476,12 @@ open class CursorParser(
      * but that still enables direct access of the innermost fields `a` and `b` on a value
      * of the outermost struct type.
      */
-    fun CXType.asAnonType(workingDir: Path): Result<Pair<StructOrUnion, FieldDecls>> =
+    fun CXType.asAnonType(): Result<Pair<StructOrUnion, FieldDecls>> =
         when (kind()) {
             // anonymous union/struct field are treated differently
             CXType_Record -> {
                 clang_getTypeDeclaration(this)
-                    .asDeclaration(workingDir)
+                    .asDeclaration()
                     .flatMap { d ->
                         // sanity check
                         assert(d.ident == "")

@@ -8,6 +8,7 @@ import com.riscure.bumper.analyses.union
 import com.riscure.bumper.ast.*
 import org.bytedeco.llvm.clang.CXCursor
 import org.bytedeco.llvm.global.clang.*
+import java.nio.file.Path
 
 /**
  * An implementation of the dependency analysis interface using Libclang.
@@ -16,12 +17,13 @@ class ClangDependencyAnalysis(
     private val ast: ClangTranslationUnit,
     /** A mapping from clang cursors (identified by their hash) and declarations in the [ast] */
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
+    private val workingDir: Path
 ) : UnitDependencyAnalysis<CXCursor, CXCursor> {
 
     private val tuid get() = ast.tuid
 
     private fun typeOf(cursor: CXCursor): Either<String, Type> =
-        with (CursorParser(tuid)) {
+        with (CursorParser(tuid, workingDir)) {
             cursor.type().asType()
         }
 
