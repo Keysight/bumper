@@ -26,6 +26,10 @@ private fun Int.asSeverity(): Option<Severity> =
         none()
     }
 
+/**
+ * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
+ * like file.string from clang_getPresumedLocation, with workingDir as base.
+ */
 private fun CXDiagnostic.asDiagnostic(workingDir: Path): Option<Diagnostic> {
     val msg = clang_getDiagnosticSpelling(this).string
     return clang_getDiagnosticLocation(this)

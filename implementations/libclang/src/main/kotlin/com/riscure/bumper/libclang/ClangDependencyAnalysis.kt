@@ -15,8 +15,14 @@ import java.nio.file.Path
  */
 class ClangDependencyAnalysis(
     private val ast: ClangTranslationUnit,
+
     /** A mapping from clang cursors (identified by their hash) and declarations in the [ast] */
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
+
+    /**
+     * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
+     * like file.string from clang_getPresumedLocation, with workingDir as base.
+     */
     private val workingDir: Path
 ) : UnitDependencyAnalysis<CXCursor, CXCursor> {
 
