@@ -10,6 +10,7 @@ import com.riscure.toBool
 import org.bytedeco.javacpp.annotation.ByVal
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
+import java.nio.file.Path
 
 private typealias Result<T> = Either<String, T>
 typealias CursorHash = Int
@@ -40,6 +41,12 @@ data class UnitWithCursorData(
  */
 open class CursorParser(
     val tuid: TUID,
+
+    /**
+     * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
+     * like file.string from clang_getPresumedLocation, with workingDir as base.
+     */
+    private val workingDir: Path,
 
     /**
      * Declarations that need to be elaborated to top-level definitions.
@@ -219,7 +226,7 @@ open class CursorParser(
 
         return Meta(
             location = getRange(),
-            presumedLocation = getLocation().flatMap { it.asPresumedLocation() },
+            presumedLocation = getLocation().flatMap { it.asPresumedLocation(workingDir) },
             doc = comment
         )
     }

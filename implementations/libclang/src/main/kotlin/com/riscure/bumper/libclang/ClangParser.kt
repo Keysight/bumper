@@ -26,7 +26,11 @@ private fun Int.asSeverity(): Option<Severity> =
         none()
     }
 
-private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
+/**
+ * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
+ * like file.string from clang_getPresumedLocation, with workingDir as base.
+ */
+private fun CXDiagnostic.asDiagnostic(workingDir: Path): Option<Diagnostic> {
     val msg = clang_getDiagnosticSpelling(this).string
     return clang_getDiagnosticLocation(this)
         .let { cxloc ->
@@ -36,7 +40,7 @@ private fun CXDiagnostic.asDiagnostic(): Option<Diagnostic> {
                     clang_getDiagnosticSeverity(this)
                         .asSeverity()
                         .map { sev ->
-                            Diagnostic(sev, loc, cxloc.asPresumedLocation(), msg)
+                            Diagnostic(sev, loc, cxloc.asPresumedLocation(workingDir), msg)
                         }
                 }
         }
@@ -109,19 +113,19 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
             val c_diagnostics = clang_getDiagnosticSetFromTU(c_tu)
             val diagnostics = (0 until clang_getNumDiagnosticsInSet(c_diagnostics))
                 .map { clang_getDiagnosticInSet(c_diagnostics, it) }
-                .flatMap { it.asDiagnostic().toList() } // silently drop diagnostics that we could not parse
+                .flatMap { it.asDiagnostic(entry.workingDirectory).toList() } // silently drop diagnostics that we could not parse
 
             return if (diagnostics.any { it.severity == Severity.ERROR }) {
                 ParseError.ParseFailed(tuid, cmd.optArgs, diagnostics).left()
             } else {
                 val rootCursor = clang_getTranslationUnitCursor(c_tu)
-                with(CursorParser(tuid)) {
+                with(CursorParser(tuid, workingDirectory)) {
                     rootCursor
                         .asTranslationUnit()
-                        .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors) }
+                        .map { (ast, cursors) -> ClangUnitState(ast, c_tu, cursors, workingDirectory) }
                 }
                 ClangUnitState
-                    .create(tuid, c_tu)
+                    .create(tuid, c_tu, workingDirectory)
                     .mapLeft { msg -> ParseError.InternalError(tuid, msg) }
             }
         }

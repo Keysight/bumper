@@ -10,6 +10,7 @@ import com.riscure.bumper.pp.Extractor
 import com.riscure.bumper.preprocessor.CPPInfo
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang
+import java.nio.file.Path
 
 /**
  * The Clang parser implementation now only analyzes upto expression/statements.
@@ -29,7 +30,8 @@ data class ClangUnitState(
     override val ast: TranslationUnit<CXCursor, CXCursor>,
     private val cxunit: CXTranslationUnit,
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
-    override val cppinfo: CPPInfo = CPPInfo(),
+    private val workingDir: Path,
+    override val cppinfo: CPPInfo = CPPInfo()
 ) : UnitState<CXCursor, CXCursor, ClangUnitState> {
     override fun close() = cxunit.close()
     override fun withCppinfo(cppinfo: CPPInfo): ClangUnitState = copy(cppinfo = cppinfo)
@@ -52,16 +54,16 @@ data class ClangUnitState(
         }
 
     override val dependencies get() =
-        ClangDependencyAnalysis(ast, elaboratedCursors).ofUnit(ast)
+        ClangDependencyAnalysis(ast, elaboratedCursors, workingDir).ofUnit(ast)
 
     companion object {
         @JvmStatic
-        fun create(tuid: TUID, cxunit: CXTranslationUnit): Either<String, ClangUnitState> {
+        fun create(tuid: TUID, cxunit: CXTranslationUnit, workingDir: Path): Either<String, ClangUnitState> {
             val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-            return with(CursorParser(tuid)) {
+            return with(CursorParser(tuid, workingDir)) {
                 rootCursor
                     .asTranslationUnit()
-                    .map { (ast, cursors) -> ClangUnitState(ast, cxunit, cursors) }
+                    .map { (ast, cursors) -> ClangUnitState(ast, cxunit, cursors, workingDir) }
             }
         }
 
