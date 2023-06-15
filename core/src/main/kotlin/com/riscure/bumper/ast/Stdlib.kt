@@ -1,6 +1,8 @@
 package com.riscure.bumper.ast
 
 import com.riscure.bumper.ast.Exp.Companion.call
+import com.riscure.bumper.ast.Exp.Companion.cast
+import com.riscure.bumper.ast.Exp.Companion.constant
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.ast.Type.Companion.function
 import com.riscure.bumper.ast.Type.Companion.void
@@ -14,6 +16,8 @@ interface IStdlib {
     val preamble: Preamble
 
     val size_t: Type
+
+    val NULL: Exp
 
     /**
      * A precondition for [sizeof] is that [type] is complete so that the compiler can determine its size.
@@ -40,6 +44,7 @@ interface IStdlib {
  */
 class Stdlib(val sizeKind: IKind): IStdlib {
     override val size_t: Type = Type.Int(sizeKind)
+    override val NULL: Exp = cast(void.ptr(), constant(0L, IKind.IUInt))
 
     @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void, Param("ptr", void.ptr())))
 
@@ -77,5 +82,5 @@ object StdlibsHeader: IStdlib {
     )
 
     override val size_t: Type = Type.typedef("size_t")
-    val NULL: Exp  = Exp.Var("NULL", void.ptr())
+    override val NULL: Exp  = Exp.Var("NULL", void.ptr())
 }
