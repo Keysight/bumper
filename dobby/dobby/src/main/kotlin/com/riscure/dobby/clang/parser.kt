@@ -23,8 +23,8 @@ private typealias Result<T> = Either<String,T>
 private typealias RecoverCallback = (surprise: String) -> Boolean
 
 object RecoveryCallbacks {
-    val always: RecoverCallback = { true }
-    val strict: RecoverCallback = { false }
+    @JvmStatic val always: RecoverCallback = { true }
+    @JvmStatic val strict: RecoverCallback = { false }
 }
 
 object ClangParser {

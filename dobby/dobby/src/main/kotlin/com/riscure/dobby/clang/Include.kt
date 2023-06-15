@@ -2,20 +2,23 @@ package com.riscure.dobby.clang
 
 import arrow.core.*
 import java.nio.file.Path
+import kotlin.io.path.extension
 
 data class Include(
     /** Included path; may be relative. */
-    val header: Path,
+    val path: Path,
 
     /** Whether this is a '<..>' include or not */
     val sysHeader: Boolean,
 
-) {
+    ) {
+    val isHeader get() = path.extension == "h"
+
     /**
      * The quoted or bracketed include.
      */
     val quoted: String get() =
-        if (sysHeader) "<$header>" else "\"$header\""
+        if (sysHeader) "<$path>" else "\"$path\""
 
     fun pretty() = "#include $quoted"
 
