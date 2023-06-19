@@ -36,7 +36,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
     fun `int-pointer-without-dependencies`() = testDependencies("""
         typedef int *Test;
     """.trimIndent()) { deps, _, _ ->
-        assertTrue(deps.get().isEmpty())
+        assertTrue(deps.context().isEmpty())
     }
 
     @Test
@@ -44,7 +44,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A { int i; };
         typedef struct A Test;
     """.trimIndent()) { deps, ast, res->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -60,7 +60,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A { int i; };
         typedef struct A *Test;
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -76,7 +76,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A { int i; };
         typedef void (*Test)(int i, struct A a);
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -94,7 +94,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A;
         typedef void (*Test)(int i, struct A a);
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -110,7 +110,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A {};
         typedef void (Test)(int i, struct A a);
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -129,7 +129,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         // we passed needSize = false, indicating
         // that we are asking for dependencies for a type that we do not need to know the size of.
         // this should propagate to the dependencies.
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.first()
 
         assertEquals("A", typ.ref.name)
@@ -145,7 +145,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         struct A { int i; };
         typedef void (Test)(struct A*, struct A, struct A*);
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.find { it.ref.name == "A" }.assertOK()
         assertEquals(EntityKind.Struct, typ.kind)
         assertTrue(ds[typ].assertOK())
@@ -160,7 +160,7 @@ interface TypeDependencyAnalysisTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E
         typedef void (Test)(struct A*);
         struct A { int i; };
     """.trimIndent()) { deps, ast, res ->
-        val ds = deps.get()
+        val ds = deps.context()
         val typ = ds.keys.find { it.ref.name == "A" }.assertOK()
         assertEquals(EntityKind.Struct, typ.kind)
         // we don't need a definition
