@@ -29,6 +29,10 @@ interface IStdlib {
         "malloc", function(void.ptr(), Param("size", size_t))
     )
 
+    val free get() = UnitDeclaration.Fun<Nothing>(
+        "free", function(void, Param("ptr", void.ptr()))
+    )
+
     fun malloc(sizeExp: Exp): Exp = call(malloc.ref(), sizeExp)
 
     /**
@@ -36,6 +40,8 @@ interface IStdlib {
      * It is up to the caller to verify that this precondition holds at the point where sizeof is called.
      */
     fun malloc(type: Type)= malloc(sizeof(type))
+
+    fun free(ptr: Exp): Exp = call(free.ref(), ptr)
 }
 
 /**
@@ -45,10 +51,6 @@ interface IStdlib {
 class Stdlib(val sizeKind: IKind): IStdlib {
     override val size_t: Type = Type.Int(sizeKind)
     override val NULL: Exp = cast(void.ptr(), constant(0L, IKind.IUInt))
-
-    @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void, Param("ptr", void.ptr())))
-
-    override fun malloc(sizeExp: Exp) = call(malloc.ref(), sizeExp)
 
     override val preamble = Preamble(
         listOf(),
