@@ -51,9 +51,22 @@ object Pretty {
     fun type(t: Type) = declaration("", t)
 
     @JvmStatic
-    private fun typeAttrs(attrs: Attrs) =
+    private fun attrArg(arg: AttrArg): String = when (arg) {
+        is AttrArg.AString -> cstring(arg.value)
+        is AttrArg.AnIdent -> arg.value
+        is AttrArg.AnInt   -> arg.value.toString()
+    }
+
+    @JvmStatic
+    private fun attributes(attrs: Attrs) =
         attrs.joinToString(separator=" ") { when (it) {
-            is Attr.AlignAs   -> "__attribute__ ((aligned(${it.alignment})))"
+            is Attr.NamedAttr -> {
+                val params = if (it.args.isNotEmpty())
+                    "(${it.args.joinToString(separator = ", ") { attrArg(it) }})" else ""
+                "__attribute__((${it.name}$params))"
+            }
+            is Attr.AlignAs   ->
+                "__attribute__((aligned(${it.alignment})))"
             Attr.Constant     -> "const"
             Attr.Restrict     -> "restrict"
             Attr.Volatile     -> "volatile"
@@ -62,7 +75,7 @@ object Pretty {
     private fun formals(params: List<Param>): String =
         params.joinToString(separator=", ") { declaration(it.name, it.type) }
 
-    private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) " ${typeAttrs(attrs)} " else ""
+    private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) "${attributes(attrs)} " else ""
 
     private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
         is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrsOnType)}${name}")
@@ -222,8 +235,11 @@ object Pretty {
             """
             if (${exp(s.condition)}) {
                 ${stmt(s.thenBranch)}
-            } ${if (s.elseBranch is Stmt.Skip) "" else stmt(s.elseBranch)}
-            """.trimIndent()
+            }
+            """ + if (s.elseBranch is Stmt.Skip) "" else """
+            else {
+                ${stmt(s.elseBranch)}
+            }""".trimIndent()
         is Stmt.Continue ->
             "continue;"
         is Stmt.Decl -> with(s) {
@@ -471,13 +487,13 @@ class AstWriters<Exp, Body>(
         /**
          * Encode a string as a C string literal.
          */
-        fun cstring(s: String): String =
-            s.toList().joinToString(separator="") { c ->
+        fun cstring(s: String): String {
+            val literal = s.toList().joinToString(separator = "") { c ->
                 when (c) {
                     '\t' -> "\\t"
                     '\n' -> "\\n"
                     '\r' -> "\\r"
-                    '"'  -> "\\\""
+                    '"' -> "\\\""
                     '\\' -> "\\\\"
                     else ->
                         // ascii range
@@ -485,6 +501,9 @@ class AstWriters<Exp, Body>(
                         else "\\u${c.code.toString(16).padStart(4, '0')}"
                 }
             }
+
+            return "\"$literal\""
+        }
 
         /**
          * An instance of AstWriters for translation units whose expressions and statements

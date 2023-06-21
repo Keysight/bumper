@@ -242,6 +242,7 @@ import kotlinx.serialization.Serializable
         is VaList     -> copy(attrsOnType = newAttrs)
         is Core       -> withAttrs(newAttrs)
     }
+    fun withAttrs(vararg attrs: Attr): Type = withAttrs(attrs.toList())
     fun modifyAttrs(f: (Attrs) -> Attrs): Type = withAttrs(f(attrsOnType))
 
     // smart constructors

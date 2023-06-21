@@ -1,15 +1,17 @@
 package com.riscure.langs.c
 
 import com.riscure.bumper.ast.*
-import com.riscure.bumper.ast.Exp.*
-import com.riscure.bumper.ast.BinaryOp.*
+import com.riscure.bumper.ast.BinaryOp.OpAdd
+import com.riscure.bumper.ast.BinaryOp.OpMul
 import com.riscure.bumper.ast.Exp.Companion.assign
 import com.riscure.bumper.ast.Exp.Companion.dot
 import com.riscure.bumper.ast.Exp.Companion.index
 import com.riscure.bumper.ast.Exp.Companion.op
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
+import com.riscure.bumper.ast.Exp.Var
 import com.riscure.bumper.pp.Pretty
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class PrettyPrinterTest {
 
@@ -104,4 +106,14 @@ class PrettyPrinterTest {
             index(Var("x", Type.array(Type.uint)), Var("i", Type.uint), Type.uint)
         )
     )
+
+    @Test
+    fun `named-attribute`() = assertEquals(
+        "__attribute__((no_sanitize(\"coverage\"))) void f()",
+        Pretty.declaration("f", Type
+            .function(Type.void)
+            .withAttrs(Attr.noSanitizeCoverage)
+        )
+    )
+
 }
