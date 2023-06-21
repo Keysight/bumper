@@ -3,12 +3,15 @@ package com.riscure.bumper.libclang
 import arrow.core.*
 import arrow.typeclasses.Monoid
 import com.riscure.bumper.ast.*
-import com.riscure.getOption
 import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
+import com.riscure.getOption
 import com.riscure.toBool
 import org.bytedeco.javacpp.annotation.ByVal
-import org.bytedeco.llvm.clang.*
+import org.bytedeco.llvm.clang.CXClientData
+import org.bytedeco.llvm.clang.CXCursor
+import org.bytedeco.llvm.clang.CXFieldVisitor
+import org.bytedeco.llvm.clang.CXType
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
 
@@ -394,9 +397,8 @@ open class CursorParser(
                             UnitDeclaration.Fun(
                                 id,
                                 clang_Cursor_isFunctionInlined(this).toBool(),
-                                resultType,
-                                params,
-                                clang_Cursor_isVariadic(this).toBool(),
+                                // TODO attributes on the function type
+                                Type.Fun(resultType, params, clang_Cursor_isVariadic(this).toBool()),
                             )
                         }
                 }

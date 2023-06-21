@@ -40,8 +40,7 @@ object Pretty {
 
     @JvmStatic
     fun declaration(ident: Ident, type: Type): String = when (type) {
-        is Type.Fun ->
-            signature(ident, type.params, type.vararg, type.returnType)
+        is Type.Fun -> signature(ident, type)
         else -> {
             val (remainingType, decl) = namePart(type, ident)
             "${maybeAttrs(remainingType.attrsOnType)}${typePrefix(remainingType)} $decl".trim()
@@ -96,22 +95,19 @@ object Pretty {
     }
 
     @JvmStatic
-    fun signature(function: UnitDeclaration.Fun<*>): String {
-        assert(function.returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
-
-        return with(function) {
-            signature(ident, params, vararg, returnType)
-        }
-    }
+    fun signature(function: UnitDeclaration.Fun<*>): String =
+        signature(function.ident, function.type)
 
     /**
      * Print the signature of a function, without trailing semi-colon.
      */
     @JvmStatic
-    fun signature(ident: Ident, params: Params, vararg: Boolean, returns: Type): String {
-        assert(returns !is Type.Array) { "Invariant violation while pretty-printing type" }
+    fun signature(ident: Ident, type: Type.Fun): String = with (type) {
+        assert(returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
         val ppvararg = if (vararg) ", ..." else ""
-        return declaration("${ident}(${formals(params)}$ppvararg)", returns)
+        val funAttrs = maybeAttrs(type.attrsOnType)
+        val decl = declaration("${ident}(${formals(params)}$ppvararg)", returnType)
+        return "$funAttrs$decl"
     }
 
     @JvmStatic

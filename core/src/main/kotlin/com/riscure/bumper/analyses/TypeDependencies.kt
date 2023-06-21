@@ -169,11 +169,7 @@ fun typeDependencies(
         typeDependencies(decl.underlyingType, false, acc)
 
     is UnitDeclaration.Fun -> {
-        // todo needSize?
-        typeDependencies(decl.returnType, false, acc)
-        decl.params.forEach {
-            typeDependencies(it.type, false, acc)
-        }
+        typeDependencies(decl.type, false, acc)
         decl.body.tap { typeDependencies(it, acc) }
         acc
     }
