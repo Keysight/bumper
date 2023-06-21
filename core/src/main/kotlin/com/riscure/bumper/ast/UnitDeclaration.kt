@@ -117,7 +117,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
+        fun <E> withDefinition(exp: E) = Var(ident, type, exp.some(), storage, meta)
 
         // An extern global variable with initialization is seen as a defined symbol by linker
         override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
@@ -146,7 +146,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        fun withDefinition(stmt: @UnsafeVariance Stmt) = this.copy(body = stmt.some())
+        fun <S> withDefinition(body: S) =
+            Fun(ident, inline, returnType, params, vararg, body.some(), storage, meta)
 
         override val type get() = Type.Fun(returnType, params, vararg)
         fun withType(ty: Type.Fun) = copy(
