@@ -60,6 +60,17 @@ data class IncludePath(
             .flatMap { it.relativize(norm) }
     }
 
+    fun relativize(paths: Collection<Path>): Either<Path, List<Include>> =
+        paths
+            .map {
+                relativize(it).toEither { it }
+            }
+            .sequence()
+
+    fun show(): String =
+        (this.iquote.asSequence() + this.isystem.asSequence())
+            .joinToString(separator = "\n") {  ip -> "\t- $ip" }
+
     companion object {
         fun iquote(vararg paths: Path) = IncludePath(iquote = paths.map { IPath.Quote(it) }.toSet())
         fun isystem(vararg paths: Path) = IncludePath(isystem = paths.map { IPath.Sys(it) }
@@ -83,11 +94,15 @@ sealed interface IPath {
      * A so-called system include path.
      * When invoking a compiler, these are set with `-isystem` or `-I`.
      */
-    data class Sys(override val path: Path): IPath
+    data class Sys(override val path: Path): IPath {
+        override fun toString(): String = "-isystem $path"
+    }
 
     /**
      * A so-called quoted include path.
      * When invoking a compiler, these are set with `-iquote`.
      */
-    data class Quote(override val path: Path): IPath
+    data class Quote(override val path: Path): IPath {
+        override fun toString(): String = "-iquote $path"
+    }
 }
