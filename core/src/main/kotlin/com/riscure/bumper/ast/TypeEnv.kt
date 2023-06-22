@@ -32,6 +32,15 @@ fun interface TypeContext {
         }
     }
 
+    /**
+     * Return a leftover context of type requirements after resolving
+     * as much as possible in [provided].
+     */
+    fun resolve(provided: TypeEnv): TypeContext = TypeContext {
+        context()
+            .filter { (type, needSize) -> !provided.contains(type, needSize) }
+    }
+
     companion object {
         val empty = TypeContext { mapOf() }
     }
@@ -92,17 +101,6 @@ interface TypeEnv {
     fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
 
     /**
-     * Return the most precise type declaration of [type].
-     * That is, if this [TypeEnv] has a definition, that definition is returned.
-     * Otherwise, it may return a declaration. If neither is available, we return [Missing].
-     */
-    fun lookup(type: Type.Defined): TypeLookup<UnitDeclaration.TypeDeclaration> =
-        lookup(type.ref)
-            .filterOrOther({ it.kind == type.kind }) {
-                Missing(type.ref, false) // defined types need not have a definition
-            }
-
-    /**
      * Resolve a given [ctx] in this type environment, producing a set of
      * type declarations/definitions whose keys coincide with the keys of `[ctx].get()`.
      * If the context requires a definition, then the returned map if any is guaranteed to
@@ -113,7 +111,7 @@ interface TypeEnv {
             ctx
                 .context()
                 .mapValues { (typ, needsDefinition) ->
-                    val resolution = lookup(typ).getOrHandle { throw it }
+                    val resolution = lookup(typ.ref).getOrHandle { throw it }
                     if (!needsDefinition || resolution.isDefinition) {
                         resolution
                     } else {
@@ -156,6 +154,21 @@ interface TypeEnv {
                 }
                 else Missing(tlid, true).left()
             }
+
+    /**
+     * Check if this [TypeEnv] has a sufficient definition of [type].
+     *
+     * @param needSize whether a complete type definition is required.
+     */
+    fun contains(type: Type.Defined, needSize: Boolean) =
+        when (val def = lookup(type.ref)) {
+            is Either.Left  ->
+                // requirement is not fulfilled
+                true
+            is Either.Right ->
+                // filter if sufficient definition
+                !(!needSize || def.value.isDefinition)
+        }
 }
 
 /**
@@ -165,6 +178,11 @@ data class LazyTypeEnv(
     override val builtins: Builtins,
     val typeDeclarations: Collection<UnitDeclaration.TypeDeclaration>
 ): TypeEnv {
+    operator fun plus(other: Collection<UnitDeclaration.TypeDeclaration>) = LazyTypeEnv(
+        builtins,
+        typeDeclarations + other
+    )
+
     override fun lookup(tlid: TLID): Either<TypeEnv.Missing, UnitDeclaration.TypeDeclaration> {
         // look for the best type declaration.
         var best: UnitDeclaration.TypeDeclaration? = null

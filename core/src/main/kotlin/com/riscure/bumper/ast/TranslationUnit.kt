@@ -175,41 +175,43 @@ fun <E,T> TranslationUnit<E,T>.collect(transform: (d: UnitDeclaration<E, T>) -> 
 
 // Some convenience extension methods: filters for lists of declarations
 
-val <E, T> List<UnitDeclaration<E, T>>.variables: List<UnitDeclaration.Var<E>> get() =
+private typealias UnitDecls<E, T> = Collection<UnitDeclaration<E, T>>
+
+val <E, T> UnitDecls<E, T>.variables: List<UnitDeclaration.Var<E>> get() =
     filterIsInstance<UnitDeclaration.Var<E>>()
 
-val <E, T> List<UnitDeclaration<E, T>>.functions: List<UnitDeclaration.Fun<T>> get() =
+val <E, T> UnitDecls<E, T>.functions: List<UnitDeclaration.Fun<T>> get() =
     filterIsInstance<UnitDeclaration.Fun<T>>()
 
-val <E, T> List<UnitDeclaration<E, T>>.typedefs: List<UnitDeclaration.Typedef> get() =
+val <E, T> UnitDecls<E, T>.typedefs: List<UnitDeclaration.Typedef> get() =
     filterIsInstance<UnitDeclaration.Typedef>()
 
-val <E, T> List<UnitDeclaration<E, T>>.enums: List<UnitDeclaration.Enum> get() =
+val <E, T> UnitDecls<E, T>.enums: List<UnitDeclaration.Enum> get() =
     filterIsInstance<UnitDeclaration.Enum>()
 
-val <E,T> List<UnitDeclaration<E, T>>.structs: List<UnitDeclaration.Struct> get() =
+val <E,T> UnitDecls<E, T>.structs: List<UnitDeclaration.Struct> get() =
     filterIsInstance<UnitDeclaration.Struct>()
 
-val <E,T> List<UnitDeclaration<E, T>>.unions: List<UnitDeclaration.Union> get() =
+val <E,T> UnitDecls<E, T>.unions: List<UnitDeclaration.Union> get() =
     filterIsInstance<UnitDeclaration.Union>()
 
-val <T> List<UnitDeclaration.Fun<T>>.definitions: List<UnitDeclaration.Fun<T>> get() =
+val <T> Collection<UnitDeclaration.Fun<T>>.definitions: List<UnitDeclaration.Fun<T>> get() =
     filter { it.isDefinition }
 
-val <T> List<UnitDeclaration.Fun<T>>.declarations: List<UnitDeclaration.Fun<T>> get() =
+val <T> Collection<UnitDeclaration.Fun<T>>.declarations: List<UnitDeclaration.Fun<T>> get() =
     filter { !it.isDefinition }
 
-val <E, T> List<UnitDeclaration<E, T>>.typeDeclarations: List<UnitDeclaration.TypeDeclaration> get() =
-    filterIsInstance<UnitDeclaration.TypeDeclaration>()
+val <E, T> UnitDecls<E, T>.typeDeclarations: List<UnitDeclaration.TypeDeclaration>
+    get() = filterIsInstance<UnitDeclaration.TypeDeclaration>()
 
-val <E, T> List<UnitDeclaration<E, T>>.valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>> get() =
-    filterIsInstance<UnitDeclaration.Valuelike<E,T>>()
+val <E, T> UnitDecls<E, T>.valuelikeDeclarations: List<UnitDeclaration.Valuelike<E, T>>
+    get() = filterIsInstance<UnitDeclaration.Valuelike<E,T>>()
 
-val <E, T> List<UnitDeclaration<E, T>>.functionDefinitions: List<UnitDeclaration.Fun<T>> get() =
+val <E, T> UnitDecls<E, T>.functionDefinitions: List<UnitDeclaration.Fun<T>> get() =
     filterIsInstance<UnitDeclaration.Fun<T>>()
         .filter { it.isDefinition }
 
-val <E, T> List<UnitDeclaration<E,T>>.varDefinitions: List<UnitDeclaration.Var<E>> get() {
+val <E, T> UnitDecls<E, T>.varDefinitions: List<UnitDeclaration.Var<E>> get() {
     val varDefMap = LinkedHashMap<TLID, UnitDeclaration.Var<E>>()
     this
         .asSequence()
@@ -221,5 +223,5 @@ val <E, T> List<UnitDeclaration<E,T>>.varDefinitions: List<UnitDeclaration.Var<E
     return varDefMap.values.toList();
 }
 
-val <E, T> List<UnitDeclaration<E, T>>.valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>> get() =
+val <E, T> UnitDecls<E, T>.valuelikeDefinitions: List<UnitDeclaration.Valuelike<E, T>> get() =
     functionDefinitions + varDefinitions

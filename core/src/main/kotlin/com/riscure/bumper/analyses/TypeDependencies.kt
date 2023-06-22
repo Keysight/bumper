@@ -143,11 +143,21 @@ fun typeDependencies(exp: Exp, acc: MutTypeContext): MutTypeContext = when (exp)
 private fun typeDependencies(
     initializer: Initializer,
     acc: MutTypeContext
-): MutTypeContext = when (initializer) {
-    is Initializer.InitArray  -> TODO()
-    is Initializer.InitStruct -> TODO()
-    is Initializer.InitUnion  -> TODO()
-    is Initializer.InitSingle -> TODO()
+): MutTypeContext {
+    when (initializer) {
+        is Initializer.InitArray  ->
+            initializer.exps.forEach {
+                typeDependencies(it, acc)
+            }
+        is Initializer.InitStruct ->
+            initializer.initializers.values.forEach { typeDependencies(it, acc) }
+        is Initializer.InitUnion  ->
+            typeDependencies(initializer.initializer, acc)
+        is Initializer.InitSingle ->
+            typeDependencies(initializer.exp)
+    }
+
+    return acc
 }
 
 fun typeDependencies(decl: UnitDeclaration<Exp, Stmt>): TypeContext =
@@ -177,7 +187,16 @@ fun typeDependencies(
     else -> acc
 }
 
-private fun typeDependencies(field: Field, acc: MutTypeContext): MutTypeContext = when (field) {
-    is Field.Anonymous -> TODO()
-    is Field.Named     -> TODO()
+private fun typeDependencies(field: Field, acc: MutTypeContext): MutTypeContext {
+    when (field) {
+        is Field.Anonymous -> {
+            field.subfields.forEach { typeDependencies(it, acc) }
+        }
+        is Field.Named     ->
+            // we need the size of the field type to be able to compute the size of the
+            // surrounding struct
+            typeDependencies(field.type, true, acc)
+    }
+
+    return acc
 }
