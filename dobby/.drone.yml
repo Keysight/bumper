@@ -16,8 +16,8 @@ trigger:
 steps:
 - name: build and test
   commands:
-  - gradle build
+  - ./gradlew build
 - name: package jar
   commands:
-  - gradle jar
+  - ./gradlew jar
 ...
