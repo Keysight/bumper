@@ -19,5 +19,5 @@ steps:
   - gradle build
 - name: package jar
   commands:
-  - gradle jar
+  - ./gradlew jar
 ...
