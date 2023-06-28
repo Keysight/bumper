@@ -48,11 +48,16 @@ sealed interface Stmt {
         @JvmStatic
         fun ret() = Return(none())
         @JvmStatic
+        fun seq(fst: Stmt, snd: Stmt) = when {
+            fst is Skip -> snd
+            snd is Skip -> fst
+            else        -> Seq(fst, snd)
+        }
+        @JvmStatic
         fun seq(vararg stmts: Stmt) = seq(stmts.toList())
         @JvmStatic
         fun seq(stmts: List<Stmt>) = stmts
-            // we define it in such a way that seq(listOf()) = seq(listOf(seq(seq(skip)))) = Skip
-            .foldSeq(Skip as Stmt) { acc, stmt -> Seq(acc, stmt) }
+            .fold(Skip as Stmt) { acc, stmt -> seq(acc, stmt) }
         @JvmStatic
         fun cond(condition: Exp, then: Stmt) = cond(condition, then, Skip)
         @JvmStatic
