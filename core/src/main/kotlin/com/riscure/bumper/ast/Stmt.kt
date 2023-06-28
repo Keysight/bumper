@@ -43,7 +43,7 @@ sealed interface Stmt {
             Decl(ident = name, type = type, init = Initializer.InitSingle(init).some())
         @JvmStatic
         fun decl(name: Ident, type: Type) = Decl(ident = name, type = type)
-        @JvmStatic
+        @JvmStati
         fun ret(value: Exp) = Return(value.some())
         @JvmStatic
         fun ret() = Return(none())
