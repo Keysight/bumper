@@ -50,7 +50,9 @@ sealed interface Stmt {
         @JvmStatic
         fun seq(vararg stmts: Stmt) = seq(stmts.toList())
         @JvmStatic
-        fun seq(stmts: List<Stmt>) = stmts.foldRight(Skip as Stmt) { stmt, acc -> Seq(stmt, acc) }
+        fun seq(stmts: List<Stmt>) = stmts
+            // we define it in such a way that seq(listOf()) = seq(listOf(seq(seq(skip)))) = Skip
+            .foldSeq(Skip as Stmt) { acc, stmt -> Seq(acc, stmt) }
         @JvmStatic
         fun cond(condition: Exp, then: Stmt) = cond(condition, then, Skip)
         @JvmStatic
@@ -79,3 +81,19 @@ sealed class StmtLabel {
         override fun toString() = "default"
     }
 }
+
+/**
+ * Fold over the statements in the sequence of statements, skipping skip-statements and recursively
+ * folding in order nested sequences.
+ */
+fun <A> List<Stmt>.foldSeq(initial: A, block: (A, Stmt) -> A): A =
+    this.fold(initial) { acc, stmt ->
+        when (stmt) {
+            Stmt.Skip   -> acc
+            is Stmt.Seq -> stmt.foldSeq(acc, block)
+            else        -> block(acc, stmt)
+        }
+    }
+
+fun <A> Stmt.Seq.foldSeq(initial: A, block: (A, Stmt) -> A): A =
+    listOf(first, second).foldSeq(initial, block)
