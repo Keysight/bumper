@@ -164,7 +164,7 @@ data class Arg(val opt: OptionSpec, val values: List<String>) {
                 OptionType.CommaJoined       -> op + values.joinToString(",")
                 OptionType.JoinedAndSeparate -> op + values[0] + " " + values.joinToString(" ")
                 OptionType.JoinedOrSeparate  -> op + values.joinToString(" ")
-                OptionType.Separate          -> op + values.joinToString(" ")
+                OptionType.Separate          -> op + " " + values.joinToString(" ")
                 OptionType.Toggle            -> op
                 is OptionType.MultiArg       -> op + values.joinToString(" ")
             }
