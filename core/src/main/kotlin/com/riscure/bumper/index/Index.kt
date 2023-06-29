@@ -14,7 +14,10 @@ import java.io.*
 
 /**
  * An [Index] maps identifiers to a set of matching [Entry]s.
- * It only records value definitions (functions, globals) that are visible across unit boundaries (non-static).
+ * It only records entries for value (functions, globals) **definitions**
+ * that are visible across unit boundaries (non-static).
+ * For each definition, only the prototype is recorded in the index,
+ * so despite each entry _representing_ a definition, entry.isDefinition will be false for each.
  */
 @Serializable
 data class Index(val symbols: Map<Ident, Set<Entry>>) {
@@ -35,8 +38,7 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
             meta.presumedLocation.map { it.sourceFile } .getOrElse { tuid.main }
     }
 
-    fun plus(other: Index): Index =
-        Index(symbols.zip(other.symbols) { _, l, r -> l + r })
+    fun plus(other: Index): Index = merge(listOf(this, other))
 
     /**
      * Find definitions in the index for the given [id].
