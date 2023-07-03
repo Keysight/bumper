@@ -184,7 +184,8 @@ fun typeDependencies(
         acc
     }
 
-    else -> acc
+    is UnitDeclaration.Var  -> typeDependencies(decl.type, true, acc)
+    is UnitDeclaration.Enum -> acc
 }
 
 private fun typeDependencies(field: Field, acc: MutTypeContext): MutTypeContext {
