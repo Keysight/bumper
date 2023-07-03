@@ -11,6 +11,9 @@ enum class EntityKind {
     Typedef,
     Var;
 
+    val isValue get() = this == Fun || this == Var
+    val isType get() = this == Enum || this == Struct || this == Union || this == Typedef
+
     companion object {
         fun <E,T> kindOf(toplevel: UnitDeclaration<E, T>) = toplevel.kind
     }
