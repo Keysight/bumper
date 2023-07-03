@@ -29,7 +29,8 @@ object LinkAnalysis {
     @JvmStatic
     operator fun <E, S> invoke(units: Collection<TranslationUnit<E, S>>): LinkGraph {
         // compute for each translation unit its interface
-        val interfaces = units.associate { unit -> Pair(unit.tuid, objectInterface(unit)) }
+        val interfaces = units
+            .associate { unit -> Pair(unit.tuid, objectInterface(unit)) }
 
         // Index the exports by TLID.
         // This assumes that we have at most one definition per tlid in the units.
@@ -74,32 +75,4 @@ object LinkAnalysis {
         return LinkGraph(edges)
     }
 
-    /**
-     * A [UnitInterface] is set of imports (declarations without definitions in the unit)
-     * together with a set of exports (defined and visible/non-static symbols in the unit).
-     */
-    data class UnitInterface<E, S>(
-        val imports: Set<UnitDeclaration.Valuelike<E,S>>,
-        val exports: Set<UnitDeclaration.Valuelike<E,S>>,
-    )
-
-    /**
-     * Compute the [UnitInterface] of a translation [unit].
-     */
-    @JvmStatic
-    fun <E, S> objectInterface(unit: TranslationUnit<E, S>): UnitInterface<E, S> {
-        // compute the list of declarations that are visible
-        // across linked units
-        val exports = unit
-            .valuelikeDefinitions
-            .filter { decl -> decl.storage != Storage.Static }
-        val exportIndex = exports.map { it.tlid } .toSet()
-
-        val imports = unit
-            .valuelikeDeclarations
-            .filter { decl -> decl.storage != Storage.Static }
-            .filter { decl -> !exportIndex.contains(decl.tlid) }
-
-        return UnitInterface(imports.toSet(), exports.toSet())
-    }
 }

@@ -110,8 +110,8 @@ private constructor(
     companion object {
 
         /**
-         * Smart constructor that ensures that the edgeset is complete,
-         * even if you pass a partial mapping from nodes to their dependencies.
+         * Smart constructor that ensures that the keyset of nodes is complete,
+         * even if you pass a mapping where some nodes only appear on the right-hand side.
          */
         operator fun invoke(edges: Map<Symbol, Set<Symbol>>): DependencyGraph {
             val completion = mutableMapOf<Symbol, Set<Symbol>>()

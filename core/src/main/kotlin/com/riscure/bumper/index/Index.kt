@@ -5,6 +5,7 @@ import com.riscure.bumper.serialization.NothingSerializer
 
 import arrow.core.*
 import com.riscure.bumper.analyses.LinkAnalysis
+import com.riscure.bumper.analyses.objectInterface
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Index.Entry
 import kotlinx.serialization.*
@@ -100,7 +101,7 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
          * Index a single unit
          */
         fun of(unit: TranslationUnit<*, *>): Index {
-            val exports = LinkAnalysis.objectInterface(unit).exports
+            val exports = objectInterface(unit).exports
             val symbols = exports.associateBy({ it.ident }) { export ->
                 setOf(Entry(unit.tuid, export.prototype, export.meta))
             }
@@ -114,7 +115,7 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
         fun of(units: Sequence<TranslationUnit<*, *>>): Index =
             units
                 .flatMap { unit ->
-                    val exports = LinkAnalysis.objectInterface(unit).exports
+                    val exports = objectInterface(unit).exports
                     exports
                         .asSequence()
                         .map { export -> Entry(unit.tuid, export.prototype, export.meta) }
