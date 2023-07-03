@@ -86,13 +86,15 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 
     /**
      * Produces the arguments for passing it to Runtime.exec(String[]) on the host platform.
+     * Note that this is not the same as shell escaping for the host platform (!).
      *
-     * The output of this function is really only suitable for exec'ing it now.
-     * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
+     * The output of this function is really only suitable for exec'ing it now (including
+     * use in [ProcessBuilder]. It should never end up in a file or even in a model,
+     * because there is nothing portable about the returned value.
      */
     fun toExecArguments(): List<String> = when {
         SystemUtils.IS_OS_WINDOWS -> toWinExecArguments()
-        else                      -> toPOSIXArguments()
+        else                      -> toArguments()
     }
 
     /**
@@ -103,7 +105,7 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
      */
     fun toWinExecArguments(): List<String> =
         toPOSIXArguments()
-            // TODO, this is definitely not right/complete
+            // TODO, this cannot possibly be right/complete
             .map { it.replace("\"", "\"\"\"") }
 
     /**
