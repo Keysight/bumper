@@ -31,6 +31,7 @@ dependencyResolutionManagement {
             library("apache.commons", "org.apache.commons:commons-lang3:3.8.1")
             library("picocli", "info.picocli:picocli:4.6.3")
             library("jansi", "org.fusesource.jansi:jansi:2.4.0")
+            library("junit", "org.junit.jupiter:junit-jupiter:5.7.1")
         }
     }
 }

@@ -78,22 +78,21 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 
     /**
      * Produces the arguments 'raw', without any escaping of the arguments.
-     * This is suitable for passing the arguments directly to a native library, for example.
+     * This is suitable for passing the arguments directly to Java's ProcessBuilder, for example.
      */
     fun toArguments(): List<String> =
         optArgs
-            .map { it.toString() }
-            .plus(positionalArgs)
+            .flatMap { it.toArguments() }
 
     /**
      * Produces the arguments for passing it to Runtime.exec(String[]) on the host platform.
      *
-     * The ouput of this function is really only suitable for exec'ing it now.
+     * The output of this function is really only suitable for exec'ing it now.
      * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
      */
     fun toExecArguments(): List<String> = when {
         SystemUtils.IS_OS_WINDOWS -> toWinExecArguments()
-        else                      -> toArguments()
+        else                      -> toPOSIXArguments()
     }
 
     /**
@@ -103,8 +102,9 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
      * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
      */
     fun toWinExecArguments(): List<String> =
-        toArguments()
-            .map { it.replace("\"", "\"\"\"") } // TODO, this is definitely not right/complete
+        toPOSIXArguments()
+            // TODO, this is definitely not right/complete
+            .map { it.replace("\"", "\"\"\"") }
 
     /**
      * This escapes the arguments for a POSIX shell.
@@ -133,6 +133,25 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
 data class Arg(val opt: OptionSpec, val values: List<String>) {
     constructor(opt: OptionSpec, value: String):  this(opt, listOf(value))
     constructor(opt: OptionSpec):  this(opt, listOf())
+
+    /**
+     * Join arguments according to the option specification for passing via e.g. ProcessBuilder
+     */
+    fun toArguments(): List<String> = opt.appearance()
+        .let { op ->
+            when (opt.type) {
+                OptionType.Joined            -> listOf(op + values) // single argument
+                OptionType.CommaJoined       -> {
+                    val values = values.joinToString(separator = ",") { it }
+                    listOf(op) + values
+                }
+                OptionType.JoinedAndSeparate -> listOf(op + values[0]) + values.drop(1)
+                OptionType.JoinedOrSeparate  -> listOf(op) + values
+                OptionType.Separate          -> listOf(op) + values
+                OptionType.Toggle            -> listOf(op)
+                is OptionType.MultiArg       -> listOf(op) + values
+            }
+        }
 
     /**
      * Join arguments according to the option specification for passing via the shell.
