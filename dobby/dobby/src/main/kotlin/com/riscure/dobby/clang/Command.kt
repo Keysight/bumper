@@ -83,6 +83,7 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
     fun toArguments(): List<String> =
         optArgs
             .flatMap { it.toArguments() }
+            .plus(positionalArgs)
 
     /**
      * Produces the arguments for passing it to Runtime.exec(String[]) on the host platform.
