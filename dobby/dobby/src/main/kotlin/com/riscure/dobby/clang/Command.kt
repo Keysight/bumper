@@ -145,7 +145,7 @@ data class Arg(val opt: OptionSpec, val values: List<String>) {
                 OptionType.Joined            -> listOf(op + values) // single argument
                 OptionType.CommaJoined       -> {
                     val values = values.joinToString(separator = ",") { it }
-                    listOf(op) + values
+                    listOf(op + values)
                 }
                 OptionType.JoinedAndSeparate -> listOf(op + values[0]) + values.drop(1)
                 OptionType.JoinedOrSeparate  -> listOf(op) + values

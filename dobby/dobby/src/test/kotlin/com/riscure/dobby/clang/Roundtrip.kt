@@ -15,6 +15,7 @@ internal class ShellTest {
         @JvmStatic
         fun roundtrip(): List<Arguments> = listOf(
             listOf("-Xclang", "-load", "-Xclang", "/some/path/to/file.so"),
+            listOf("-fsanitize=fuzzer,address")
         ).map { Arguments.of(it) }
 
         fun <E, A> Either<E, A>.assertOK() =
