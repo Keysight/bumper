@@ -13,11 +13,11 @@ data class TLID(val name: Ident, val kind: EntityKind) {
 
     /** Print the TLID as one would refer to it in a C program */
     val pretty get() = when (kind) {
-        EntityKind.Enum    -> "enum"
-        EntityKind.Struct  -> "struct"
-        EntityKind.Union   -> "union"
-        else               -> ""
-    } + " $name"
+        EntityKind.Enum    -> "enum $name"
+        EntityKind.Struct  -> "struct $name"
+        EntityKind.Union   -> "union $name"
+        else               -> name
+    }
 
     companion object {
         @JvmStatic fun variable(name: Ident) = TLID(name, EntityKind.Var)

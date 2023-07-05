@@ -65,9 +65,7 @@ class ClangParser : Parser<CXCursor, CXCursor, ClangUnitState> {
                     .getOrHandle { throw RuntimeException("Invariant violation: bad clang options") })
         } else listOf()
 
-        val cmd: Command = with(Spec.clang11) {
-            Command(options + warnErrors, listOf())
-        }
+        val cmd: Command = Command(options + warnErrors, listOf())
         val args = cmd.toArguments()
 
         // We allocate the arguments.
