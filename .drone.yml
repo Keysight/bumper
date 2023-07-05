@@ -14,10 +14,10 @@ trigger:
     - custom
 
 steps:
-- name: build and test
+- name: Build
   commands:
-  - ./gradlew build
-- name: package jar
+  - nix develop --command ./gradlew build
+- name: Test
   commands:
-  - ./gradlew jar
+  - nix develop --command ./gradlew jar
 ...
