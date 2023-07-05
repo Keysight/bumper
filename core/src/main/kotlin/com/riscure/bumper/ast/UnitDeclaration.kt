@@ -73,7 +73,14 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         val type: Type
         fun ref() = Exp.Var(ident, type)
 
-        val prototype: UnitDeclaration.Valuelike<Nothing, Nothing>
+        /**
+         * Drops the right-hand side of this [ValueDeclaration] if it exists,
+         * turning definitions into declarations.
+         *
+         * Retains the original meta-data, but [isDefinition] will be false
+         * on the returned declaration.
+         */
+        val prototype: Valuelike<Nothing, Nothing>
 
         override fun erase() = when (this) {
             is Fun -> this.mapBody {}

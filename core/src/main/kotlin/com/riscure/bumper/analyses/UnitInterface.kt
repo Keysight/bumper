@@ -3,12 +3,14 @@ package com.riscure.bumper.analyses
 import com.riscure.bumper.ast.Storage
 import com.riscure.bumper.ast.TranslationUnit
 import com.riscure.bumper.ast.UnitDeclaration
+import com.riscure.bumper.index.TUID
 
 /**
  * A [UnitInterface] is set of imports (declarations without definitions in the unit)
  * together with a set of exports (defined and visible/non-static symbols in the unit).
  */
 data class UnitInterface<E, S>(
+    val tuid: TUID,
     val imports: Set<UnitDeclaration.Valuelike<E, S>>,
     val exports: Set<UnitDeclaration.Valuelike<E, S>>,
 )
@@ -29,5 +31,5 @@ fun <E, S> objectInterface(unit: TranslationUnit<E, S>): UnitInterface<E, S> {
         .filter { decl -> decl.storage != Storage.Static }
         .filter { decl -> !exportIndex.contains(decl.tlid) }
 
-    return UnitInterface(imports.toSet(), exports.toSet())
+    return UnitInterface(unit.tuid, imports.toSet(), exports.toSet())
 }

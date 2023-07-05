@@ -29,7 +29,7 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
                 // due to different declarations/definitions belonging to the same symbol.
                 // Hence, we need to take care to merge entries, rather than bluntly using .toMap()
                 DependencyGraph.union(entries.map { (k, deps) ->
-                    DependencyGraph(mapOf(k to deps.map { it.symbol(unit.tuid) }.toSet()))
+                    DependencyGraph.build(mapOf(k to deps.map { it.symbol(unit.tuid) }.toSet()))
                 })
             }
 

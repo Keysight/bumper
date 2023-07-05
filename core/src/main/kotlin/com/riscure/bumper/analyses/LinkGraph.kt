@@ -1,5 +1,7 @@
 package com.riscure.bumper.analyses
 
+import arrow.core.getOrElse
+import arrow.core.getOrNone
 import arrow.core.toOption
 import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.index.Symbol
@@ -13,6 +15,7 @@ data class DeclarationInUnit(
     val tuid: TUID,
     val proto: UnitDeclaration.Valuelike<*, *>
 ) {
+    val tlid get() = proto.tlid
     val name: String get() = proto.tlid.name
     val symbol: Symbol get() = Symbol(tuid, proto.tlid)
 }
@@ -25,6 +28,18 @@ data class Link(
     val declaration: DeclarationInUnit,
     val definition : DeclarationInUnit,
 )
+
+/**
+ * Convert a collection of [Link]s to a dependency graph.
+ */
+fun Sequence<Link>.toDependencyGraph(
+    to: MutDependencyGraph = MutDependencyGraph()
+): DependencyGraph = to.apply {
+    forEach { link ->
+        val from = link.declaration.symbol
+        this.add(from, sequenceOf(link.definition.symbol))
+    }
+}
 
 data class Linking(
     val bound: Set<Link>,
@@ -64,23 +79,14 @@ data class LinkGraph(
             .toSet()
 
     /**
-     * For every symbol, a set of symbols in other translation unit that it depends on.
+     * Convert the link graph to a [DependencyGraph].
      */
     val externalDependencyGraph: DependencyGraph by lazy {
-        val result = mutableMapOf<Symbol, MutableSet<Symbol>>()
-
-        for ((_, links) in dependencies) {
-            for ((declaration, definition) in links.bound) {
-                val from = declaration.symbol
-
-                val deps = result.getOrDefault(from, mutableSetOf())
-                result[from] = deps
-
-                deps.add(definition.symbol)
-            }
-        }
-
-        DependencyGraph(result)
+        dependencies
+            .values
+            .asSequence()
+            .flatMap { it.bound.asSequence() }
+            .toDependencyGraph()
     }
 
     /** Get the linking data for the give [tuid] */
@@ -98,15 +104,22 @@ data class LinkGraph(
          * Construct an [LinkGraph] from a mapping representing [links] between declarations and definitions and
          * a set of [unbound] declarations.
          */
-        operator fun invoke(links: List<Link>, unbound: Set<DeclarationInUnit>): LinkGraph {
-            val unboundByTUID = unbound.groupBy({ it.tuid }) { it.proto }
-            val edgeset = links
-                .groupBy { it.declaration.tuid }
-                .mapValues { (tuid, bound) ->
-                    Linking(bound.toSet(), unboundByTUID.getOrDefault(tuid, listOf()).toSet())
-                }
+        operator fun invoke(
+            links: Sequence<Link>,
+            unbound: Sequence<DeclarationInUnit>
+        ): LinkGraph {
+            val unbound = unbound.groupBy({ it.tuid }) { it.proto }
+            val links = links.groupBy { it.declaration.tuid }
 
-            return LinkGraph(edgeset)
+            val byTUID = mutableMapOf<TUID, Linking>()
+            for (tuid in unbound.keys.asSequence() + links.keys.asSequence()) {
+                byTUID[tuid] = Linking(
+                    links.getOrNone(tuid).map { it.toSet() }.getOrElse { emptySet() },
+                    unbound.getOrNone(tuid).map { it.toSet() }.getOrElse { emptySet() }
+                )
+            }
+
+            return LinkGraph(byTUID)
         }
     }
 }

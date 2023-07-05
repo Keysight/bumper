@@ -4,7 +4,6 @@ package com.riscure.bumper.index
 import com.riscure.bumper.serialization.NothingSerializer
 
 import arrow.core.*
-import com.riscure.bumper.analyses.LinkAnalysis
 import com.riscure.bumper.analyses.objectInterface
 import com.riscure.bumper.ast.*
 import com.riscure.bumper.index.Index.Entry
@@ -15,8 +14,10 @@ import java.io.*
 
 /**
  * An [Index] maps identifiers to a set of matching [Entry]s.
+ *
  * It only records entries for value (functions, globals) **definitions**
  * that are visible across unit boundaries (non-static).
+ *
  * For each definition, only the prototype is recorded in the index,
  * so despite each entry _representing_ a definition, entry.isDefinition will be false for each.
  */
@@ -25,7 +26,16 @@ data class Index(val symbols: Map<Ident, Set<Entry>>) {
     @Serializable
     data class Entry(
         val tuid: TUID,
+
+        /**
+         * The prototype of a *definition* in [tuid].
+         *
+         * Because we only record the prototype, `proto.isDefinition` will be false,
+         * but do not be misleaded by this. The prototype represents a *definition*
+         * and the [meta]data belongs to that definition.
+         */
         val proto: UnitDeclaration.Valuelike<Nothing,Nothing>,
+
         val meta: Meta
     ) {
         val name: String get() = proto.tlid.name
