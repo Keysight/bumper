@@ -143,7 +143,7 @@ data class Arg(val opt: OptionSpec, val values: List<String>) {
     fun toArguments(): List<String> = opt.appearance()
         .let { op ->
             when (opt.type) {
-                OptionType.Joined            -> listOf(op + values) // single argument
+                OptionType.Joined            -> listOf(op + values.firstOrNone().getOrElse { "" }) // single argument
                 OptionType.CommaJoined       -> {
                     val values = values.joinToString(separator = ",") { it }
                     listOf(op + values)
