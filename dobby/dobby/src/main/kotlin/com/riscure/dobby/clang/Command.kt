@@ -105,7 +105,7 @@ data class Command(val optArgs: Options, val positionalArgs: List<String>) {
      * It should never end up in a file or even in a model, because there is nothing portable about the returned value.
      */
     fun toWinExecArguments(): List<String> =
-        toPOSIXArguments()
+        toArguments()
             // TODO, this cannot possibly be right/complete
             .map { it.replace("\"", "\"\"\"") }
 
