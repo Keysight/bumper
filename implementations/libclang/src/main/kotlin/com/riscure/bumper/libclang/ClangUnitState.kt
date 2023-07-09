@@ -54,13 +54,13 @@ data class ClangUnitState(
         }
 
     override val dependencies get() =
-        ClangDependencyAnalysis(ast, elaboratedCursors, workingDir).ofUnit(ast)
+        ClangDependencyAnalysis(ast, cxunit, elaboratedCursors, workingDir).ofUnit(ast)
 
     companion object {
         @JvmStatic
         fun create(tuid: TUID, cxunit: CXTranslationUnit, workingDir: Path): Either<String, ClangUnitState> {
             val rootCursor = clang.clang_getTranslationUnitCursor(cxunit)
-            return with(CursorParser(tuid, workingDir)) {
+            return with(CursorParser(tuid, cxunit, workingDir)) {
                 rootCursor
                     .asTranslationUnit()
                     .map { (ast, cursors) -> ClangUnitState(ast, cxunit, cursors, workingDir) }

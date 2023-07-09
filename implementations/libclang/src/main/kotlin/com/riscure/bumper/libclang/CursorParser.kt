@@ -7,11 +7,9 @@ import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 import com.riscure.getOption
 import com.riscure.toBool
+import org.bytedeco.javacpp.IntPointer
 import org.bytedeco.javacpp.annotation.ByVal
-import org.bytedeco.llvm.clang.CXClientData
-import org.bytedeco.llvm.clang.CXCursor
-import org.bytedeco.llvm.clang.CXFieldVisitor
-import org.bytedeco.llvm.clang.CXType
+import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
 
@@ -44,6 +42,8 @@ data class UnitWithCursorData(
  */
 open class CursorParser(
     val tuid: TUID,
+
+    val cxTranslationUnit: CXTranslationUnit,
 
     /**
      * workingDir is the working directory for clang during source file parsing. CXCursor may have relative paths,
@@ -397,8 +397,12 @@ open class CursorParser(
                             UnitDeclaration.Fun(
                                 id,
                                 clang_Cursor_isFunctionInlined(this).toBool(),
-                                // TODO attributes on the function type
-                                Type.Fun(resultType, params, clang_Cursor_isVariadic(this).toBool()),
+                                Type.Fun(
+                                    resultType,
+                                    params,
+                                    clang_Cursor_isVariadic(this).toBool(),
+                                    cursorAttributes(type())
+                                )
                             )
                         }
                 }
@@ -466,6 +470,40 @@ open class CursorParser(
                 val ident = if (id == "") freshAnonymousIdentifier() else id
                 Symbol(tuid, TLID(ident, kind))
             }
+
+    fun CXCursor.asPrettyPrinted(): Option<String> =
+        getString(clang_getCursorPrettyPrinted(this, null))
+
+    fun getString(cxString: CXString?): Option<String> {
+        if (cxString == null) return none()
+        val cString = clang_getCString(cxString)
+        val value: String? = cString?.string
+        clang_disposeString(cxString)
+        return Option.fromNullable(value)
+    }
+
+    fun CXCursor.asCursorTokensSpelling(): Option<String> {
+        val cxRange = clang_getCursorExtent(this)
+        CXToken(1).use { cxToken ->
+            IntPointer(1).use { numberOfTokensPointer ->
+                clang_tokenize(cxTranslationUnit, cxRange, cxToken, numberOfTokensPointer)
+                val numberOfTokens = numberOfTokensPointer.get()
+                val tokenSpellings: MutableList<String> = mutableListOf()
+                for (i in 0 .. numberOfTokens - 1) {
+                    getTokenSpelling(cxToken.position(i.toLong()))
+                    tokenSpellings.add(getTokenSpelling(cxToken.position(i.toLong())).getOrElse { "" })
+                }
+                cxToken.position(0)
+                clang_disposeTokens(cxTranslationUnit, cxToken, numberOfTokens)
+                // a space preceded or succeeded by a none word character may be removed
+                val spelling = tokenSpellings.joinToString(" ").replace(Regex("((?<!\\w) )|( (?!\\w))"), "")
+                return if (spelling.isEmpty()) none() else spelling.some()
+            }
+        }
+    }
+
+    fun getTokenSpelling(cxToken: CXToken): Option<String> =
+        getString(clang_getTokenSpelling(cxTranslationUnit, cxToken))
 
     /**
      * Field types are treated a little different,
@@ -652,9 +690,12 @@ open class CursorParser(
             type.getAlignment()
                 .toEither { "Could not get alignment for type with alignment attribute." }
                 .map { Attr.AlignAs(it) }
-
+        CXCursor_UnexposedAttr  -> {
+            this.asCursorTokensSpelling()
+                .toEither { "Could not get name for unexposed attribute." }
+                .map { Attr.UnexposedAttr(it) }
+        }
         /* TODO
-    CXCursor_UnexposedAttr  -> TODO()
     CXCursor_AnnotateAttr   -> TODO()
     CXCursor_AsmLabelAttr   -> TODO()
     CXCursor_PackedAttr     -> TODO()

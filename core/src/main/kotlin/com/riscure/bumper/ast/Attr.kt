@@ -26,6 +26,8 @@ sealed class Attr {
     data class AlignAs(val alignment: Long) : Attr()
     @Serializable
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
+    @Serializable
+    data class UnexposedAttr(val name: String) : Attr()
 
     companion object {
         /**
