@@ -7,6 +7,7 @@ import com.riscure.bumper.analyses.nil
 import com.riscure.bumper.analyses.union
 import com.riscure.bumper.ast.*
 import org.bytedeco.llvm.clang.CXCursor
+import org.bytedeco.llvm.clang.CXTranslationUnit
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
 
@@ -15,6 +16,8 @@ import java.nio.file.Path
  */
 class ClangDependencyAnalysis(
     private val ast: ClangTranslationUnit,
+
+    val cxTranslationUnit: CXTranslationUnit,
 
     /** A mapping from clang cursors (identified by their hash) and declarations in the [ast] */
     private val elaboratedCursors: Map<CursorHash, ClangDeclaration>,
@@ -29,7 +32,7 @@ class ClangDependencyAnalysis(
     private val tuid get() = ast.tuid
 
     private fun typeOf(cursor: CXCursor): Either<String, Type> =
-        with (CursorParser(tuid, workingDir)) {
+        with (CursorParser(tuid, cxTranslationUnit, workingDir)) {
             cursor.type().asType()
         }
 
