@@ -82,6 +82,13 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
          */
         val prototype: Valuelike<Nothing, Nothing>
 
+        /**
+         * Whether another stronger definition would override this definition (if any).
+         */
+        val isWeak: Boolean
+
+        val isStrong: Boolean get() = !isWeak
+
         override fun erase() = when (this) {
             is Fun -> this.mapBody {}
             is Var -> this.mapRhs {}
@@ -122,6 +129,9 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
         // An extern global variable with initialization is seen as a defined symbol by linker
         override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
+        // A global without a RHS is weak and can be overridden by one with a RHS.
+        // The __attribute__((weak)) does not apply to globals.
+        override val isWeak: Boolean get() = !rhs.isDefined()
         override val kind: EntityKind get() = EntityKind.Var
 
         override val prototype: Var<Nothing> get() = Var(ident, type, none(), storage, meta)
@@ -156,6 +166,11 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         val vararg get() = type.vararg
 
         override val isDefinition: Boolean get() = body.isDefined()
+
+        /**
+         * A function definition is weak if it is annotates as such.
+         */
+        override val isWeak: Boolean get() = type.attrsOnType.contains(Attr.Weak)
 
         override val kind: EntityKind get() = EntityKind.Fun
 

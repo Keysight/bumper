@@ -105,19 +105,24 @@ data class TranslationUnit<out E, out T> (
         else listOf()
 
     fun definitionFor(id: TLID): Option<UnitDeclaration<E, T>> {
-        val declMap = LinkedHashMap<TLID, UnitDeclaration<E, T>>()
-        byIdentifier[id]
-            ?.asSequence()
-            ?.filter { it.isDefinition }
-            ?.forEach { decl ->
+        var best = none<UnitDeclaration<E,T>>()
+        declarations
+            .asSequence()
+            .filter { it.tlid == id && it.isDefinition }
+            .forEach { decl ->
+                // disambiguation of 'best' definitions
                 when (decl) {
-                    is UnitDeclaration.Var -> {
-                        if (declMap[decl.tlid] == null || decl.rhs.isDefined()) declMap[decl.tlid] = decl
+                    is UnitDeclaration.Valuelike -> {
+                        // at most one strong definition per valid unit,
+                        // so this is OK
+                        if (best.isEmpty() || decl.isStrong)
+                            best = decl.some()
                     }
-                    else -> declMap[decl.tlid] = decl
+                    else -> best = decl.some()
                 }
             }
-        return Option.fromNullable(declMap[id]);
+
+        return best
     }
 
     /**
@@ -212,14 +217,21 @@ val <E, T> UnitDecls<E, T>.functionDefinitions: List<UnitDeclaration.Fun<T>> get
         .filter { it.isDefinition }
 
 val <E, T> UnitDecls<E, T>.varDefinitions: List<UnitDeclaration.Var<E>> get() {
+    // we collect the 'best' (aka strongest) definitions
     val varDefMap = LinkedHashMap<TLID, UnitDeclaration.Var<E>>()
+
     this
         .asSequence()
         .filterIsInstance<UnitDeclaration.Var<E>>()
         .filter { it.isDefinition }
+        // disambiguate between multiple definitions
         .forEach { varDecl ->
-            if (varDefMap[varDecl.tlid] == null || varDecl.rhs.isDefined()) varDefMap[varDecl.tlid] = varDecl
+            // only one strong definition per unit,
+            // so this is OK
+            if (varDefMap[varDecl.tlid] == null || varDecl.isStrong)
+                varDefMap[varDecl.tlid] = varDecl
         }
+
     return varDefMap.values.toList();
 }
 
