@@ -132,6 +132,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     data class Fun<out Stmt>(
         override val ident: Ident,
         val inline: Boolean,
+        // Function declaration attributes are currently modelled as part of the function type.
+        // We could argue about whether this is semantically sound.
         override val type: Type.Fun,
         val body: OptionAsNullable<Stmt> = None,
         override val storage: Storage = Storage.Default,

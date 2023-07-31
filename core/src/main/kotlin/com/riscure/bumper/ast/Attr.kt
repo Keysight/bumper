@@ -16,18 +16,23 @@ sealed class AttrArg {
 /** Type attributes */
 @Serializable
 sealed class Attr {
+    // the following are usually called 'type qualifiers'
+    // but we model them as attributes.
     @Serializable
     object Constant : Attr()
     @Serializable
     object Volatile : Attr()
     @Serializable
     object Restrict : Attr()
+
+
+    @Serializable
+    object Weak: Attr()
     @Serializable
     data class AlignAs(val alignment: Long) : Attr()
+
     @Serializable
     data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
-    @Serializable
-    data class UnexposedAttr(val name: String) : Attr()
 
     companion object {
         /**

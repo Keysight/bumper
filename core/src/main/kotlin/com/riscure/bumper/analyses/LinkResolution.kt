@@ -128,6 +128,7 @@ class LinkResolution(
         /**
          * Wholesale link resolution on [units], returning a [LinkGraph] or a [LinkError].
          */
+        @JvmStatic
         fun <E, S> linkgraph(units: Sequence<TranslationUnit<E, S>>) = try {
             LinkResolution()
                 .apply {
@@ -138,5 +139,9 @@ class LinkResolution(
                 .linkgraph()
                 .right()
         } catch (err: LinkError) { err.left() }
+
+        // for backward-compatibility
+        @JvmStatic
+        fun <E, S, C:Collection<TranslationUnit<E,S>>> linkgraph(units: C) = linkgraph(units.asSequence())
     }
 }
