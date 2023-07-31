@@ -7,7 +7,6 @@ import com.riscure.bumper.index.Symbol
 import com.riscure.bumper.index.TUID
 import com.riscure.getOption
 import com.riscure.toBool
-import org.bytedeco.javacpp.IntPointer
 import org.bytedeco.javacpp.annotation.ByVal
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
@@ -43,6 +42,9 @@ data class UnitWithCursorData(
 open class CursorParser(
     val tuid: TUID,
 
+    /**
+     * The clang model of the translation unit that we're parsing cursors of.
+     */
     val cxTranslationUnit: CXTranslationUnit,
 
     /**
@@ -471,40 +473,6 @@ open class CursorParser(
                 Symbol(tuid, TLID(ident, kind))
             }
 
-    fun CXCursor.asPrettyPrinted(): Option<String> =
-        getString(clang_getCursorPrettyPrinted(this, null))
-
-    fun getString(cxString: CXString?): Option<String> {
-        if (cxString == null) return none()
-        val cString = clang_getCString(cxString)
-        val value: String? = cString?.string
-        clang_disposeString(cxString)
-        return Option.fromNullable(value)
-    }
-
-    fun CXCursor.asCursorTokensSpelling(): Option<String> {
-        val cxRange = clang_getCursorExtent(this)
-        CXToken(1).use { cxToken ->
-            IntPointer(1).use { numberOfTokensPointer ->
-                clang_tokenize(cxTranslationUnit, cxRange, cxToken, numberOfTokensPointer)
-                val numberOfTokens = numberOfTokensPointer.get()
-                val tokenSpellings: MutableList<String> = mutableListOf()
-                for (i in 0 .. numberOfTokens - 1) {
-                    getTokenSpelling(cxToken.position(i.toLong()))
-                    tokenSpellings.add(getTokenSpelling(cxToken.position(i.toLong())).getOrElse { "" })
-                }
-                cxToken.position(0)
-                clang_disposeTokens(cxTranslationUnit, cxToken, numberOfTokens)
-                // a space preceded or succeeded by a none word character may be removed
-                val spelling = tokenSpellings.joinToString(" ").replace(Regex("((?<!\\w) )|( (?!\\w))"), "")
-                return if (spelling.isEmpty()) none() else spelling.some()
-            }
-        }
-    }
-
-    fun getTokenSpelling(cxToken: CXToken): Option<String> =
-        getString(clang_getTokenSpelling(cxTranslationUnit, cxToken))
-
     /**
      * Field types are treated a little different,
      * because anonymous inline struct/union type definitions cannot be
@@ -664,9 +632,9 @@ open class CursorParser(
 
             // There are others, but as far as I know, these are non-C types.
             else                   -> "Could not parse type of kind '${kindName()}'".left()
-        }.map { type -> type.withAttrs(getTypeAttrs()) }
+        }.map { type -> type.withAttrs(getTypeQualifiers()) }
 
-    fun CXType.getTypeAttrs(): Attrs {
+    fun CXType.getTypeQualifiers(): Attrs {
         val attrs = mutableListOf<Attr>()
         if (clang_isVolatileQualifiedType(this).toBool())
             attrs.add(Attr.Volatile)
@@ -680,6 +648,10 @@ open class CursorParser(
     fun CXCursor.cursorAttributes(type: CXType): Attrs =
         fold(monoid = Monoid.list(), true) {
             if (clang_isAttribute(kind()).toBool()) {
+                // there are a bunch of attributes that we do not support/parse yet.
+                // we should not crash at this time on those attributes, but rather choose the lesser evil
+                // of ignoring them.
+                // TODO actually parse them
                 asAttribute(type).orNone().toList()
             } else listOf()
         }
@@ -690,10 +662,16 @@ open class CursorParser(
             type.getAlignment()
                 .toEither { "Could not get alignment for type with alignment attribute." }
                 .map { Attr.AlignAs(it) }
+
         CXCursor_UnexposedAttr  -> {
-            this.asCursorTokensSpelling()
-                .toEither { "Could not get name for unexposed attribute." }
-                .map { Attr.UnexposedAttr(it) }
+            // In part this is a problem with libclang. There does not seem to be an API to get arbitrary
+            // attributes like __attribute__((weak)) from the cursor: they are reported as 'UnexposedAttr'.
+            // To properly solve this we need a libclang extension...
+            // For now we rely on the fact that we can get the underlying tokens, and we can parse the attributes
+            // that we are interested in from that manually.
+            this
+                .tokens(cxTranslationUnit)
+                .asUnexposedAttr()
         }
         /* TODO
     CXCursor_AnnotateAttr   -> TODO()
@@ -707,7 +685,12 @@ open class CursorParser(
     CXCursor_WarnUnusedResultAttr -> TODO()
     */
 
-        else                 -> "Not a recognized attribute of kind ${kindName()}".left()
+        else                 -> "Unknown attribute of kind ${kindName()}".left()
+    }
+
+    fun List<String>.asUnexposedAttr(): Result<Attr> = when {
+        size == 1 && this[0] == "weak" -> Attr.Weak.right()
+        else -> "Unknown attribute".left()
     }
 
     fun CXType.getAlignment(): Option<Long> {

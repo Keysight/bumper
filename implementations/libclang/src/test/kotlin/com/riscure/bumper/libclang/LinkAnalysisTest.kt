@@ -1,6 +1,7 @@
 package com.riscure.bumper.libclang
 
-import com.riscure.bumper.analyses.LinkAnalysis
+import com.riscure.bumper.analyses.LinkResolution.Companion.linkgraph
+import com.riscure.bumper.analyses.objectInterface
 import com.riscure.bumper.assertOK
 
 import org.junit.jupiter.api.DisplayName
@@ -32,7 +33,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) { units ->
         // We test the link graph
-        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val graph = linkgraph(units.asSequence().map { it.first }).assertOK()
         val (unit1, unit2) = units
 
         val unit1Deps = graph[unit1.first.tuid].assertOK()
@@ -60,11 +61,11 @@ class LinkAnalysisTest: LibclangTestBase() {
             """.trimIndent()
 
     ) { units ->
-        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
-        val objectInterface1 = LinkAnalysis.objectInterface(unit1.first)
-        val objectInterface2 = LinkAnalysis.objectInterface(unit2.first)
+        val objectInterface1 = objectInterface(unit1.first)
+        val objectInterface2 = objectInterface(unit2.first)
 
         assertEquals(1, objectInterface1.imports.size)
         assertEquals("f", objectInterface1.imports.first().ident)
@@ -94,7 +95,7 @@ class LinkAnalysisTest: LibclangTestBase() {
             const int myInt = 42;
         """.trimIndent()
     ) { units ->
-        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
         val (_, u1) = unit1
@@ -124,7 +125,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) /* { units ->
         run {
-            val graph = LinkAnalysis.linkGraph(units.map { it.first }).assertOK()
+            val graph = linkgraph.linkGraph(units.map { it.first }).assertOK()
             val (unit1, unit2) = units
             val unit1Deps = graph[unit1.first.tuid].assertOK()
             val unit2Deps = graph[unit2.first.tuid].assertOK()
@@ -149,7 +150,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) { units ->
         // We test the link graph
-        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
         val unit1Deps = graph[unit1.first.tuid].assertOK()
@@ -178,7 +179,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) { units ->
         // We test the link graph
-        val graph = LinkAnalysis(units.map { it.first }).assertOK()
+        val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
         val unit1Deps = graph[unit1.first.tuid].assertOK()

@@ -6,14 +6,16 @@ package com.riscure.bumper.libclang
 
 import arrow.core.*
 import arrow.typeclasses.Monoid
-import com.riscure.getOption
 import com.riscure.bumper.ast.Location
 import com.riscure.bumper.ast.SourceRange
+import com.riscure.getOption
 import com.riscure.toBool
 import org.bytedeco.javacpp.IntPointer
 import org.bytedeco.llvm.clang.*
 import org.bytedeco.llvm.global.clang.*
 import java.nio.file.Path
+
+fun CXToken.spelling(unit: CXTranslationUnit): String = clang_getTokenSpelling(unit, this).string
 
 /**
  * Safer version of string() that checks if the C string is not null.
@@ -22,14 +24,38 @@ fun CXString.stringOption(): Option<String> =
     clang_getCString(this)
         .toOption()
         .map { ptr ->
-            val result = ptr.getString()
+            val result = ptr.string
             clang_disposeString(this)
             result
         }
 
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
+fun CXCursor.prettyPrinted(): Option<String> = clang_getCursorPrettyPrinted(this, null).stringOption()
 fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
 fun CXType.kindName(): String = clang_getTypeKindSpelling(kind()).string
+
+fun CXCursor.tokens(cxUnit: CXTranslationUnit): List<String> {
+    val cxRange = clang_getCursorExtent(this)
+    return CXToken(1).use { cxToken ->
+        IntPointer(1).use { numberOfTokensPointer ->
+            clang_tokenize(cxUnit, cxRange, cxToken, numberOfTokensPointer)
+            val numberOfTokens = numberOfTokensPointer.get()
+
+            // collect the token spellings
+            val tokenSpellings: MutableList<String> = mutableListOf()
+            for (i in 0 until numberOfTokens) {
+                val tokenText = cxToken.position(i.toLong()).spelling(cxUnit)
+                tokenSpellings.add(tokenText)
+            }
+
+            // dispose the requested native data
+            cxToken.position(0)
+            clang_disposeTokens(cxUnit, cxToken, numberOfTokens)
+
+            tokenSpellings
+        }
+    }
+}
 
 /**
  * Get the list of child cursors from a cursor.

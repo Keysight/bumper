@@ -55,6 +55,8 @@ open class LibclangTestBase: ParseTestBase<CXCursor, CXCursor, ClangUnitState> {
                 throw e
             }
         }
+
+        whenOk(ast1, unit1)
     }
 }
 
@@ -67,6 +69,7 @@ class LibclangTypedefParseTest  : LibclangTestBase(), TypedefParseTest<CXCursor,
 class LibclangTypeRoundtripTest : LibclangTestBase(), TypeRoundtripTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangStdHeadersTest    : LibclangTestBase(), StdHeadersTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangGlobalParseTest   : LibclangTestBase(), GlobalParseTest<CXCursor, CXCursor, ClangUnitState>
+class LibclangAttrTest          : LibclangTestBase(), AttributeParseTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangTypeTest          : LibclangTestBase(), TypeTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangIndexTest         : LibclangTestBase(), IndexTest<CXCursor, CXCursor, ClangUnitState>
 class LibclangStdlibTest        : LibclangTestBase(), BumperStdlibTest<CXCursor, CXCursor, ClangUnitState>

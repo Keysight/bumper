@@ -67,8 +67,8 @@ object Pretty {
             }
             is Attr.AlignAs   ->
                 "__attribute__((aligned(${it.alignment})))"
-            is Attr.UnexposedAttr   ->
-                "__attribute__((${it.name}))"
+            is Attr.Weak   ->
+                "__attribute__((weak))"
             Attr.Constant     -> "const"
             Attr.Restrict     -> "restrict"
             Attr.Volatile     -> "volatile"
