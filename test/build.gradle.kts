@@ -1,11 +1,8 @@
 description = "Riscure True Code C Frontend Test Fixtures"
 
 plugins {
-    kotlin("jvm") version "1.7.20"
+    kotlin("jvm")
 }
-
-group   = "com.riscure"
-version = "0.1.0"
 
 val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
 val snapshots = uri("http://nexus3.riscure.com:8081/repository/riscure-snapshots")

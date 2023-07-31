@@ -1,7 +1,7 @@
 plugins {
-    kotlin("jvm") version "1.7.20"
-    kotlin("plugin.serialization") version "1.7.20" apply false
-    id("org.jetbrains.dokka") version "1.7.20"
+    kotlin("jvm") version "1.8.20"
+    kotlin("plugin.serialization") version "1.8.20" apply false
+    id("org.jetbrains.dokka") version "1.8.20"
 }
 
 val releases  = uri("http://nexus3.riscure.com:8081/repository/riscure")
