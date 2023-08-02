@@ -122,7 +122,12 @@ sealed interface Exp {
         @JvmStatic
         fun not(exp: Exp) = UnOp(UnaryOp.OpLogNot, exp, Type.bool)
         @JvmStatic
-        fun dot(exp: Exp, field: Field.Named) = UnOp(UnaryOp.OpDot(field.name), exp, field.type)
+        fun dot(exp: Exp, field: Field.Named) = when {
+            exp is UnOp && exp.op is UnaryOp.OpDeref ->
+                arrow(exp.operand, field)
+            else                                     ->
+                UnOp(UnaryOp.OpDot(field.name), exp, field.type)
+        }
         @JvmStatic
         fun index(lhs: Exp, rhs: Exp, elTyp: Type) = BinOp(BinaryOp.OpIndex, lhs, rhs, lhs.etype, elTyp)
         @JvmStatic
@@ -163,6 +168,14 @@ sealed interface Exp {
             Compound(Initializer.InitUnion(union, designator, initializer), Type.Struct(union))
     }
 }
+
+infix fun Exp.and(that: Exp) = Exp.op(BinaryOp.OpLogAnd, this, that, Type.bool)
+infix fun Exp.or(that: Exp) = Exp.op(BinaryOp.OpLogOr, this, that, Type.bool)
+infix fun Exp.lt(that: Exp) = Exp.op(BinaryOp.OpLt, this, that, Type.bool)
+infix fun Exp.gt(that: Exp) = Exp.op(BinaryOp.OpGt, this, that, Type.bool)
+infix fun Exp.le(that: Exp) = Exp.op(BinaryOp.OpLe, this, that, Type.bool)
+infix fun Exp.ge(that: Exp) = Exp.op(BinaryOp.OpGe, this, that, Type.bool)
+infix fun Exp.eq(that: Exp) = Exp.op(BinaryOp.OpEq, this, that, Type.bool)
 
 // data class AsmOperand(val wut: Option<String>, val wat: Exp)
 // typealias AsmOperands = List<AsmOperand>

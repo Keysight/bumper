@@ -1,6 +1,8 @@
 package com.riscure.bumper.ast
 
 import com.riscure.bumper.ast.Exp.Companion.call
+import com.riscure.bumper.ast.Exp.Companion.cast
+import com.riscure.bumper.ast.Exp.Companion.constant
 import com.riscure.bumper.ast.Exp.Companion.sizeOf
 import com.riscure.bumper.ast.Type.Companion.function
 import com.riscure.bumper.ast.Type.Companion.void
@@ -15,6 +17,8 @@ interface IStdlib {
 
     val size_t: Type
 
+    val NULL: Exp
+
     /**
      * A precondition for [sizeof] is that [type] is complete so that the compiler can determine its size.
      * It is up to the caller to verify that this precondition holds at the point where sizeof is called.
@@ -25,6 +29,10 @@ interface IStdlib {
         "malloc", function(void.ptr(), Param("size", size_t))
     )
 
+    val free get() = UnitDeclaration.Fun<Nothing>(
+        "free", function(void, Param("ptr", void.ptr()))
+    )
+
     fun malloc(sizeExp: Exp): Exp = call(malloc.ref(), sizeExp)
 
     /**
@@ -32,6 +40,8 @@ interface IStdlib {
      * It is up to the caller to verify that this precondition holds at the point where sizeof is called.
      */
     fun malloc(type: Type)= malloc(sizeof(type))
+
+    fun free(ptr: Exp): Exp = call(free.ref(), ptr)
 }
 
 /**
@@ -40,10 +50,7 @@ interface IStdlib {
  */
 class Stdlib(val sizeKind: IKind): IStdlib {
     override val size_t: Type = Type.Int(sizeKind)
-
-    @JvmField val free = UnitDeclaration.Fun<Nothing>("free", function(void, Param("ptr", void.ptr())))
-
-    override fun malloc(sizeExp: Exp) = call(malloc.ref(), sizeExp)
+    override val NULL: Exp = cast(void.ptr(), constant(0L, IKind.IUInt))
 
     override val preamble = Preamble(
         listOf(),
@@ -77,5 +84,5 @@ object StdlibsHeader: IStdlib {
     )
 
     override val size_t: Type = Type.typedef("size_t")
-    val NULL: Exp  = Exp.Var("NULL", void.ptr())
+    override val NULL: Exp  = Exp.Var("NULL", void.ptr())
 }

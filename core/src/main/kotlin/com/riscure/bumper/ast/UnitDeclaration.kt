@@ -73,7 +73,14 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         val type: Type
         fun ref() = Exp.Var(ident, type)
 
-        val prototype: UnitDeclaration.Valuelike<Nothing, Nothing>
+        /**
+         * Drops the right-hand side of this [ValueDeclaration] if it exists,
+         * turning definitions into declarations.
+         *
+         * Retains the original meta-data, but [isDefinition] will be false
+         * on the returned declaration.
+         */
+        val prototype: Valuelike<Nothing, Nothing>
 
         override fun erase() = when (this) {
             is Fun -> this.mapBody {}
@@ -84,18 +91,12 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     /** Everything that declares a new type: Struct, Union, Enum */
     sealed interface TypeDeclaration: UnitDeclaration<Nothing, Nothing> {
         val type: Type.Defined
-            get() = when (this) {
-            is Struct  -> Type.Struct(this.tlid, this.attributes)
-            is Union   -> Type.Union(this.tlid, this.attributes)
-            is Enum    -> Type.Enum(this.tlid, this.attributes)
-            is Typedef -> Type.Typedeffed(this.tlid, listOf())
-        }
-
         override fun erase() = this
     }
 
     /** Structs or Unions */
     sealed interface Compound: TypeDeclaration {
+        override val type: Type.Record
         val fields: Option<FieldDecls>
         val structOrUnion: StructOrUnion
         val attributes: List<Attr>
@@ -117,7 +118,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        fun withDefinition(exp: @UnsafeVariance Exp) = this.copy(rhs = exp.some())
+        fun <E> withDefinition(exp: E) = Var(ident, type, exp.some(), storage, meta)
 
         // An extern global variable with initialization is seen as a defined symbol by linker
         override val isDefinition: Boolean get() = rhs.isDefined() || storage !is Storage.Extern
@@ -131,37 +132,36 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     data class Fun<out Stmt>(
         override val ident: Ident,
         val inline: Boolean,
-        val returnType: Type,
-        val params: Params,
-        val vararg: Boolean           = false,
+        override val type: Type.Fun,
         val body: OptionAsNullable<Stmt> = None,
         override val storage: Storage = Storage.Default,
         override val meta: Meta = Meta.default,
     ): Valuelike<Nothing, Stmt> {
         constructor(id: Ident, typ: Type.Fun):
-                this(id, false, typ.returnType, typ.params, typ.vararg)
+                this(id, false, typ)
         constructor(id: Ident, typ: Type.Fun, body: Stmt):
-                this(id, false, typ.returnType, typ.params, typ.vararg, body.some())
+                this(id, false, typ, body.some())
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
-        fun withDefinition(stmt: @UnsafeVariance Stmt) = this.copy(body = stmt.some())
+        fun <S> withDefinition(body: S) =
+            Fun(ident, inline, type, body.some(), storage, meta)
 
-        override val type get() = Type.Fun(returnType, params, vararg)
-        fun withType(ty: Type.Fun) = copy(
-            returnType = ty.returnType, params = ty.params, vararg = ty.vararg
-        )
+        fun withType(ty: Type.Fun) = copy(type = ty)
+        val returnType get() = type.returnType
+        val params get() = type.params
+        val vararg get() = type.vararg
 
         override val isDefinition: Boolean get() = body.isDefined()
 
         override val kind: EntityKind get() = EntityKind.Fun
 
         override val prototype: Fun<Nothing> get() =
-            Fun(ident, inline, returnType, params, vararg, none(), storage, meta)
+            Fun(ident, inline, type, none(), storage, meta)
 
         fun <S> mapBody(f: (body: Stmt) -> S): Fun<S> =
-            Fun(ident, inline, returnType, params, vararg, body.map(f), storage, meta)
+            Fun(ident, inline, type, body.map(f), storage, meta)
     }
 
     data class Struct(
@@ -178,6 +178,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val kind = EntityKind.Struct
+        override val type: Type.Struct get() = Type.Struct(this.tlid, this.attributes)
         override val structOrUnion = StructOrUnion.Struct
     }
 
@@ -195,6 +196,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
         override val isDefinition: Boolean = fields.isDefined()
         override val kind = EntityKind.Union
+        override val type: Type.Union get() = Type.Union(this.tlid, this.attributes)
         override val structOrUnion = StructOrUnion.Union
     }
 
@@ -217,6 +219,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val isDefinition = true
 
         override val kind: EntityKind get() = EntityKind.Typedef
+        override val type: Type.Typedeffed get() = Type.Typedeffed(this.tlid, listOf())
     }
 
     data class Enum(
@@ -228,6 +231,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         constructor(ident: Ident): this(ident, listOf(), None)
         constructor(ident: Ident, enumerators: Enumerators): this(ident, listOf(), enumerators.some())
+
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -235,6 +239,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val isDefinition = enumerators.isDefined()
 
         override val kind: EntityKind get() = EntityKind.Enum
+
+        override val type: Type.Enum get() = Type.Enum(this.tlid, this.attributes)
     }
 
     fun ofKind(kind: EntityKind): Boolean = when (kind) {

@@ -24,7 +24,19 @@ sealed class Attr {
     object Restrict : Attr()
     @Serializable
     data class AlignAs(val alignment: Long) : Attr()
-    // @Serializable
-    // data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
+    @Serializable
+    data class NamedAttr(val name: String, val args: List<AttrArg>) : Attr()
+    @Serializable
+    data class UnexposedAttr(val name: String) : Attr()
+
+    companion object {
+        /**
+         * https://clang.llvm.org/docs/SanitizerCoverage.html#disabling-instrumentation-with-attribute-no-sanitize-coverage
+         */
+        @JvmStatic val noSanitizeCoverage = Attr("no_sanitize", AttrArg.AString("coverage"))
+
+        operator fun invoke(name: String, vararg args: AttrArg) = NamedAttr(name, args.toList())
+    }
 }
+
 typealias Attrs = List<Attr>

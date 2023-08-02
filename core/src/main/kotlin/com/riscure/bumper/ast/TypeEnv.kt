@@ -17,7 +17,58 @@ fun interface TypeContext {
      * A mapping from types in this context to a boolean indicating whether they
      * are fully defined (value = true), or just declared (value = false).
      */
-    fun get(): Map<Type.Defined, Boolean>
+    fun context(): Map<Type.Defined, Boolean>
+
+    /**
+     * Compute the union of two type contexts.
+     */
+    operator fun plus(other: TypeContext) = TypeContext {
+        context().align(other.context()) { (_, values) ->
+            when (values) {
+                is Ior.Left  -> values.value
+                is Ior.Right -> values.value
+                is Ior.Both  -> values.leftValue || values.rightValue // maximum
+            }
+        }
+    }
+
+    /**
+     * Return a leftover context of type requirements after resolving
+     * as much as possible in [provided].
+     */
+    fun resolve(provided: TypeEnv): TypeContext = TypeContext {
+        context()
+            .filter { (type, needSize) -> !provided.contains(type, needSize) }
+    }
+
+    companion object {
+        val empty = TypeContext { mapOf() }
+    }
+}
+
+/**
+ * A mutable implementation of [TypeContext].
+ *
+ * This should generally not be exposed, but can be used as an internal data-structure
+ * of analyses that compute type contexts.
+ */
+data class MutTypeContext(
+    private val context: MutableMap<Type.Defined, Boolean> = mutableMapOf()
+) : TypeContext {
+    override fun context(): Map<Type.Defined, Boolean> = context
+
+    fun add(type: Type.Defined, needSize: Boolean): MutTypeContext {
+        context[type] = (context.getOrDefault(type, false) || needSize)
+        return this
+    }
+
+    fun add(other: TypeContext): MutTypeContext {
+        for ((key, value) in other.context()) {
+            context[key] = context.getOrDefault(key, false) || value
+        }
+
+        return this
+    }
 }
 
 /**
@@ -50,17 +101,6 @@ interface TypeEnv {
     fun lookup(tlid: TLID): TypeLookup<UnitDeclaration.TypeDeclaration>
 
     /**
-     * Return the most precise type declaration of [type].
-     * That is, if this [TypeEnv] has a definition, that definition is returned.
-     * Otherwise, it may return a declaration. If neither is available, we return [Missing].
-     */
-    fun lookup(type: Type.Defined): TypeLookup<UnitDeclaration.TypeDeclaration> =
-        lookup(type.ref)
-            .filterOrOther({ it.kind == type.kind }) {
-                Missing(type.ref, false) // defined types need not have a definition
-            }
-
-    /**
      * Resolve a given [ctx] in this type environment, producing a set of
      * type declarations/definitions whose keys coincide with the keys of `[ctx].get()`.
      * If the context requires a definition, then the returned map if any is guaranteed to
@@ -69,13 +109,14 @@ interface TypeEnv {
     fun resolve(ctx: TypeContext): TypeLookup<TypeResolutions> =
         try {
             ctx
-                .get()
+                .context()
                 .mapValues { (typ, needsDefinition) ->
-                    lookup(typ)
-                        .filterOrOther({ !needsDefinition || it.isDefinition }) {
-                            Missing(typ.ref, needsDefinition)
-                        }
-                        .getOrHandle { throw it }
+                    val resolution = lookup(typ.ref).getOrHandle { throw it }
+                    if (!needsDefinition || resolution.isDefinition) {
+                        resolution
+                    } else {
+                        throw Missing(typ.ref, needsDefinition)
+                    }
                 }
                 .right()
         }
@@ -113,18 +154,72 @@ interface TypeEnv {
                 }
                 else Missing(tlid, true).left()
             }
+
+    /**
+     * Check if this [TypeEnv] has a sufficient definition of [type].
+     *
+     * @param needSize whether a complete type definition is required.
+     */
+    fun contains(type: Type.Defined, needSize: Boolean) =
+        when (val def = lookup(type.ref)) {
+            is Either.Left  ->
+                // requirement is not fulfilled
+                true
+            is Either.Right ->
+                // filter if sufficient definition
+                !(!needSize || def.value.isDefinition)
+        }
 }
+
+/**
+ * A type environment based on linear scans of a collection of type declarations.
+ */
+data class LazyTypeEnv(
+    override val builtins: Builtins,
+    val typeDeclarations: Collection<UnitDeclaration.TypeDeclaration>
+): TypeEnv {
+    operator fun plus(other: Collection<UnitDeclaration.TypeDeclaration>) = LazyTypeEnv(
+        builtins,
+        typeDeclarations + other
+    )
+
+    override fun lookup(tlid: TLID): Either<TypeEnv.Missing, UnitDeclaration.TypeDeclaration> {
+        // look for the best type declaration.
+        var best: UnitDeclaration.TypeDeclaration? = null
+        for (decl in typeDeclarations) {
+            if (decl.tlid == tlid) {
+                if (decl.isDefinition) {
+                    // we found the best one
+                    return decl.right()
+                } else {
+                    // keep looking for a better one
+                    best = decl
+                }
+            }
+        }
+
+        return if (best != null) best.right() else TypeEnv.Missing(tlid, false).left()
+    }
+}
+
+/**
+ * Generate a type environment from this collection of type declarations and the given
+ * collection of [builtins].
+ */
+fun Collection<UnitDeclaration.TypeDeclaration>.typeEnv(builtins: Builtins) =
+    LazyTypeEnv(builtins, this)
 
 /**
  * Compute the best preamble for [this] collection of type resolutions.
  *
  * If the type resolved to a declaration in a header, include it.
  * If the type resolved to a declaration (not definition!) in a C file, declare it.
- * If the type resolved to a definition in a C file, include the C file.
+ * If the type resolved to a definition in a C file, include the C file (but produce a warning).
  *
  * Fails if the type resolutions contain definitions that have no location data.
  *
- * @return [Pair] of produced preamble, and a Set of types for which we had to include a C file.
+ * @return [Pair] of produced preamble, and a Set of warnings represented as types
+ *         for which we had to include a C file.
  */
 fun TypeResolutions.toPreamble(
     includePath: IncludePath,
@@ -154,7 +249,7 @@ fun TypeResolutions.toPreamble(
                 )
             }
 
-        val needSize = required.get().getOrDefault(type, it.isDefinition)
+        val needSize = required.context().getOrDefault(type, it.isDefinition)
         when {
             // if we have a definition from a header, we are golden.
             include.isHeader -> includes.add(include)
