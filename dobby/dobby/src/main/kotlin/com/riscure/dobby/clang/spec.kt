@@ -6,19 +6,19 @@ import kotlinx.serialization.json.*
 import java.net.URL
 
 sealed class OptionType {
-    /* a flag, like -v */
+    /** a flag, like -v */
     object Toggle : OptionType()
-    /* an option whose argument is attached to it, like -oafile.o */
+    /** an option whose argument is attached to it, like -oafile.o */
     object Joined : OptionType()
-    /* an option whose arguments are attached to it, but comma separated, like archs=x,y,z */
+    /** an option whose arguments are attached to it, but comma separated, like archs=x,y,z */
     object CommaJoined : OptionType()
-    /* an option whose argument appears after a space */
+    /** an option whose argument appears after a space */
     object Separate : OptionType()
-    /* -o file.o or -ofile.o  both permitted */
+    /** -o file.o or -ofile.o  both permitted */
     object JoinedOrSeparate : OptionType()
-    /* -opt<arg1> <arg2> */
+    /** -opt<arg1> <arg2> */
     object JoinedAndSeparate : OptionType()
-    /* -opt <arg1> <arg2> .. <argn> */
+    /** -opt <arg1> <arg2> .. <argn> */
     data class MultiArg(val num: Int): OptionType()
 
     fun describe() = when (this) {

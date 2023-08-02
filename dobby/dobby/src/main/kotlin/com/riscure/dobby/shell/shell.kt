@@ -28,11 +28,11 @@ data class Symbol(val value: String) {
     }
 }
 
-/* Model of the syntax of a Clang compilation command */
+/* Model of the syntax of a shell command */
 data class Line(val args: List<Arg>) {
     fun eval(): List<String> = args.map { it.eval() }
 }
-/* Model of the syntax of a Clang compilation argument */
+/* Model of the syntax of a shell argument */
 data class Arg(val parts: List<Val> = listOf()) {
     constructor(vararg parts: Val): this(parts.toList())
 

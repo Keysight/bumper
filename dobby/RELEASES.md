@@ -1,4 +1,10 @@
 # 0.1.6
+
+- Fix bug where kind=separate options were not printed as separate. (Thanks Diego!)
+- Fix bug where toArguments was joining separate arguments into a " "-separated single argument.
+- Better separate various exports of commands toPOSIXArguments, toWinArguments, toExecArguments, toArguments.
+- Add pretty-printers for Include paths and Includes.
+
 # 0.1.5
 
 - Minor api improvements

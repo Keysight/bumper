@@ -35,6 +35,7 @@ dependencies {
 
     // test deps
     testImplementation(kotlin("test"))
+    testImplementation(libs.junit)
 }
 
 tasks.test {
