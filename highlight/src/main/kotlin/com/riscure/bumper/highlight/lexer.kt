@@ -5,6 +5,7 @@ package com.riscure.bumper.highlight
 
 import arrow.core.Option
 import com.riscure.bumper.highlight.lexer.CLexer
+import java.io.Reader
 
 data class StartSegmentMark(
     val line: Int,
@@ -12,38 +13,29 @@ data class StartSegmentMark(
     val count: Option<Int>,
 )
 
-fun main() {
-    val input = """
-        hello
-    """.trimIndent().reader()
+class UnrecognizedInput(): Exception("Unrecognized input.")
+fun tokenize(input: Reader, skipWhitespace: Boolean = false) =
+    Tokenizer(CLexer(input), skipWhitespace)
 
-    val lexer = CLexer(input)
+class Tokenizer(
+    val lexer: CLexer,
+    val skipWs: Boolean
+): Iterator<Token> {
+    var finished = false
 
-    while (true) {
-        val tok = lexer.yylex()
+    override fun hasNext(): Boolean = !finished
 
-        when {
-            tok is Token.EOF -> break
-            tok == null      -> break
-            else             -> println(tok)
+    override fun next(): Token = lexer
+        .yylex()
+        .let { tok: Token? ->
+            when {
+                tok is Token.EOF           -> {
+                    finished = true
+                    tok
+                }
+                skipWs && tok is Token.Ws  -> next()
+                tok == null                -> throw UnrecognizedInput()
+                else                       -> tok
+            }
         }
-    }
 }
-//data class Lexer(
-//    var lineno: Int,
-//    var colno: Int,
-//
-//    var cursor: Int,
-//    var input: String,
-//
-//    val segmentQueue: MutableList<StartSegmentMark>
-//) {
-//    val next get() = input.elementAtOrNull(cursor)
-//
-//    companion object {
-//        fun lexer(input: String): Either<String, List<Line>> {
-//            TODO()
-//        }
-//    }
-//}
-//
