@@ -19,8 +19,11 @@ data class Prec(val prec: Int, val assoc: Assoc) {
     }
 }
 
+/** C Operators */
+interface Op
+
 /** Unary operators of C */
-sealed class UnaryOp(val prec: Prec) {
+sealed class UnaryOp(val prec: Prec): Op {
     data class OpDot(val member: Ident): UnaryOp(Prec.lr(16))
     data class OpArrow(val member: Ident): UnaryOp(Prec.lr(16))
     object OpPostIncr: UnaryOp(Prec.lr(16))
@@ -37,7 +40,7 @@ sealed class UnaryOp(val prec: Prec) {
 }
 
 /** Binary operators of C */
-enum class BinaryOp(val prec: Prec) {
+enum class BinaryOp(val prec: Prec): Op {
     OpIndex(Prec.lr(16)), // "a[i]"
 
     OpMul(Prec.lr(13)), // binary "*"

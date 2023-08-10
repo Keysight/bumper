@@ -57,6 +57,8 @@ pluginManagement {
                 library("dobby"          , "com.riscure:riscure-dobby:0.1.8-alpha-10")
                 library("bytedeco"       , "org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
                 library("picocli"        , "info.picocli:picocli:4.6.3")
+                library("antlr"          , "org.antlr:antlr4:4.11.1")
+                library("jflex"          , "de.jflex:jflex:1.9.1")
             }
         }
     }
@@ -72,6 +74,9 @@ project(":bumper-test").projectDir = file("test/")
 
 include(":bumper-libclang")
 project(":bumper-libclang").projectDir = file("implementations/libclang")
+
+include(":bumper-highlight")
+project(":bumper-highlight").projectDir = file("highlight/")
 
 val localSettings = file("local.settings.gradle.kts")
 if (localSettings.exists()) {
