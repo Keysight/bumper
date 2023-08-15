@@ -116,5 +116,14 @@ class LexSnippetTest {
     fun test10() = lex("""R"prefix(some string)prefix"""") {
         val lit = nextIs<Token.StringLiteral>()
         assertEquals(StrEncoding.RAW, lit.encoding)
+        assertEquals("prefix(some string)prefix", lit.lexeme)
+    }
+
+    @Test
+    @DisplayName("raw string double-quote")
+    fun test11() = lex("""R"(")""") {
+        val lit = nextIs<Token.StringLiteral>()
+        assertEquals(StrEncoding.RAW, lit.encoding)
+        assertEquals("(\")", lit.lexeme)
     }
 }

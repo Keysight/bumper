@@ -3,15 +3,8 @@
  */
 package com.riscure.bumper.highlight
 
-import arrow.core.Option
 import com.riscure.bumper.highlight.lexer.CLexer
 import java.io.Reader
-
-data class StartSegmentMark(
-    val line: Int,
-    val column: Int,
-    val count: Option<Int>,
-)
 
 class UnrecognizedInput(): Exception("Unrecognized input.")
 fun tokenize(input: Reader, skipWhitespace: Boolean = false) =
@@ -38,4 +31,10 @@ class Tokenizer(
                 else                       -> tok
             }
         }
+
+    fun tokens(): List<Token> {
+        val toks = mutableListOf<Token>()
+        forEach { toks.add(it) }
+        return toks
+    }
 }

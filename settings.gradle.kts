@@ -59,6 +59,7 @@ pluginManagement {
                 library("picocli"        , "info.picocli:picocli:4.6.3")
                 library("antlr"          , "org.antlr:antlr4:4.11.1")
                 library("jflex"          , "de.jflex:jflex:1.9.1")
+                library("mordant"        , "com.github.ajalt.mordant:mordant:2.1.0")
             }
         }
     }

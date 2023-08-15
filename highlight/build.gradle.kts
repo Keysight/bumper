@@ -51,6 +51,8 @@ dependencies {
     implementation(kotlinx.serialization.json)
 
     implementation(libs.arrow.core)
+    implementation(libs.mordant)
+
     implementation(project.files(generateLexer))
 
     jflex(libs.jflex)

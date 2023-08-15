@@ -19,7 +19,7 @@ import com.riscure.bumper.highlight.StrEncoding;
   StringBuffer string = new StringBuffer();
 
   public Position getPos() {
-    return new Position(yyline, yycolumn);
+    return new Position(yyline + 1, yycolumn + 1);
   }
 
   private Token keyword(Keywords k) {
@@ -58,6 +58,7 @@ InputCharacter = [^\r\n]
 Whitespace     = ({LineTerminator} | [ \t\f])+
 BlobCharacter  = [a-zA-Z0-9_$]
 Identifier     = ([:jletter:] | [$]) [:jletterdigit:]*
+Directive      = [a-zA-Z]+
 
 %state STRING
 %state CHAR
@@ -65,131 +66,135 @@ Identifier     = ([:jletter:] | [$]) [:jletterdigit:]*
 %%
 
 <YYINITIAL> {
-    {Whitespace}            { return new Token.Ws(yytext(), getPos()); }
-    <<EOF>>                 { return Token.eof; }
+   {Whitespace}                                { return new Token.Ws(yytext(), getPos()); }
+    <<EOF>>                                    { return new Token.EOF(getPos()); }
 
-    (""|"L"|"u"|"U") "'"          { charBegin(yytext()); }
-    (""|"L"|"u"|"U"|"u8"|"R") \"  { stringBegin(yytext()); }
+   "#" {Directive} .*                          { return new Token.Directive(yytext(), getPos()); }
+
+    (""|"L"|"u"|"U") "'"                       { charBegin(yytext()); }
+    (""|"L"|"u"|"U"|"u8"|"R") \"               { stringBegin(yytext()); }
 
     "void" | "char" | "short" | "int" | "long" { return new Token.Type(yytext(), getPos()); }
     "float" | "double"                         { return new Token.Type(yytext(), getPos()); }
 
-    "_Alignas" { return keyword(Keywords.AlignAs); }
-    "_Alignof" { return keyword(Keywords.AlignOf); }
-    "_Bool" { return keyword(Keywords.Bool); }
-    "_Generic" { return keyword(Keywords.Generic); }
-    "_Complex" { return keyword(Keywords.Complex); }
-    "_Imaginary" { return keyword(Keywords.Imaginary); }
-    "_Static_assert" { return keyword(Keywords.StaticAssert); }
-    "__alignof" { return keyword(Keywords.AlignOf); }
-    "__alignof__" { return keyword(Keywords.AlignOf); }
-    "__asm" { return keyword(Keywords.Asm); }
-    "__asm__" { return keyword(Keywords.Asm); }
-    "__attribute" { return keyword(Keywords.Attribute); }
-    "__attribute__" { return keyword(Keywords.Attribute); }
-    "__builtin_va_arg" { return keyword(Keywords.VaArg); }
-    "__builtin_offsetof" { return keyword(Keywords.OffsetOf); }
-    "__const" { return keyword(Keywords.Const); }
-    "__const__" { return keyword(Keywords.Const); }
-    "__inline" { return keyword(Keywords.Inline); }
-    "__inline__" { return keyword(Keywords.Inline); }
-    "__packed__" { return keyword(Keywords.Packed); }
-    "__restrict" { return keyword(Keywords.Restrict); }
-    "__restrict__" { return keyword(Keywords.Restrict); }
-    "__signed" { return keyword(Keywords.Signed); }
-    "__signed__" { return keyword(Keywords.Signed); }
-    "__volatile" { return keyword(Keywords.Volatile); }
-    "__volatile__" { return keyword(Keywords.Volatile); }
-    "asm" { return keyword(Keywords.Asm); }
-    "auto" { return keyword(Keywords.Auto); }
-    "break" { return keyword(Keywords.Break); }
-    "case" { return keyword(Keywords.Case); }
-    "const" { return keyword(Keywords.Const); }
-    "continue" { return keyword(Keywords.Continue); }
-    "default" { return keyword(Keywords.Default); }
-    "do" { return keyword(Keywords.Do); }
-    "else" { return keyword(Keywords.Else); }
-    "enum" { return keyword(Keywords.Enum); }
-    "extern" { return keyword(Keywords.Extern); }
-    "for" { return keyword(Keywords.For); }
-    "goto" { return keyword(Keywords.Goto); }
-    "if" { return keyword(Keywords.If); }
-    "inline" { return keyword(Keywords.Inline); }
-    "_Noreturn" { return keyword(Keywords.NoReturn); }
-    "register" { return keyword(Keywords.Register); }
-    "restrict" { return keyword(Keywords.Restrict); }
-    "return" { return keyword(Keywords.Return); }
-    "signed" { return keyword(Keywords.Signed); }
-    "sizeof" { return keyword(Keywords.Sizeof); }
-    "static" { return keyword(Keywords.Static); }
-    "struct" { return keyword(Keywords.Struct); }
-    "switch" { return keyword(Keywords.Switch); }
-    "typedef" { return keyword(Keywords.Typedef); }
-    "union" { return keyword(Keywords.Union); }
-    "unsigned" { return keyword(Keywords.Unsigned); }
-    "volatile" { return keyword(Keywords.Volatile); }
-    "while" { return keyword(Keywords.While); }
+    "_Alignas"                                 { return keyword(Keywords.AlignAs); }
+    "_Alignof"                                 { return keyword(Keywords.AlignOf); }
+    "_Bool"                                    { return keyword(Keywords.Bool); }
+    "_Generic"                                 { return keyword(Keywords.Generic); }
+    "_Complex"                                 { return keyword(Keywords.Complex); }
+    "_Imaginary"                               { return keyword(Keywords.Imaginary); }
+    "_Static_assert"                           { return keyword(Keywords.StaticAssert); }
+    "__alignof"                                { return keyword(Keywords.AlignOf); }
+    "__alignof__"                              { return keyword(Keywords.AlignOf); }
+    "__asm"                                    { return keyword(Keywords.Asm); }
+    "__asm__"                                  { return keyword(Keywords.Asm); }
+    "__attribute"                              { return keyword(Keywords.Attribute); }
+    "__attribute__"                            { return keyword(Keywords.Attribute); }
+    "__builtin_va_arg"                         { return keyword(Keywords.VaArg); }
+    "__builtin_offsetof"                       { return keyword(Keywords.OffsetOf); }
+    "__const"                                  { return keyword(Keywords.Const); }
+    "__const__"                                { return keyword(Keywords.Const); }
+    "__inline"                                 { return keyword(Keywords.Inline); }
+    "__inline__"                               { return keyword(Keywords.Inline); }
+    "__packed__"                               { return keyword(Keywords.Packed); }
+    "__restrict"                               { return keyword(Keywords.Restrict); }
+    "__restrict__"                             { return keyword(Keywords.Restrict); }
+    "__signed"                                 { return keyword(Keywords.Signed); }
+    "__signed__"                               { return keyword(Keywords.Signed); }
+    "__volatile"                               { return keyword(Keywords.Volatile); }
+    "__volatile__"                             { return keyword(Keywords.Volatile); }
+    "asm"                                      { return keyword(Keywords.Asm); }
+    "auto"                                     { return keyword(Keywords.Auto); }
+    "break"                                    { return keyword(Keywords.Break); }
+    "case"                                     { return keyword(Keywords.Case); }
+    "const"                                    { return keyword(Keywords.Const); }
+    "continue"                                 { return keyword(Keywords.Continue); }
+    "default"                                  { return keyword(Keywords.Default); }
+    "do"                                       { return keyword(Keywords.Do); }
+    "else"                                     { return keyword(Keywords.Else); }
+    "enum"                                     { return keyword(Keywords.Enum); }
+    "extern"                                   { return keyword(Keywords.Extern); }
+    "for"                                      { return keyword(Keywords.For); }
+    "goto"                                     { return keyword(Keywords.Goto); }
+    "if"                                       { return keyword(Keywords.If); }
+    "inline"                                   { return keyword(Keywords.Inline); }
+    "_Noreturn"                                { return keyword(Keywords.NoReturn); }
+    "register"                                 { return keyword(Keywords.Register); }
+    "restrict"                                 { return keyword(Keywords.Restrict); }
+    "return"                                   { return keyword(Keywords.Return); }
+    "signed"                                   { return keyword(Keywords.Signed); }
+    "sizeof"                                   { return keyword(Keywords.Sizeof); }
+    "static"                                   { return keyword(Keywords.Static); }
+    "struct"                                   { return keyword(Keywords.Struct); }
+    "switch"                                   { return keyword(Keywords.Switch); }
+    "typedef"                                  { return keyword(Keywords.Typedef); }
+    "union"                                    { return keyword(Keywords.Union); }
+    "unsigned"                                 { return keyword(Keywords.Unsigned); }
+    "volatile"                                 { return keyword(Keywords.Volatile); }
+    "while"                                    { return keyword(Keywords.While); }
 
-    "..."                         { return punct(); }
-    "+="                          { return punct(); }
-    "-="                          { return punct(); }
-    "*="                          { return punct(); }
-    "/="                          { return punct(); }
-    "%="                          { return punct(); }
-    "|="                          { return punct(); }
-    "&="                          { return punct(); }
-    "^="                          { return punct(); }
-    "<<="                         { return punct(); }
-    ">>="                         { return punct(); }
-    "<<"                          { return punct(); }
-    ">>"                          { return punct(); }
-    "=="                          { return punct(); }
-    "!="                          { return punct(); }
-    "<="                          { return punct(); }
-    ">="                          { return punct(); }
-    "="                           { return punct(); }
-    "<"                           { return punct(); }
-    ">"                           { return punct(); }
-    "++"                          { return punct(); }
-    "--"                          { return punct(); }
-    "->"                          { return punct(); }
-    "+"                           { return punct(); }
-    "-"                           { return punct(); }
-    "*"                           { return punct(); }
-    "/"                           { return punct(); }
-    "%"                           { return punct(); }
-    "!"                           { return punct(); }
-    "&&"                          { return punct(); }
-    "||"                          { return punct(); }
-    "&"                           { return punct(); }
-    "|"                           { return punct(); }
-    "^"                           { return punct(); }
-    "?"                           { return punct(); }
-    ":"                           { return punct(); }
-    "~"                           { return punct(); }
-    "{"|"<%"                      { return punct(); }
-    "}"|"%>"                      { return punct(); }
-    "["|"<:"                      { return punct(); }
-    "]"|":>"                      { return punct(); }
-    "("                           { return punct(); }
-    ")"                           { return punct(); }
-    ";"                           { return punct(); }
-    ","                           { return punct(); }
-    "."                           { return punct(); }
+    "..."                                      { return punct(); }
+    "+="                                       { return punct(); }
+    "-="                                       { return punct(); }
+    "*="                                       { return punct(); }
+    "/="                                       { return punct(); }
+    "%="                                       { return punct(); }
+    "|="                                       { return punct(); }
+    "&="                                       { return punct(); }
+    "^="                                       { return punct(); }
+    "<<="                                      { return punct(); }
+    ">>="                                      { return punct(); }
+    "<<"                                       { return punct(); }
+    ">>"                                       { return punct(); }
+    "=="                                       { return punct(); }
+    "!="                                       { return punct(); }
+    "<="                                       { return punct(); }
+    ">="                                       { return punct(); }
+    "="                                        { return punct(); }
+    "<"                                        { return punct(); }
+    ">"                                        { return punct(); }
+    "++"                                       { return punct(); }
+    "--"                                       { return punct(); }
+    "->"                                       { return punct(); }
+    "+"                                        { return punct(); }
+    "-"                                        { return punct(); }
+    "*"                                        { return punct(); }
+    "/"                                        { return punct(); }
+    "%"                                        { return punct(); }
+    "!"                                        { return punct(); }
+    "&&"                                       { return punct(); }
+    "||"                                       { return punct(); }
+    "&"                                        { return punct(); }
+    "|"                                        { return punct(); }
+    "^"                                        { return punct(); }
+    "?"                                        { return punct(); }
+    ":"                                        { return punct(); }
+    "~"                                        { return punct(); }
+    "{"|"<%"                                   { return punct(); }
+    "}"|"%>"                                   { return punct(); }
+    "["|"<:"                                   { return punct(); }
+    "]"|":>"                                   { return punct(); }
+    "("                                        { return punct(); }
+    ")"                                        { return punct(); }
+    ";"                                        { return punct(); }
+    ","                                        { return punct(); }
+    "."                                        { return punct(); }
 
-    {Identifier}       { return new Token.Identifier(yytext(), getPos()); }
-    {BlobCharacter}+   { return new Token.Blob(yytext(), getPos()); }
+    {Identifier}                               { return new Token.Identifier(yytext(), getPos()); }
+    {BlobCharacter}+                           { return new Token.Blob(yytext(), getPos()); }
 }
 
 <CHAR> {
-    \\'         { string.append(yytext()); }
-    '           { return charEnd(); }
-    [^\"\n\r\\] { string.append(yytext()); }
+    \\'                                        { string.append(yytext()); }
+    '                                          { return charEnd(); }
+    [^\"\n\r\\]                                { string.append(yytext()); }
 }
 
 <STRING> {
-    \\\"        { string.append(yytext()); }
-    \"          { return stringEnd(); }
-    [^\"\n\r\\] { string.append(yytext()); }
+    \\\"                                       { string.append(yytext()); }
+    \"                                         { return stringEnd(); }
+    [^\"\n\r\\]                                { string.append(yytext()); }
 }
 
+/* error fallback */
+[^]                                            { throw new RuntimeException(String.format("Unexpected input at %s:%s: %s", yyline, yycolumn, yytext())); }

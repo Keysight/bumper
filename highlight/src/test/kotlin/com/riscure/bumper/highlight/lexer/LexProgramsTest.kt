@@ -34,4 +34,18 @@ class LexProgramsTest {
         }
     """.trimIndent())
 
+    @Test
+    @DisplayName("multiline string")
+    fun test_01() = roundtrip("""
+        char *s = "begins here\
+                   ends here";
+    """.trimIndent())
+
+    @Test
+    @DisplayName("raw multiline string")
+    fun test_02() = roundtrip("""
+        char *s = R"(begins here
+                     ends here)";
+    """.trimIndent())
+
 }
