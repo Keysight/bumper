@@ -279,13 +279,13 @@ interface ParseTestBase<E,S,U: UnitState<E, S, U>> {
     }
 
     fun eq(f1: Field, f2: Field) = when(f1) {
-        is Field.Anonymous -> {
-            val a2 = assertIs<Field.Anonymous>(f2)
+        is Field.AnonymousRecord -> {
+            val a2 = assertIs<Field.AnonymousRecord>(f2)
             assertEquals(f1.structOrUnion, a2.structOrUnion)
             eq(f1.subfields, a2.subfields)
         }
-        is Field.Named -> {
-            val n2 = assertIs<Field.Named>(f2)
+        is Field.Leaf -> {
+            val n2 = assertIs<Field.Leaf>(f2)
             assertEquals(f1.name, n2.name)
             assertEquals(f1.bitfield, n2.bitfield)
             eq(f1.type, n2.type)

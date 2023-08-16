@@ -1,9 +1,11 @@
 package com.riscure.bumper.analyses
 
-import arrow.core.*
+import arrow.core.Either
+import arrow.core.getOrHandle
+import arrow.core.left
+import arrow.core.right
 import com.riscure.bumper.ast.TLID
 import com.riscure.bumper.ast.TranslationUnit
-import com.riscure.bumper.ast.UnitDeclaration
 import com.riscure.bumper.index.TUID
 
 abstract class LinkError: Exception() {

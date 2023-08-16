@@ -1,3 +1,19 @@
+# 0.1.7
+
+- Add support for declaration attribute 'weak'.
+- Add isStrong/isWeak getter on declarations.
+- Add support for parsing of anonymous bit fields.
+  Field.Named -> Field.Leaf, because they can be anonymous (ident == "") now!
+- Upgrade to Kotlin 1.8.20
+
+# 0.1.6
+
+- Completely incrementalize the linkanalysis, unifying it with the UnitClosureAnalysis.
+- Fix bug where presumedLocation was relative in the model due to Clang
+- Add NULL and free to IStdlib
+- Fix function declaration type: make space for attributes on the function.
+- Add smart constructors for operator expressions.
+
 # 0.1.5
 
 - Fix bug with `isDefinition` on global variables not accounting for 'extern'

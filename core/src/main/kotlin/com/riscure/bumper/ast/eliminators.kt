@@ -156,10 +156,10 @@ fun <C> Type.bottomUp(acc: C, visitor: TypeVisitor<C>): C = when (this) {
  * accumulating a value of type [C].
  */
 fun <C> Field.bottomUp(acc: C, visitor: TypeVisitor<C>): C = when (this) {
-    is Field.Anonymous -> subfields.fold(acc) { acc, field ->
+    is Field.AnonymousRecord -> subfields.fold(acc) { acc, field ->
         field.bottomUp(acc, visitor)
     }
-    is Field.Named     -> this.type.bottomUp(acc, visitor)
+    is Field.Leaf     -> this.type.bottomUp(acc, visitor)
 }
 
 /**

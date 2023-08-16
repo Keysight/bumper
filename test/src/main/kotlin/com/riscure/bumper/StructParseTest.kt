@@ -160,7 +160,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         val fields = structA.fields.assertOK()
         assertEquals(1, fields.size)
 
-        val field = assertIs<Field.Anonymous>(assertNotNull(fields[0]))
+        val field = assertIs<Field.AnonymousRecord>(assertNotNull(fields[0]))
 
         assertEquals(StructOrUnion.Union, field.structOrUnion)
         val fs = field.subfields
@@ -182,7 +182,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         val fields = scope.fields.assertOK()
         assertEquals(1, fields.size)
 
-        val field  = assertIs<Field.Anonymous>(assertNotNull(fields[0]))
+        val field  = assertIs<Field.AnonymousRecord>(assertNotNull(fields[0]))
         assertEquals(StructOrUnion.Struct, field.structOrUnion)
 
         val fs = field.subfields
@@ -320,8 +320,8 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         val fields = structX.fields.assertOK()
         assertEquals(2, fields.size)
 
-        val data = assertIs<Field.Named>(fields[0])
-        val more = assertIs<Field.Named>(fields[1])
+        val data = assertIs<Field.Leaf>(fields[0])
+        val more = assertIs<Field.Leaf>(fields[1])
         assertEquals("data", data.name)
         assertEquals("more", more.name)
 
@@ -332,9 +332,9 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         assertEquals("y", unionUComposite.fields.assertOK()[1].name)
         assertEquals("z", unionUComposite.fields.assertOK()[2].name)
 
-        val x = assertIs<Field.Named>(unionUComposite.fields.assertOK()[0])
-        val y = assertIs<Field.Named>(unionUComposite.fields.assertOK()[1])
-        val z = assertIs<Field.Named>(unionUComposite.fields.assertOK()[2])
+        val x = assertIs<Field.Leaf>(unionUComposite.fields.assertOK()[0])
+        val y = assertIs<Field.Leaf>(unionUComposite.fields.assertOK()[1])
+        val z = assertIs<Field.Leaf>(unionUComposite.fields.assertOK()[2])
         eq(Type.struct("X").ptr(), x.type)
         eq(Type.ulonglong, y.type)
         eq(Type.double, z.type)
@@ -342,9 +342,9 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         val unionV = assertIs<Type.Union>(more.type)
         val unionVComposite = ast.declarations.unions.find { it.tlid == unionV.ref }
         assertNotNull(unionVComposite)
-        val vec = assertIs<Field.Named>(unionVComposite.fields.assertOK()[0])
-        val f = assertIs<Field.Named>(unionVComposite.fields.assertOK()[1])
-        val d = assertIs<Field.Named>(unionVComposite.fields.assertOK()[2])
+        val vec = assertIs<Field.Leaf>(unionVComposite.fields.assertOK()[0])
+        val f = assertIs<Field.Leaf>(unionVComposite.fields.assertOK()[1])
+        val d = assertIs<Field.Leaf>(unionVComposite.fields.assertOK()[2])
         assertEquals("vec", vec.name)
         assertEquals("f", f.name)
         assertEquals("d", d.name)
@@ -353,8 +353,8 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
             it.tlid == assertIs<Type.Struct>(vec.type).ref
         })
 
-        val sx = assertIs<Field.Named>(anonymousStruct.fields.assertOK()[0])
-        val sy = assertIs<Field.Named>(anonymousStruct.fields.assertOK()[1])
+        val sx = assertIs<Field.Leaf>(anonymousStruct.fields.assertOK()[0])
+        val sy = assertIs<Field.Leaf>(anonymousStruct.fields.assertOK()[1])
         assertEquals("x", sx.name)
         assertEquals("y", sy.name)
         assertEquals(Type.int, sx.type)
@@ -387,7 +387,7 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         })
 
         val point2DTypedef = assertIs<Type.Typedeffed>(
-                assertNotNull(triangleStruct.fields.assertOK().filterIsInstance<Field.Named>().find { it.name == "a" }).type
+                assertNotNull(triangleStruct.fields.assertOK().filterIsInstance<Field.Leaf>().find { it.name == "a" }).type
         )
         val point2DTypedef2 = assertNotNull(ast.typedefs.find { it.tlid == point2DTypedef.ref })
         val point2DStruct = assertNotNull(ast.structs.find {
@@ -396,11 +396,41 @@ interface StructParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U> {
         assertEquals(Field("x", Type.int), point2DStruct.fields.assertOK()[0])
         assertEquals(Field("y", Type.int), point2DStruct.fields.assertOK()[1])
 
-        assertNotNull(triangleStruct.fields.assertOK().find { it is Field.Named && it.name == "b" })
-        assertNotNull(triangleStruct.fields.assertOK().find { it is Field.Named && it.name == "c" })
+        assertNotNull(triangleStruct.fields.assertOK().find { it is Field.Leaf && it.name == "b" })
+        assertNotNull(triangleStruct.fields.assertOK().find { it is Field.Leaf && it.name == "c" })
 
         val meshTypedef = assertNotNull(ast.typedefs.find { it.ident == "Mesh" })
         val ptr = assertIs<Type.Ptr>(meshTypedef.underlyingType)
         assertEquals(triangle.tlid, assertIs<Type.Typedeffed>(ptr.pointeeType).ref)
+    }
+
+    @Test
+    fun anonymous_bitfield() = roundtrip("""
+        struct A {
+            int :4;
+            int x;
+        };
+    """.trimIndent()) { ast ->
+        val structA = ast.structs.find { it.ident == "A" }.assertOK()
+        val fs = structA.fields.assertOK()
+
+        assertEquals(2, fs.size)
+        val anon = fs[0]
+        val x    = fs[1]
+
+        val leaf = assertIs<Field.Leaf>(anon)
+        assertEquals("", leaf.name)
+        assertEquals(4.some(), leaf.bitfield)
+    }
+
+    @Test
+    fun anonymous_field_named_struct() = roundtrip("""
+        struct A {
+            struct B { int m; }; // does not declare a field! warning for clang
+        };
+    """.trimIndent()) { ast ->
+        val structA = ast.structs.find { it.ident == "A" }.assertOK()
+        val fs = structA.fields.assertOK()
+        assertEquals(0, fs.size)
     }
 }

@@ -61,8 +61,8 @@ interface UnitDependencyAnalysis<Exp, Stmt> {
         fields
             .map { f: Field ->
                 when (f) {
-                    is Field.Anonymous -> ofFields(f.subfields)
-                    is Field.Named -> ofType(f.type)
+                    is Field.AnonymousRecord -> ofFields(f.subfields)
+                    is Field.Leaf -> ofType(f.type)
 
                 }
             }

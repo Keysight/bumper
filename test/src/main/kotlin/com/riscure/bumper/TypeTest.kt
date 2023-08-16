@@ -26,8 +26,6 @@ interface TypeTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
             "const int i[];",
             "const int i[1][2];",
             "enum MyEnum { X }; const enum MyEnum i;",
-            "const struct { int m; } A; struct A i;",
-            "const union  { int m; } A; union A i;",
         ).map { Arguments.of(it) }
 
         @JvmStatic
@@ -37,7 +35,9 @@ interface TypeTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E, S, U>  {
             "typedef int MyInt; typedef MyInt MyMyInt; MyMyInt i;",
             "struct A { int x; }; struct A i;",
             "union A { char y; int x; }; union A i;",
-            "const int *i;"
+            "const int *i;",
+            "const struct A { int m; }; struct A i;", // const ignored on struct declaration
+            "const union A { int m; }; union A i;",   // const ignored on union declaration
         ).map { Arguments.of(it) }
 
         @JvmStatic

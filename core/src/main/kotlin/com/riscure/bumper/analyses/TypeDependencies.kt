@@ -190,10 +190,10 @@ fun typeDependencies(
 
 private fun typeDependencies(field: Field, acc: MutTypeContext): MutTypeContext {
     when (field) {
-        is Field.Anonymous -> {
+        is Field.AnonymousRecord -> {
             field.subfields.forEach { typeDependencies(it, acc) }
         }
-        is Field.Named     ->
+        is Field.Leaf     ->
             // we need the size of the field type to be able to compute the size of the
             // surrounding struct
             typeDependencies(field.type, true, acc)
