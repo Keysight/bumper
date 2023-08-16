@@ -22,7 +22,7 @@ dependencyResolutionManagement {
 
     versionCatalogs {
         create("kotlinx") {
-            library("json", "org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+            library("json", "org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
         }
         create("libs") {
             library("arrow.core", "io.arrow-kt:arrow-core:1.1.2")
