@@ -1,5 +1,6 @@
 package com.riscure.bumper.libclang
 
+import arrow.core.none
 import com.riscure.bumper.analyses.LinkResolution.Companion.linkgraph
 import com.riscure.bumper.analyses.objectInterface
 import com.riscure.bumper.assertOK
@@ -7,7 +8,7 @@ import com.riscure.bumper.assertOK
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.*
 
-class LinkAnalysisTest: LibclangTestBase() {
+class linkgraphTest: LibclangTestBase() {
 
     @DisplayName("Two mutually dependent translation units")
     @Test
@@ -33,7 +34,7 @@ class LinkAnalysisTest: LibclangTestBase() {
 
     ) { units ->
         // We test the link graph
-        val graph = linkgraph(units.asSequence().map { it.first }).assertOK()
+        val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
         val unit1Deps = graph[unit1.first.tuid].assertOK()
@@ -76,9 +77,8 @@ class LinkAnalysisTest: LibclangTestBase() {
         assertEquals("f", objectInterface2.exports.first().ident)
 
         val unit1Deps = graph[unit1.first.tuid].assertOK()
-        val unit2Deps = graph[unit2.first.tuid].assertOK()
+        assertEquals(none(), graph[unit2.first.tuid])
 
-        assertEquals(0, unit2Deps.bound.size)
         assertEquals(1, unit1Deps.bound.size)
         val edge = unit1Deps.bound.first()
         assertNotNull(edge.definition)
@@ -153,10 +153,9 @@ class LinkAnalysisTest: LibclangTestBase() {
         val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
-        val unit1Deps = graph[unit1.first.tuid].assertOK()
-        val unit2Deps = graph[unit2.first.tuid].assertOK()
+        assertEquals(none(), graph[unit1.first.tuid])
 
-        assertEquals(0, unit1Deps.bound.size)
+        val unit2Deps = graph[unit2.first.tuid].assertOK()
 
         assertEquals(1, unit2Deps.bound.size)
         val fDep = unit2Deps.bound.first()
@@ -182,11 +181,9 @@ class LinkAnalysisTest: LibclangTestBase() {
         val graph = linkgraph(units.map { it.first }).assertOK()
         val (unit1, unit2) = units
 
-        val unit1Deps = graph[unit1.first.tuid].assertOK()
+        assertEquals(none(), graph[unit1.first.tuid])
+
         val unit2Deps = graph[unit2.first.tuid].assertOK()
-
-        assertEquals(0, unit1Deps.bound.size)
-
         assertEquals(1, unit2Deps.bound.size)
         val fDep = unit2Deps.bound.first()
         assertEquals("k", fDep.definition.name)
