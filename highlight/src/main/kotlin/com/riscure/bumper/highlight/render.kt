@@ -11,8 +11,59 @@ import com.github.ajalt.mordant.rendering.TextColors.Companion.rgb
 import com.github.ajalt.mordant.rendering.TextStyle
 import com.github.ajalt.mordant.terminal.Terminal
 import com.riscure.bumper.coverage.Report
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import java.nio.file.Path
 import kotlin.io.path.reader
+
+object CoverageReportSerializer {
+
+    val Token.typeEncoding get() = when (this) {
+        is Token.Blob -> "b"
+        is Token.CharLiteral -> "c"
+        is Token.Directive -> "d"
+        is Token.EOF -> "e"
+        is Token.Identifier -> "i"
+        is Token.IntLiteral -> "I"
+        is Token.Keyword -> "k"
+        is Token.Punctuation -> "p"
+        is Token.StringLiteral -> "s"
+        is Token.Type -> "t"
+        is Token.Ws -> "w"
+    }
+
+    /**
+     * Produces a __compact__ JSON serialization of a token.
+     */
+    fun Token.toJson(): JsonObject = buildJsonObject {
+        put("t", JsonPrimitive(typeEncoding))
+        put("pp", JsonPrimitive(pp()))
+    }
+
+    fun List<Segment>.toJson(): JsonArray = buildJsonArray {
+        this@toJson.forEach { segment ->
+            add(buildJsonObject {
+                put(
+                    "count",
+                    JsonPrimitive(
+                        segment.coverage
+                            .getOrElse { null }
+                            ?.count
+                    )
+                )
+
+                put(
+                    "tokens",
+                    buildJsonArray {
+                        segment.tokens.forEach { token ->
+                            add(token.toJson())
+                        }
+                    }
+                )
+            })
+        }
+    }
+}
 
 fun List<Segment>.ppToTerminal(
     term: Terminal = Terminal(),
@@ -47,13 +98,18 @@ fun List<Segment>.ppToTerminal(
     }
 }
 
-fun main(args: Array<String>) {
-    if (args.size < 2) {
-        error("expected arguments: file.c coverage.json")
-    }
+enum class Mode {
+    JSON, Print;
+}
 
-    val cfile = args[0]
-    val coverageJson = args[1]
+fun main(args: Array<String>) {
+
+    val (mode, cfile, coverageJson) = when {
+        args.size < 2  -> error("expected arguments: file.c coverage.json")
+        args.size == 2 -> Triple(Mode.Print, args[0], args[1])
+        args.size == 3 && args[0].lowercase() == "json" -> Triple(Mode.JSON, args[1], args[2])
+        else           -> error("invalid arguments")
+    }
 
     // get the coverage data for cfile
     val report = Report
@@ -70,5 +126,15 @@ fun main(args: Array<String>) {
     val annotated = annotate(toks, fileReport.segments.map { it.marker })
 
     // render it
-    annotated.ppToTerminal()
+    when (mode) {
+        Mode.JSON  -> with (CoverageReportSerializer) {
+            Json {
+                this.prettyPrint = false // compact
+            }
+                .encodeToString(annotated.toJson())
+                .let { println(it) }
+        }
+
+        Mode.Print -> annotated.ppToTerminal()
+    }
 }
