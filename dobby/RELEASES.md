@@ -1,4 +1,14 @@
-# 0.1.6
+# 0.1.9
+
+- Upgrade to Kotlin 1.8.20
+
+# 0.1.8
+
+- Fix toArguments family for Windows
+- Add IncludePath.show
+- Add Include.isHeader
+
+# 0.1.{6,7}
 
 - Fix bug where kind=separate options were not printed as separate. (Thanks Diego!)
 - Fix bug where toArguments was joining separate arguments into a " "-separated single argument.
