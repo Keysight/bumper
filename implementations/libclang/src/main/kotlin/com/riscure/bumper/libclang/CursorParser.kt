@@ -1,3 +1,5 @@
+@file:Suppress("MemberVisibilityCanBePrivate")
+
 package com.riscure.bumper.libclang
 
 import arrow.core.*
@@ -321,17 +323,43 @@ open class CursorParser(
     fun CXCursor.asField(): Result<Field> =
         getIdentifier()
             .flatMap { id ->
+                val type = type()
+
                 when {
-                    id.isBlank() ->
-                        type()
-                            .asAnonType()
-                            .map { t -> Field.Anonymous(t.first, t.second) }
+                    id.isBlank() && type.kind() == CXType_Record ->
+                        // Record Types for anonymous fields are treated a little different,
+                        // because anonymous inline struct/union type definitions cannot be
+                        // elaborated, because that would change the visibility of the nested members.
+                        //
+                        // For example:
+                        // struct Scope { struct { int a; int b; }; }
+                        // has no elaborated counterpart such that the inner struct has a separate declaration
+                        // but that still enables direct access of the innermost fields `a` and `b` on a value
+                        // of the outermost struct type.
+                        clang_getTypeDeclaration(type)
+                            .asDeclaration()
+                            .flatMap { d ->
+                                // sanity check: the type should not have a name,
+                                assert(d.ident == "")
+                                when (d) {
+                                    is UnitDeclaration.Struct ->
+                                        Field
+                                            .AnonymousRecord(StructOrUnion.Struct, d.fields.getOrElse { listOf() })
+                                            .right()
+                                    is UnitDeclaration.Union  ->
+                                        Field
+                                            .AnonymousRecord(StructOrUnion.Union , d.fields.getOrElse { listOf() })
+                                            .right()
+                                    else -> "Invariant violation: failed to parse anonymous field.".left()
+                                }
+                            }
+
                     else -> {
                         val attrs = this.cursorAttributes(type())
                         type()
                             .asType()
                             .map { t ->
-                                Field.Named(
+                                Field.Leaf(
                                     id,
                                     t,
                                     clang_getFieldDeclBitWidth(this).let { if (it == -1) None else Some(it) })
@@ -472,36 +500,6 @@ open class CursorParser(
                 val ident = if (id == "") freshAnonymousIdentifier() else id
                 Symbol(tuid, TLID(ident, kind))
             }
-
-    /**
-     * Field types are treated a little different,
-     * because anonymous inline struct/union type definitions cannot be
-     * elaborated, because that would change the visibility of the nested members.
-     *
-     * For example:
-     * struct Scope { struct { int a; int b; }; }
-     * has no elaborated counterpart such that the inner struct has a separate declaration
-     * but that still enables direct access of the innermost fields `a` and `b` on a value
-     * of the outermost struct type.
-     */
-    fun CXType.asAnonType(): Result<Pair<StructOrUnion, FieldDecls>> =
-        when (kind()) {
-            // anonymous union/struct field are treated differently
-            CXType_Record -> {
-                clang_getTypeDeclaration(this)
-                    .asDeclaration()
-                    .flatMap { d ->
-                        // sanity check
-                        assert(d.ident == "")
-                        when (d) {
-                            is UnitDeclaration.Struct -> Pair(StructOrUnion.Struct, d.fields.getOrElse { listOf() }).right()
-                            is UnitDeclaration.Union  -> Pair(StructOrUnion.Union , d.fields.getOrElse { listOf() }).right()
-                            else -> "Invariant violation: failed to parse anonymous field.".left()
-                        }
-                    }
-            }
-            else -> "Invariant violation: failed to parse anonymous field.".left()
-        }
 
     fun CXType.asType(): Result<Type> =
         when (kind()) {

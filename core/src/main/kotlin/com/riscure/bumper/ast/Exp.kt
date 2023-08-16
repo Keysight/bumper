@@ -122,7 +122,7 @@ sealed interface Exp {
         @JvmStatic
         fun not(exp: Exp) = UnOp(UnaryOp.OpLogNot, exp, Type.bool)
         @JvmStatic
-        fun dot(exp: Exp, field: Field.Named) = when {
+        fun dot(exp: Exp, field: Field.Leaf) = when {
             exp is UnOp && exp.op is UnaryOp.OpDeref ->
                 arrow(exp.operand, field)
             else                                     ->
@@ -131,7 +131,7 @@ sealed interface Exp {
         @JvmStatic
         fun index(lhs: Exp, rhs: Exp, elTyp: Type) = BinOp(BinaryOp.OpIndex, lhs, rhs, lhs.etype, elTyp)
         @JvmStatic
-        fun arrow(exp: Exp, field: Field.Named) = UnOp(UnaryOp.OpArrow(field.name), exp, field.type)
+        fun arrow(exp: Exp, field: Field.Leaf) = UnOp(UnaryOp.OpArrow(field.name), exp, field.type)
 
         @JvmStatic
         fun deref(exp: Exp, pointee: Type) = when {

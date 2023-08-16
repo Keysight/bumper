@@ -110,7 +110,7 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
 
         override val isDefinition get() = fields.isDefined()
 
-        fun <A> foldFields(initial: A, f: (A, Field.Named) -> A): A =
+        fun <A> foldFields(initial: A, f: (A, Field.Leaf) -> A): A =
             fields.fold({ initial }) { fs -> fs.foldFields(initial, f) }
     }
 

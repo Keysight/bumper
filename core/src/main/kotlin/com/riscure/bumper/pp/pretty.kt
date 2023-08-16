@@ -190,8 +190,8 @@ object Pretty {
 
     @JvmStatic
     fun field(field: Field): String = when (field) {
-        is Field.Anonymous -> composite(field.structOrUnion, "", field.subfields.some())
-        is Field.Named     -> "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
+        is Field.AnonymousRecord -> composite(field.structOrUnion, "", field.subfields.some())
+        is Field.Leaf     -> "${declaration(field.name, field.type)}${bitFieldSpec(field.bitfield)}"
     }
 
     @JvmStatic

@@ -85,7 +85,7 @@ class PrettyPrinterTest {
         "x.m = y + z",
         Pretty.exp(
             assign(
-                dot(Var("x", Type.uint), Field.Named("m", Type.uint)),
+                dot(Var("x", Type.uint), Field.Leaf("m", Type.uint)),
                 op(OpAdd, Var("y", Type.uint), Var("z", Type.uint), Type.uint)
             )
         )
