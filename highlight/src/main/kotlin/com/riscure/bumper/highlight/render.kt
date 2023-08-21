@@ -102,6 +102,10 @@ enum class Mode {
     JSON, Print;
 }
 
+private val json = Json {
+    this.prettyPrint = false // compact
+}
+
 fun main(args: Array<String>) {
 
     val (mode, cfile, coverageJson) = when {
@@ -128,9 +132,7 @@ fun main(args: Array<String>) {
     // render it
     when (mode) {
         Mode.JSON  -> with (CoverageReportSerializer) {
-            Json {
-                this.prettyPrint = false // compact
-            }
+            Json
                 .encodeToString(annotated.toJson())
                 .let { println(it) }
         }

@@ -4,6 +4,7 @@ import com.riscure.bumper.highlight.Token;
 import com.riscure.bumper.highlight.Position;
 import com.riscure.bumper.highlight.Keywords;
 import com.riscure.bumper.highlight.StrEncoding;
+import java.util.Arrays;
 
 %%
 
@@ -197,4 +198,15 @@ Directive      = [a-zA-Z]+
 }
 
 /* error fallback */
-[^]                                            { throw new RuntimeException(String.format("Unexpected input at %s:%s: %s", yyline, yycolumn, yytext())); }
+[^]                                            {
+    var input = new StringBuilder();
+    Arrays
+        .stream(yytext().split("\\r?\\n", -1))
+        .forEach(line -> {
+            input.append("> ");
+            input.append(line);
+            input.append("\n");
+        });
+
+    throw new RuntimeException(String.format("Unexpected input at line %s column %s:\n%s", yyline, yycolumn, input));
+}
