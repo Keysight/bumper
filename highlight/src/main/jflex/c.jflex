@@ -9,6 +9,7 @@ import java.util.Arrays;
 
 %%
 
+
 %class CLexer
 %unicode
 %line
@@ -209,9 +210,10 @@ MLCOMMENTCHAR  = !"*/"
 }
 
 <STRING> {
-    \\\"                                       { string.append(yytext()); }
+    (\\\"|\\\R|\\\\)                           { string.append(yytext()); }
     \"                                         { return stringEnd(); }
     [^\"\n\r\\]                                { string.append(yytext()); }
+    \R                                         { throw new LexerException("Unterminated string", getPos(), yytext()); }
 }
 
 <MULTILINE_COMMENT> {

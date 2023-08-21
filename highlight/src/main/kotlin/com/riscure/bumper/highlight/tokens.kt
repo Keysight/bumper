@@ -18,9 +18,11 @@ class FileLexerException(
 }
 
 class LexerException(
+    val description: String ,
     val position: Position,
     val input: String
 ): Exception() {
+    constructor(position: Position, input: String): this("Unexpected input", position, input)
 
     override val message: String get() =
         StringBuilder()
@@ -36,7 +38,7 @@ class LexerException(
             .toString()
             .let { input ->
                 """
-                Unexpected input at line ${position.line} column ${position.column}:
+                ${description.replaceFirstChar { it.uppercase() }} at line ${position.line} column ${position.column}:
                 $input        
                 """.trimIndent()
             }

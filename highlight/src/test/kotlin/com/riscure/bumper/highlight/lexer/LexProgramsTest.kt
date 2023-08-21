@@ -29,7 +29,12 @@ class LexProgramsTest {
     }
 
     fun roundtrip(input: String) {
+        println("input:")
+        println("-".repeat(80))
+        println(input)
+        println("-".repeat(80))
         val output = tokenizeTest(input.reader())
+
         assertEquals(input, output.toString())
     }
 
@@ -106,6 +111,15 @@ class LexProgramsTest {
             "multi-line block comment with escaped end" to """
                 /* block *\/
                    comment */
+            """.trimIndent(),
+
+            "line-comment comment ends in EOF" to """
+                // line comment
+            """.trimIndent(),
+
+            "line-comment comment" to """
+                // line comment
+                
             """.trimIndent(),
         )
             .map { (name, program) -> Arguments.of(name, program) }
