@@ -28,6 +28,7 @@ object CoverageReportSerializer {
         is Token.Keyword -> "k"
         is Token.Punctuation -> "p"
         is Token.StringLiteral -> "s"
+        is Token.MultiLineComment -> "M"
         is Token.Type -> "t"
         is Token.Ws -> "w"
     }

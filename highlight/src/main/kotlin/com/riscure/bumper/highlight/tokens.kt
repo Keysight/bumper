@@ -185,6 +185,13 @@ sealed interface Token {
         override fun pp(): String = "${encoding.pp()}\"$lexeme\""
     }
 
+    data class MultiLineComment(
+        val content: String,
+        override val position: Position
+    ): Token {
+        override fun pp(): String = "/*${content}*/"
+    }
+
     data class IntLiteral(
         val lexeme: String,
         override val position: Position

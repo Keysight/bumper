@@ -54,6 +54,16 @@ import java.util.Arrays;
     yybegin(YYINITIAL);
     return new Token.StringLiteral(StrEncoding.parse(encoding), string.toString(), getPos());
   }
+
+  private void multilineCommentBegin() {
+    string.setLength(0);
+    yybegin(MULTILINE_COMMENT);
+  }
+
+  private Token multilineCommentEnd() {
+    yybegin(YYINITIAL);
+    return new Token.MultiLineComment(string.toString(), getPos());
+  }
 %}
 
 LineTerminator = \r|\n|\r\n
@@ -63,8 +73,12 @@ BlobCharacter  = [a-zA-Z0-9_$]
 Identifier     = ([:jletter:] | [$]) [:jletterdigit:]*
 Directive      = [a-zA-Z]+
 
+MLCOMMENTCHAR  = !"*/"
+
 %state STRING
 %state CHAR
+%state COMMENT
+%state MULTILINE_COMMENT
 
 %%
 
@@ -72,10 +86,11 @@ Directive      = [a-zA-Z]+
    {Whitespace}                                { return new Token.Ws(yytext(), getPos()); }
     <<EOF>>                                    { return new Token.EOF(getPos()); }
 
-   "#" {Directive} .*                          { return new Token.Directive(yytext(), getPos()); }
+    "#" {Directive} .*                          { return new Token.Directive(yytext(), getPos()); }
 
     (""|"L"|"u"|"U") "'"                       { charBegin(yytext()); }
     (""|"L"|"u"|"U"|"u8"|"R") \"               { stringBegin(yytext()); }
+    "/*"                                       { multilineCommentBegin(); }
 
     "void" | "char" | "short" | "int" | "long" { return new Token.Type(yytext(), getPos()); }
     "float" | "double"                         { return new Token.Type(yytext(), getPos()); }
@@ -197,6 +212,11 @@ Directive      = [a-zA-Z]+
     \\\"                                       { string.append(yytext()); }
     \"                                         { return stringEnd(); }
     [^\"\n\r\\]                                { string.append(yytext()); }
+}
+
+<MULTILINE_COMMENT> {
+    "*/"                                       { return multilineCommentEnd(); }
+    .|\R                                       { string.append(yytext()); }
 }
 
 /* error fallback */
