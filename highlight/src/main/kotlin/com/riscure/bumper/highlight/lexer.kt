@@ -5,8 +5,9 @@ package com.riscure.bumper.highlight
 
 import com.riscure.bumper.highlight.lexer.CLexer
 import java.io.Reader
+import java.nio.file.Path
+import kotlin.io.path.reader
 
-class UnrecognizedInput(): Exception("Unrecognized input.")
 fun tokenize(input: Reader, skipWhitespace: Boolean = false) =
     Tokenizer(CLexer(input), skipWhitespace)
 
@@ -27,7 +28,7 @@ class Tokenizer(
                     tok
                 }
                 skipWs && tok is Token.Ws  -> next()
-                tok == null                -> throw UnrecognizedInput()
+                tok == null                -> throw LexerException(lexer.pos, lexer.yytext())
                 else                       -> tok
             }
         }
@@ -38,3 +39,18 @@ class Tokenizer(
         return toks
     }
 }
+
+fun main(args: Array<String>) =
+    args
+        .let {
+            require(it.size > 0)
+            Path.of(it[0])
+        }
+        .reader()
+        .let {
+            tokenize(it, true)
+                .tokens()
+                .forEach {
+                    println(it)
+                }
+        }

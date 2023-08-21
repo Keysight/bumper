@@ -3,6 +3,46 @@
  */
 package com.riscure.bumper.highlight
 
+import java.nio.file.Path
+
+// part of API, can be used to wrap LexerException with more info
+class FileLexerException(
+    val path: Path,
+    val inputError: LexerException
+): Exception() {
+    override val message: String
+        get() = """
+            Failed to lex '$path'.
+            ${inputError.message}
+        """.trimIndent()
+}
+
+class LexerException(
+    val position: Position,
+    val input: String
+): Exception() {
+
+    override val message: String get() =
+        StringBuilder()
+            .apply {
+                input
+                    .lines()
+                    .forEach { line ->
+                        append("> ")
+                        append(line)
+                        append("\n")
+                    }
+            }
+            .toString()
+            .let { input ->
+                """
+                Unexpected input at line ${position.line} column ${position.column}:
+                $input        
+                """.trimIndent()
+            }
+}
+
+
 data class Position(
     val line: Int,
     val column: Int
