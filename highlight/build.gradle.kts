@@ -9,7 +9,12 @@ plugins {
     id("org.jetbrains.dokka")
 
     `maven-publish`
+    application
     antlr
+}
+
+application {
+    mainClass.set("com.riscure.bumper.highlight.RenderKt")
 }
 
 val jflex = configurations.create("jflex")
