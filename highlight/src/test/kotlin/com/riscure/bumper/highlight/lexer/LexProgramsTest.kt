@@ -102,6 +102,11 @@ class LexProgramsTest {
                   * comment 
                   */
             """.trimIndent(),
+
+            "multi-line block comment with escaped end" to """
+                /* block *\/
+                   comment */
+            """.trimIndent(),
         )
             .map { (name, program) -> Arguments.of(name, program) }
             .stream()

@@ -126,4 +126,13 @@ class LexSnippetTest {
         assertEquals(StrEncoding.RAW, lit.encoding)
         assertEquals("(\")", lit.lexeme)
     }
+
+    @Test
+    @DisplayName("block comment with confusions")
+    fun test12() = lex("""
+        /* some block *\/ comment with " confusions ' */
+    """.trimIndent()) {
+        val lit = nextIs<Token.MultiLineComment>()
+        nextIs<Token.EOF>()
+    }
 }
