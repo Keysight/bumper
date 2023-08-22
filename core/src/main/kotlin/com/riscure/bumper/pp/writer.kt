@@ -25,10 +25,10 @@ fun text(s: String): PP = PP { it.write(s) }
 fun sequence(writers: Iterable<PP>, separator: PP = empty): PP =
     sequence(writers.iterator(), separator)
 
-private fun sequence(writers: Iterator<PP>, separator: PP = empty): PP =
-    if (writers.hasNext()) {
-        val w = writers.next()
-
-        if (!writers.hasNext()) w
-        else (w andThen separator andThen sequence(writers, separator))
-    } else empty
+private fun sequence(writers: Iterator<PP>, separator: PP = empty) = PP { w ->
+    for (writer in writers) {
+        writer.writeTo(w)
+        if (writers.hasNext())
+            separator.writeTo(w)
+    }
+}
