@@ -10,9 +10,11 @@ import com.riscure.bumper.preprocessor.CPPInfo
 import com.riscure.bumper.preprocessor.Preprocessor
 import com.riscure.bumper.preprocessor.impl.CPPInfoParser.State.*
 import com.riscure.dobby.clang.*
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.extension
 
@@ -46,21 +48,47 @@ class ClangPreprocessor(private val clang: Path) : Preprocessor {
             log.debug("Exec: $clang ${cmd.toPOSIXArguments().joinToString(separator = " ")}")
 
             // Preprocess the input, writing to the output
-            val res = process(
-                clang.toString(), *cmd.toExecArguments().toTypedArray(),
+            val builder = ProcessBuilder()
+                .apply {
+                    command().apply {
+                        add(clang.toString())
+                        addAll(cmd.toExecArguments())
+                    }
 
-                directory = workingDirectory.toFile(),
-                stdout = Redirect.SILENT,
-                stderr = Redirect.CAPTURE,
-            )
+                    directory(workingDirectory.toFile())
+                    redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                }
 
-            // detect failures and return the parsed preprocessor output
-            if (res.resultCode != 0) {
-                ParseError.PreprocFailed(resolvedMainSource, res.output.joinToString(separator = "\n")).left()
-            } else {
-                CPPInfoParser(workingDirectory)
-                    .parse(res.output)
-                    .result.right()
+            try {
+                val proc = builder.start()
+
+                // asynchronously read the error stream
+                val err = async {
+                    proc.errorStream
+                        .bufferedReader()
+                        .lineSequence()
+                }
+
+                // await the output
+                val stderr = err.await()
+                val res = proc.waitFor()
+
+                // detect failures and return the parsed preprocessor output
+                if (res != 0) {
+                    ParseError.PreprocFailed(
+                        resolvedMainSource,
+                        stderr.joinToString(separator = "\n")
+                    ).left()
+                } else {
+                    CPPInfoParser(workingDirectory)
+                        .parse(stderr)
+                        .result.right()
+                }
+            } catch (err: IOException) {
+                ParseError.PreprocFailed(
+                    resolvedMainSource,
+                    err.message ?: "unknown IO Exception"
+                ).left()
             }
         }
     }
@@ -81,7 +109,7 @@ class CPPInfoParser(val workingDirectory: Path) {
     private val isystemStart = """#include <...> search starts here:"""
     private val end = """End of search list."""
 
-    fun parse(flow: Iterable<String>): CPPInfoParser {
+    fun parse(flow: Sequence<String>): CPPInfoParser {
         flow
             .map { it.trim() }
             .onEach { line ->
