@@ -15,11 +15,18 @@ interface Extractor {
 
 /**
  * An extractor based on reading from a buffered file.
+ * The extracted sources are stripped from line directives.
  */
-class SourceExtractor(val source: Path, charset: Charset = Charset.defaultCharset()): Extractor {
+class SourceExtractor(
+    val source: Path,
+    charset: Charset = Charset.defaultCharset(),
+): Extractor {
     // We keep the whole thing buffered, because repeatedly
     // opening and scanning the file does not seem performant.
     private val lines = source.readLines(charset = charset)
+
+    // line directives need to be the only thing on the line.
+    private val lineDirectivePat = Regex("""^\s*#\s*(line)?\s*\d+.*$""")
 
     override fun extract(range: SourceRange): Either<String, String> {
         val endColInclusive = range.end.col - 1
@@ -32,6 +39,10 @@ class SourceExtractor(val source: Path, charset: Charset = Charset.defaultCharse
         val out = mutableListOf<String>()
         for ((i, line) in lines.withIndex()) {
             val lineno = i + 1
+
+            // strip line directives
+            if (lineDirectivePat.matches(line))
+                continue
 
             // cut off the non-interesting bits
             if (lineno < range.begin.row) continue
