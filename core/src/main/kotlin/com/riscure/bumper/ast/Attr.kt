@@ -24,10 +24,10 @@ sealed class Attr {
     object Volatile : Attr()
     @Serializable
     object Restrict : Attr()
-
-
     @Serializable
     object Weak: Attr()
+    @Serializable
+    object Packed : Attr()
     @Serializable
     data class AlignAs(val alignment: Long) : Attr()
 

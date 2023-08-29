@@ -287,7 +287,7 @@ open class CursorParser(
             // and visit the fields there.
 
             getCompoundFields().flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs) }
+                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs, cursorAttributes(type())) }
             }
         }
 
@@ -298,7 +298,7 @@ open class CursorParser(
             // and visit the fields there.
 
             getCompoundFields().flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Union(id, fs) }
+                getIdentifier().map { id -> UnitDeclaration.Union(id, fs, cursorAttributes(type())) }
             }
         }
 
@@ -660,7 +660,6 @@ open class CursorParser(
             type.getAlignment()
                 .toEither { "Could not get alignment for type with alignment attribute." }
                 .map { Attr.AlignAs(it) }
-
         CXCursor_UnexposedAttr  -> {
             // In part this is a problem with libclang. There does not seem to be an API to get arbitrary
             // attributes like __attribute__((weak)) from the cursor: they are reported as 'UnexposedAttr'.
@@ -671,10 +670,10 @@ open class CursorParser(
                 .tokens(cxTranslationUnit)
                 .asUnexposedAttr()
         }
+        CXCursor_PackedAttr     -> Attr.Packed.right()
         /* TODO
     CXCursor_AnnotateAttr   -> TODO()
     CXCursor_AsmLabelAttr   -> TODO()
-    CXCursor_PackedAttr     -> TODO()
     CXCursor_PureAttr       -> TODO()
     CXCursor_NoDuplicateAttr -> TODO()
     CXCursor_VisibilityAttr -> TODO()

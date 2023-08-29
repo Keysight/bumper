@@ -69,6 +69,7 @@ object Pretty {
                 "__attribute__((aligned(${it.alignment})))"
             is Attr.Weak   ->
                 "__attribute__((weak))"
+            Attr.Packed       -> "__attribute__((packed))"
             Attr.Constant     -> "const"
             Attr.Restrict     -> "restrict"
             Attr.Volatile     -> "volatile"
@@ -96,12 +97,12 @@ object Pretty {
 
         // Possible remainders:
         is Type.Ptr               -> "${typePrefix(type.pointeeType)}*"
-        is Type.Float             -> floatKind(type.kind)
-        is Type.Int               -> integerKind(type.kind)
-        is Type.Typedeffed        -> type.ref.name
-        is Type.Struct            -> "struct ${type.ref.name}"
-        is Type.Enum              -> "enum ${type.ref.name}"
-        is Type.Union             -> "union ${type.ref.name}"
+        is Type.Float             -> "${maybeAttrs(type.attrsOnType)}${floatKind(type.kind)}"
+        is Type.Int               -> "${maybeAttrs(type.attrsOnType)}${integerKind(type.kind)}"
+        is Type.Typedeffed        -> "${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Struct            -> "struct ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Enum              -> "enum ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Union             -> "union ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
         is Type.Void              -> "void"
 
 //        is Type.Complex           -> "${floatKind(type.kind)} _Complex"
@@ -146,11 +147,11 @@ object Pretty {
 
     @JvmStatic
     fun struct(struct: UnitDeclaration.Struct) =
-        "struct ${maybeName(struct.ident)}${maybeFields(struct.fields)}"
+        "struct ${maybeAttrs(struct.attributes)}${maybeName(struct.ident)}${maybeFields(struct.fields)}"
 
     @JvmStatic
     fun union(union: UnitDeclaration.Union) =
-        "union ${maybeName(union.ident)}${maybeFields(union.fields)}"
+        "union ${maybeAttrs(union.attributes)}${maybeName(union.ident)}${maybeFields(union.fields)}"
 
     @JvmStatic
     fun typedecl(typeDecl: UnitDeclaration.TypeDeclaration) = when (typeDecl) {
