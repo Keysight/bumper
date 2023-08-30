@@ -254,10 +254,12 @@ open class CursorParser(
                     children()
                         .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
-                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators) }
+                        .map { enumerators ->
+                            UnitDeclaration.Enum(symbol.name, enumerators, cursorAttributes(type()))
+                        }
                 }
             } else {
-                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name) }
+                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name, cursorAttributes(type()), None) }
             }
         }
 

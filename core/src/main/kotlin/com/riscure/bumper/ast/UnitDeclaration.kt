@@ -247,7 +247,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val meta: Meta = Meta.default
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         constructor(ident: Ident): this(ident, listOf(), None)
-        constructor(ident: Ident, enumerators: Enumerators): this(ident, listOf(), enumerators.some())
+        constructor(ident: Ident, enumerators: Enumerators, attributes: List<Attr> = listOf()):
+                this(ident, attributes, enumerators.some())
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
