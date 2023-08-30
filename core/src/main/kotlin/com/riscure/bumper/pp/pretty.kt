@@ -43,7 +43,7 @@ object Pretty {
         is Type.Fun -> signature(ident, type)
         else -> {
             val (remainingType, decl) = namePart(type, ident)
-            "${maybeAttrs(remainingType.attrsOnType)}${typePrefix(remainingType)} $decl".trim()
+            "${typePrefix(remainingType)} $decl".trim()
         }
     }
 
