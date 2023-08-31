@@ -106,7 +106,7 @@ object ClangParser {
 
                 when (parsed) {
                     // Report the surprising argument and see if the caller wants us to continue
-                    is Either.Left  -> if (recover(arguments[0])) parseArguments(other) else parsed
+                    is Either.Left  -> if (recover(arguments[0])) parseArguments(other, recover) else parsed
                     is Either.Right -> parsed.value.let { arg ->
                         when (arg) {
                             // depending on what we parse,
