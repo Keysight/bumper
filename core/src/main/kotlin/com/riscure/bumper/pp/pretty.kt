@@ -70,18 +70,25 @@ object Pretty {
             is Attr.Weak   ->
                 "__attribute__((weak))"
             Attr.Packed       -> "__attribute__((packed))"
-            Attr.Constant     -> "const"
-            Attr.Restrict     -> "restrict"
-            Attr.Volatile     -> "volatile"
+            TypeQualifier.Constant     -> "const"
+            TypeQualifier.Restrict     -> "restrict"
+            TypeQualifier.Volatile     -> "volatile"
         }}
 
     private fun formals(params: List<Param>): String =
         params.joinToString(separator=", ") { declaration(it.name, it.type) }
 
-    private fun maybeAttrs(attrs: Attrs) = if (attrs.isNotEmpty()) "${attributes(attrs)} " else ""
+    private fun maybeAttrs(attrs: Attrs) = if (attrs.any { it !is TypeQualifier })
+        "${attributes(attrs.filter { it !is TypeQualifier })} " else ""
+
+    private fun maybeTypeQualifiers(attrs: Attrs) = if (attrs.any { it is TypeQualifier })
+        "${attributes(attrs.filter { it is TypeQualifier })} " else ""
 
     private fun namePart(type: Type, name: String): Pair<Type, String> = when (type) {
-        is Type.Ptr   -> namePart(type.pointeeType, "*${maybeAttrs(type.attrsOnType)}${name}")
+        is Type.Ptr -> namePart(
+            type.pointeeType,
+            "*${maybeTypeQualifiers(type.attrsOnType)}${maybeAttrs(type.attrsOnType)}${name}"
+        )
         is Type.Fun   -> {
             // this is strange, but true, I think
             namePart(type.returnType, "($name)(${formals(type.params)})")
@@ -97,12 +104,12 @@ object Pretty {
 
         // Possible remainders:
         is Type.Ptr               -> "${typePrefix(type.pointeeType)}*"
-        is Type.Float             -> "${maybeAttrs(type.attrsOnType)}${floatKind(type.kind)}"
-        is Type.Int               -> "${maybeAttrs(type.attrsOnType)}${integerKind(type.kind)}"
-        is Type.Typedeffed        -> "${maybeAttrs(type.attrsOnType)}${type.ref.name}"
-        is Type.Struct            -> "struct ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
-        is Type.Enum              -> "enum ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
-        is Type.Union             -> "union ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Float             -> "${maybeTypeQualifiers(type.attrsOnType)}${maybeAttrs(type.attrsOnType)}${floatKind(type.kind)}"
+        is Type.Int               -> "${maybeTypeQualifiers(type.attrsOnType)}${maybeAttrs(type.attrsOnType)}${integerKind(type.kind)}"
+        is Type.Typedeffed        -> "${maybeTypeQualifiers(type.attrsOnType)}${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Struct            -> "${maybeTypeQualifiers(type.attrsOnType)}struct ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Enum              -> "${maybeTypeQualifiers(type.attrsOnType)}enum ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
+        is Type.Union             -> "${maybeTypeQualifiers(type.attrsOnType)}union ${maybeAttrs(type.attrsOnType)}${type.ref.name}"
         is Type.Void              -> "void"
 
 //        is Type.Complex           -> "${floatKind(type.kind)} _Complex"
@@ -121,7 +128,7 @@ object Pretty {
     fun signature(ident: Ident, type: Type.Fun): String = with (type) {
         assert(returnType !is Type.Array) { "Invariant violation while pretty-printing type" }
         val ppvararg = if (vararg) ", ..." else ""
-        val funAttrs = maybeAttrs(type.attrsOnType)
+        val funAttrs = maybeAttrs(type.attrsOnType) // function does not have type qualifier
         val decl = declaration("${ident}(${formals(params)}$ppvararg)", returnType)
         return "$funAttrs$decl"
     }
@@ -147,11 +154,13 @@ object Pretty {
 
     @JvmStatic
     fun struct(struct: UnitDeclaration.Struct) =
-        "struct ${maybeAttrs(struct.attributes)}${maybeName(struct.ident)}${maybeFields(struct.fields)}"
+        "${maybeTypeQualifiers(struct.attributes)}struct " +
+                "${maybeAttrs(struct.attributes)}${maybeName(struct.ident)}${maybeFields(struct.fields)}"
 
     @JvmStatic
     fun union(union: UnitDeclaration.Union) =
-        "union ${maybeAttrs(union.attributes)}${maybeName(union.ident)}${maybeFields(union.fields)}"
+        "${maybeTypeQualifiers(union.attributes)}union " +
+                "${maybeAttrs(union.attributes)}${maybeName(union.ident)}${maybeFields(union.fields)}"
 
     @JvmStatic
     fun typedecl(typeDecl: UnitDeclaration.TypeDeclaration) = when (typeDecl) {

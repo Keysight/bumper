@@ -637,11 +637,11 @@ open class CursorParser(
     fun CXType.getTypeQualifiers(): Attrs {
         val attrs = mutableListOf<Attr>()
         if (clang_isVolatileQualifiedType(this).toBool())
-            attrs.add(Attr.Volatile)
+            attrs.add(TypeQualifier.Volatile)
         if (clang_isRestrictQualifiedType(this).toBool())
-            attrs.add(Attr.Restrict)
+            attrs.add(TypeQualifier.Restrict)
         if (clang_isConstQualifiedType(this).toBool())
-            attrs.add(Attr.Constant)
+            attrs.add(TypeQualifier.Constant)
         return attrs
     }
 
@@ -657,7 +657,7 @@ open class CursorParser(
         }
 
     fun CXCursor.asAttribute(type: CXType): Result<Attr> = when (kind()) {
-        CXCursor_ConstAttr   -> Attr.Constant.right()
+        CXCursor_ConstAttr   -> TypeQualifier.Constant.right()
         CXCursor_AlignedAttr ->
             type.getAlignment()
                 .toEither { "Could not get alignment for type with alignment attribute." }
