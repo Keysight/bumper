@@ -16,18 +16,12 @@ sealed class AttrArg {
 /** Type attributes */
 @Serializable
 sealed class Attr {
-    // the following are usually called 'type qualifiers'
-    // but we model them as attributes.
     @Serializable
-    object Constant : Attr()
-    @Serializable
-    object Volatile : Attr()
-    @Serializable
-    object Restrict : Attr()
-
+    object Weak : Attr()
 
     @Serializable
-    object Weak: Attr()
+    object Packed : Attr()
+
     @Serializable
     data class AlignAs(val alignment: Long) : Attr()
 
@@ -38,10 +32,25 @@ sealed class Attr {
         /**
          * https://clang.llvm.org/docs/SanitizerCoverage.html#disabling-instrumentation-with-attribute-no-sanitize-coverage
          */
-        @JvmStatic val noSanitizeCoverage = Attr("no_sanitize", AttrArg.AString("coverage"))
+        @JvmStatic
+        val noSanitizeCoverage = Attr("no_sanitize", AttrArg.AString("coverage"))
 
         operator fun invoke(name: String, vararg args: AttrArg) = NamedAttr(name, args.toList())
     }
+}
+
+/**
+ * We model 'type qualifiers' as attributes
+ */
+sealed class TypeQualifier : Attr() {
+    @Serializable
+    object Constant : TypeQualifier()
+
+    @Serializable
+    object Volatile : TypeQualifier()
+
+    @Serializable
+    object Restrict : TypeQualifier()
 }
 
 typealias Attrs = List<Attr>

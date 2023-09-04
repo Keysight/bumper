@@ -254,10 +254,12 @@ open class CursorParser(
                     children()
                         .map { it.asEnumerator(symbol.tlid) }
                         .sequence()
-                        .map { enumerators -> UnitDeclaration.Enum(symbol.name, enumerators) }
+                        .map { enumerators ->
+                            UnitDeclaration.Enum(symbol.name, enumerators, cursorAttributes(type()))
+                        }
                 }
             } else {
-                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name) }
+                lazyElaborate().map { symbol -> UnitDeclaration.Enum(symbol.name, cursorAttributes(type()), None) }
             }
         }
 
@@ -287,7 +289,7 @@ open class CursorParser(
             // and visit the fields there.
 
             getCompoundFields().flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs) }
+                getIdentifier().map { id -> UnitDeclaration.Struct(id, fs, cursorAttributes(type())) }
             }
         }
 
@@ -298,7 +300,7 @@ open class CursorParser(
             // and visit the fields there.
 
             getCompoundFields().flatMap { fs ->
-                getIdentifier().map { id -> UnitDeclaration.Union(id, fs) }
+                getIdentifier().map { id -> UnitDeclaration.Union(id, fs, cursorAttributes(type())) }
             }
         }
 
@@ -635,11 +637,11 @@ open class CursorParser(
     fun CXType.getTypeQualifiers(): Attrs {
         val attrs = mutableListOf<Attr>()
         if (clang_isVolatileQualifiedType(this).toBool())
-            attrs.add(Attr.Volatile)
+            attrs.add(TypeQualifier.Volatile)
         if (clang_isRestrictQualifiedType(this).toBool())
-            attrs.add(Attr.Restrict)
+            attrs.add(TypeQualifier.Restrict)
         if (clang_isConstQualifiedType(this).toBool())
-            attrs.add(Attr.Constant)
+            attrs.add(TypeQualifier.Constant)
         return attrs
     }
 
@@ -655,12 +657,11 @@ open class CursorParser(
         }
 
     fun CXCursor.asAttribute(type: CXType): Result<Attr> = when (kind()) {
-        CXCursor_ConstAttr   -> Attr.Constant.right()
+        CXCursor_ConstAttr   -> TypeQualifier.Constant.right()
         CXCursor_AlignedAttr ->
             type.getAlignment()
                 .toEither { "Could not get alignment for type with alignment attribute." }
                 .map { Attr.AlignAs(it) }
-
         CXCursor_UnexposedAttr  -> {
             // In part this is a problem with libclang. There does not seem to be an API to get arbitrary
             // attributes like __attribute__((weak)) from the cursor: they are reported as 'UnexposedAttr'.
@@ -671,10 +672,10 @@ open class CursorParser(
                 .tokens(cxTranslationUnit)
                 .asUnexposedAttr()
         }
+        CXCursor_PackedAttr     -> Attr.Packed.right()
         /* TODO
     CXCursor_AnnotateAttr   -> TODO()
     CXCursor_AsmLabelAttr   -> TODO()
-    CXCursor_PackedAttr     -> TODO()
     CXCursor_PureAttr       -> TODO()
     CXCursor_NoDuplicateAttr -> TODO()
     CXCursor_VisibilityAttr -> TODO()

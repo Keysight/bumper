@@ -188,8 +188,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val storage: Storage,
         override val meta: Meta
     ): Compound {
-        constructor(ident: Ident, fields: Option<FieldDecls> = none()):
-            this(ident, listOf(), fields, Storage.Default, Meta.default)
+        constructor(ident: Ident, fields: Option<FieldDecls> = none(), attributes: List<Attr> = listOf()):
+            this(ident, attributes, fields, Storage.Default, Meta.default)
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
@@ -206,8 +206,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val storage: Storage,
         override val meta: Meta
     ): Compound {
-        constructor(ident: Ident, fields: Option<FieldDecls> = none()):
-            this(ident, listOf(), fields, Storage.Default, Meta.default)
+        constructor(ident: Ident, fields: Option<FieldDecls> = none(), attributes: List<Attr> = listOf()):
+            this(ident, attributes, fields, Storage.Default, Meta.default)
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)
         override fun withStorage(storage: Storage) = this.copy(storage = storage)
@@ -247,7 +247,8 @@ sealed interface UnitDeclaration<out E, out S> : GlobalDeclaration {
         override val meta: Meta = Meta.default
     ): UnitDeclaration<Nothing, Nothing>, TypeDeclaration {
         constructor(ident: Ident): this(ident, listOf(), None)
-        constructor(ident: Ident, enumerators: Enumerators): this(ident, listOf(), enumerators.some())
+        constructor(ident: Ident, enumerators: Enumerators, attributes: List<Attr> = listOf()):
+                this(ident, attributes, enumerators.some())
 
         override fun withIdent(id: Ident) = this.copy(ident = id)
         override fun withMeta(meta: Meta) = this.copy(meta = meta)

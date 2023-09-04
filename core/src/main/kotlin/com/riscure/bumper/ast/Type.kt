@@ -123,7 +123,7 @@ import kotlinx.serialization.Serializable
          * Whether the type is considered constant.
          */
         override fun isConstant(typeEnv: TypeEnv) =
-            attributes(typeEnv).contains(Attr.Constant) || when (this) {
+            attributes(typeEnv).contains(TypeQualifier.Constant) || when (this) {
                 is Record -> typeEnv
                     .fields(ref)
                     .map { it.foldFields(false) { acc, field -> acc || field.type.isConstant(typeEnv)} }
@@ -246,8 +246,8 @@ import kotlinx.serialization.Serializable
     fun modifyAttrs(f: (Attrs) -> Attrs): Type = withAttrs(f(attrsOnType))
 
     // smart constructors
-    fun const() = modifyAttrs {it + Attr.Constant }
-    fun restrict() = modifyAttrs { it + Attr.Restrict }
+    fun const() = modifyAttrs {it + TypeQualifier.Constant }
+    fun restrict() = modifyAttrs { it + TypeQualifier.Restrict }
     fun ptr() = Ptr(this)
 
     @Serializable
