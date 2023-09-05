@@ -10,6 +10,7 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToJsonElement
+import org.apache.commons.io.FilenameUtils
 import java.io.File
 import java.io.InputStream
 import java.io.Writer
@@ -78,8 +79,8 @@ data class CompilationDb(val entries: List<Entry> = listOf()) {
         entries
             .map { entry ->
                 PlainCompilationDb.Entry(
-                    entry.workingDirectory.toString(),
-                    entry.mainSource.toString(),
+                    FilenameUtils.separatorsToUnix(entry.workingDirectory.toString()),
+                    FilenameUtils.separatorsToUnix(entry.mainSource.toString()),
                     listOf(entry.executable.getOrElse { defaultCompilerExe }) + entry.command.toArguments()
                 )
             }
@@ -104,7 +105,7 @@ data class CompilationDb(val entries: List<Entry> = listOf()) {
         /** The compiler executable */
         val executable: Option<String> = none()
     ) {
-        val command get() = Command(options, listOf(resolvedMainSource.toString()))
+        val command get() = Command(options, listOf(FilenameUtils.separatorsToUnix(resolvedMainSource.toString())))
 
         constructor(workingDirectory: Path, mainSource: Path)
                 : this(workingDirectory, mainSource, listOf(), none())

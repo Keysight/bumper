@@ -29,6 +29,7 @@ dependencyResolutionManagement {
             library("antlr.runtime", "org.antlr:antlr4-runtime:$antlr")
             library("antlr.generator", "org.antlr:antlr4:$antlr")
             library("apache.commons", "org.apache.commons:commons-lang3:3.8.1")
+            library("apache.commons.io", "commons-io:commons-io:2.11.0")
             library("picocli", "info.picocli:picocli:4.6.3")
             library("jansi", "org.fusesource.jansi:jansi:2.4.0")
             library("junit", "org.junit.jupiter:junit-jupiter:5.7.1")

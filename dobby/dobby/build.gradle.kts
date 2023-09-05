@@ -24,6 +24,7 @@ dependencies {
     implementation(libs.arrow.core)
     implementation(libs.antlr.runtime)
     implementation(libs.apache.commons)
+    implementation(libs.apache.commons.io)
 
     implementation(libs.picocli)
     implementation(libs.jansi)
