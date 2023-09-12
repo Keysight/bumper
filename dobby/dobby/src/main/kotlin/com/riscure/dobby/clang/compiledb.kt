@@ -45,15 +45,23 @@ data class PlainCompilationDb(val entries: List<Entry>) {
     )
 }
 
+/**
+ * A minimal interface for the use-site of compilation databases,
+ * only exposing a getter for entries.
+ */
+interface ICompilationDb {
+    operator fun get(main: Path): Option<CompilationDb.Entry>
+}
+
 /** Semantic model of a compilation database */
-data class CompilationDb(val entries: List<Entry> = listOf()) {
+data class CompilationDb(val entries: List<Entry> = listOf()): ICompilationDb {
     private val byMain: Map<Path, Entry> = entries.associateBy {
         // mainSource can be relative to the working directory according to
         // the specification of compilation databases
         it.resolvedMainSource
     }
 
-    operator fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
+    override operator fun get(main: Path): Option<Entry> = byMain[main.normalize()].toOption()
     fun plus(vararg entry: Entry): CompilationDb  = copy(entries = entries.plus(entry))
     operator fun plus(other: List<Entry>): CompilationDb  = copy(entries = entries.plus(other))
     operator fun plus(other: CompilationDb): CompilationDb = copy(entries = entries.plus(other.entries))
