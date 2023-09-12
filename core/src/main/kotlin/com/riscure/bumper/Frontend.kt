@@ -11,6 +11,7 @@ import com.riscure.bumper.parser.UnitState
 import com.riscure.bumper.preprocessor.Preprocessor
 import com.riscure.digest
 import com.riscure.dobby.clang.CompilationDb
+import com.riscure.dobby.clang.ICompilationDb
 import com.riscure.dobby.clang.Options
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -43,7 +44,7 @@ open class Frontend<Exp, Stmt, S : UnitState<Exp, Stmt, S>>(
         return cppStorage.inputAddressed(resolvedMainSource.nameWithoutExtension, digest, suffix = ".c")
     }
 
-    fun process(cdb: CompilationDb, main: Path): Either<ParseError, S> =
+    fun process(cdb: ICompilationDb, main: Path): Either<ParseError, S> =
         cdb[main]
             .toEither { ParseError.MissingCompileCommand(main, cdb) }
             .flatMap { process(it) }
