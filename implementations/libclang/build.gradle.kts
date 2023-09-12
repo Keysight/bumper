@@ -9,6 +9,13 @@ plugins {
 
     `maven-publish`
     application
+
+    id("org.bytedeco.gradle-javacpp-platform") version "1.5.9"
+}
+
+// supported native platforms
+val javacppPlatform by extra {
+    "linux-x86_64,windows-x86_64"
 }
 
 application {
@@ -18,7 +25,7 @@ application {
 dependencies {
     implementation(kotlinx.coroutines.core)
 
-    implementation(libs.bytedeco)
+    api(libs.bytedeco)
     implementation(libs.process)
     implementation(libs.arrow.core)
     implementation(libs.dobby)

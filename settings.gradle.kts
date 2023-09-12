@@ -55,8 +55,8 @@ pluginManagement {
                 library("slf4j"          , "org.slf4j:slf4j-api:1.7.25")
                 library("process"        , "com.github.pgreze:kotlin-process:1.4")
                 library("junit"          , "org.junit.jupiter:junit-jupiter:5.8.2")
-                library("dobby"          , "com.riscure:riscure-dobby:0.1.9-alpha-3")
-                library("bytedeco"       , "org.bytedeco:llvm-platform:11.0.0-1.5.5-SNAPSHOT")
+                library("dobby"          , "com.riscure:riscure-dobby:0.1.9-alpha-5")
+                library("bytedeco"       , "org.bytedeco:llvm-platform:16.0.4-1.5.9")
                 library("picocli"        , "info.picocli:picocli:4.6.3")
             }
         }

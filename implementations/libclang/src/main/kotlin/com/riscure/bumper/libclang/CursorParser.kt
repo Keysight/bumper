@@ -139,22 +139,24 @@ open class CursorParser(
             children()
                 // somehow e.g. an empty ';' results in top-level UnexposedDecls
                 .filter { cursor -> (cursor.kind() != CXCursor_UnexposedDecl) }
-                .forEach { cursor -> cursor.lazyElaborate() }
-
-            // We now run the worklist algorithm to parse all nodes marked for elaboration.
-            // While doing the work, we may see new nodes that need elaboration.
-            pleaseDoElaborate()
-                // we sort these, because we don't know from the traversal order where
-                // the elaborated declarations should appear. And the order is relevant for type completeness
-                // of structs and unions.
-                .map { it.sortedWith(myDependencyOrder) }
-                .map { ds -> ds.map { (cursor, decl) -> Pair(cursor.hash(), decl) }}
-                // and finally collect the outputs in a translation unit model.
-                .map { ds ->
-                    UnitWithCursorData(
-                        TranslationUnit(tuid, ds.map { it.second }),
-                        ds.toMap()
-                    )
+                .map { cursor -> cursor.lazyElaborate() }
+                .sequence()
+                .flatMap {
+                    // We now run the worklist algorithm to parse all nodes marked for elaboration.
+                    // While doing the work, we may see new nodes that need elaboration.
+                    pleaseDoElaborate()
+                        // we sort these, because we don't know from the traversal order where
+                        // the elaborated declarations should appear. And the order is relevant for type completeness
+                        // of structs and unions.
+                        .map { it.sortedWith(myDependencyOrder) }
+                        .map { ds -> ds.map { (cursor, decl) -> Pair(cursor.hash(), decl) } }
+                        // and finally collect the outputs in a translation unit model.
+                        .map { ds ->
+                            UnitWithCursorData(
+                                TranslationUnit(tuid, ds.map { it.second }),
+                                ds.toMap()
+                            )
+                        }
                 }
 
             // FIXME this is unsound when we elaborate a named definition from a local scope,
@@ -194,12 +196,16 @@ open class CursorParser(
      * Check if this is a valid C identifier. Empty string is accepted.
      */
     private fun String.validateIdentifier(): Result<String> =
-        this.right()
+        when {
+            // check if it is the magic string that libclang uses for anonymous structs...
+            // I have not found a more reliable way to check this.
+            // In any case, it cannot overlap with valid identifiers
+            Regex("\\w+ \\((unnamed|anonymous) at .*\\)").matches(this) -> "".right()
             // C identifiers start with a non-digit.
             // But an empty string is considered valid, regarding anonymous declarations.
-            .filterOrOther({ Regex("[_a-zA-Z]?\\w*").matches(it) }) { s ->
-                "Expected valid C identifier, got '$s'."
-            }
+            Regex("[_a-zA-Z]?\\w*").matches(this)       -> this.right()
+            else -> "Expected valid C identifier, got '$this'.".left()
+        }
 
     /**
      * Returns the spelling if it is a valid identifier, according to [validateIdentifier].

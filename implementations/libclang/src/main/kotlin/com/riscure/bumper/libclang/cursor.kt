@@ -29,6 +29,7 @@ fun CXString.stringOption(): Option<String> =
             result
         }
 
+fun CXCursor.mangling(): String = clang_Cursor_getMangling(this).string
 fun CXCursor.spelling(): String = clang_getCursorSpelling(this).string
 fun CXCursor.prettyPrinted(): Option<String> = clang_getCursorPrettyPrinted(this, null).stringOption()
 fun CXCursor.kindName(): String = clang_getCursorKindSpelling(kind()).string
