@@ -1,3 +1,7 @@
+# 0.1.8
+
+- Add bumper-highlight
+
 # 0.1.7
 
 - Add support for declaration attribute 'weak'.
