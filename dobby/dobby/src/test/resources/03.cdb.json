@@ -1,0 +1,172 @@
+[
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\adler32.obj -c D:\\code\\zlib\\adler32.c",
+  "file": "D:\\code\\zlib\\adler32.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\compress.obj -c D:\\code\\zlib\\compress.c",
+  "file": "D:\\code\\zlib\\compress.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\crc32.obj -c D:\\code\\zlib\\crc32.c",
+  "file": "D:\\code\\zlib\\crc32.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\deflate.obj -c D:\\code\\zlib\\deflate.c",
+  "file": "D:\\code\\zlib\\deflate.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\gzclose.obj -c D:\\code\\zlib\\gzclose.c",
+  "file": "D:\\code\\zlib\\gzclose.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\gzlib.obj -c D:\\code\\zlib\\gzlib.c",
+  "file": "D:\\code\\zlib\\gzlib.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\gzread.obj -c D:\\code\\zlib\\gzread.c",
+  "file": "D:\\code\\zlib\\gzread.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\gzwrite.obj -c D:\\code\\zlib\\gzwrite.c",
+  "file": "D:\\code\\zlib\\gzwrite.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\inflate.obj -c D:\\code\\zlib\\inflate.c",
+  "file": "D:\\code\\zlib\\inflate.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\infback.obj -c D:\\code\\zlib\\infback.c",
+  "file": "D:\\code\\zlib\\infback.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\inftrees.obj -c D:\\code\\zlib\\inftrees.c",
+  "file": "D:\\code\\zlib\\inftrees.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\inffast.obj -c D:\\code\\zlib\\inffast.c",
+  "file": "D:\\code\\zlib\\inffast.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\trees.obj -c D:\\code\\zlib\\trees.c",
+  "file": "D:\\code\\zlib\\trees.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\uncompr.obj -c D:\\code\\zlib\\uncompr.c",
+  "file": "D:\\code\\zlib\\uncompr.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -DZLIB_DLL -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlib.dir\\zutil.obj -c D:\\code\\zlib\\zutil.c",
+  "file": "D:\\code\\zlib\\zutil.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\adler32.obj -c D:\\code\\zlib\\adler32.c",
+  "file": "D:\\code\\zlib\\adler32.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\compress.obj -c D:\\code\\zlib\\compress.c",
+  "file": "D:\\code\\zlib\\compress.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\crc32.obj -c D:\\code\\zlib\\crc32.c",
+  "file": "D:\\code\\zlib\\crc32.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\deflate.obj -c D:\\code\\zlib\\deflate.c",
+  "file": "D:\\code\\zlib\\deflate.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\gzclose.obj -c D:\\code\\zlib\\gzclose.c",
+  "file": "D:\\code\\zlib\\gzclose.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\gzlib.obj -c D:\\code\\zlib\\gzlib.c",
+  "file": "D:\\code\\zlib\\gzlib.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\gzread.obj -c D:\\code\\zlib\\gzread.c",
+  "file": "D:\\code\\zlib\\gzread.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\gzwrite.obj -c D:\\code\\zlib\\gzwrite.c",
+  "file": "D:\\code\\zlib\\gzwrite.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\inflate.obj -c D:\\code\\zlib\\inflate.c",
+  "file": "D:\\code\\zlib\\inflate.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\infback.obj -c D:\\code\\zlib\\infback.c",
+  "file": "D:\\code\\zlib\\infback.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\inftrees.obj -c D:\\code\\zlib\\inftrees.c",
+  "file": "D:\\code\\zlib\\inftrees.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\inffast.obj -c D:\\code\\zlib\\inffast.c",
+  "file": "D:\\code\\zlib\\inffast.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\trees.obj -c D:\\code\\zlib\\trees.c",
+  "file": "D:\\code\\zlib\\trees.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\uncompr.obj -c D:\\code\\zlib\\uncompr.c",
+  "file": "D:\\code\\zlib\\uncompr.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\zlibstatic.dir\\zutil.obj -c D:\\code\\zlib\\zutil.c",
+  "file": "D:\\code\\zlib\\zutil.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\example.dir\\test\\example.obj -c D:\\code\\zlib\\test\\example.c",
+  "file": "D:\\code\\zlib\\test\\example.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -o CMakeFiles\\minigzip.dir\\test\\minigzip.obj -c D:\\code\\zlib\\test\\minigzip.c",
+  "file": "D:\\code\\zlib\\test\\minigzip.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -D_FILE_OFFSET_BITS=64 -o CMakeFiles\\example64.dir\\test\\example.obj -c D:\\code\\zlib\\test\\example.c",
+  "file": "D:\\code\\zlib\\test\\example.c"
+},
+{
+  "directory": "D:/code/zlib/build",
+  "command": "C:\\Strawberry\\c\\bin\\gcc.exe -D_LARGEFILE64_SOURCE=1 -ID:/code/zlib/build -ID:/code/zlib -D_FILE_OFFSET_BITS=64 -o CMakeFiles\\minigzip64.dir\\test\\minigzip.obj -c D:\\code\\zlib\\test\\minigzip.c",
+  "file": "D:\\code\\zlib\\test\\minigzip.c"
+}
+]

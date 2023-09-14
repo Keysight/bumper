@@ -1,0 +1,23 @@
+---
+kind: pipeline
+type: exec
+name: default
+
+platform:
+ os: linux
+ arch: amd64
+
+trigger:
+  event:
+    include:
+    - push
+    - custom
+
+steps:
+- name: build and test
+  commands:
+  - ./gradlew build
+- name: package jar
+  commands:
+  - ./gradlew jar
+...
