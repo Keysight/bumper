@@ -1,6 +1,7 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
+
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `maven-publish`
@@ -67,7 +68,7 @@ publishing {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
             artifactId = "riscure-dobby"
-            version    = dobby.version
+            version    = project.property("dobby.version").toString()
 
             from(components["java"])
 
