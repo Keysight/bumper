@@ -416,7 +416,24 @@ open class CursorParser(
             Either
                 .fromNullable(children().find { clang_isStatement(it.kind()).toBool() })
                 .mapLeft { "Could not parse function body of ${decl.ident}." }
-                .map { decl.copy(body = it.some()) }
+                .map { stmt ->
+                    // Search stmt for effectively global declaration that need to be elaborated
+                    stmt.fold(Unit, true){
+                        result -> if (isEffectivelyGlobal()) this.lazyElaborate()
+                    }
+                    decl.copy(body = stmt.some()) }
+        }
+
+    /**
+     * return   true if the CXCursor is a global declaration. Even true if CXCursor is child of a
+     *          function definition, like and extern global variable declaration or a function declaration
+     *          inside a function body
+     */
+    fun CXCursor.isEffectivelyGlobal() : Boolean =
+        when (getStorage()) {
+            is Storage.Static -> true
+            is Storage.Extern -> true
+            else -> kind() == CXCursor_FunctionDecl
         }
 
     fun CXCursor.asFunctionDecl(): Result<UnitDeclaration.Fun<CXCursor>> =
