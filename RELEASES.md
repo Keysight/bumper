@@ -1,6 +1,8 @@
-# 0.1.8
+# 0.2.0
 
 - Add bumper-highlight
+- Upgrade to libclang of LLVM 16
+- Merge dobby compilation database infrastructure
 
 # 0.1.7
 
