@@ -1,56 +1,52 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 
-plugins {
-    `maven-publish`
+description = "Riscure True Code C Frontend"
 
+plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
     id("org.jetbrains.dokka")
 
-    application
-}
-
-application {
-    mainClass.set("com.riscure.dobby.DobbyCmdKt")
+    `maven-publish`
 }
 
 dependencies {
-    // Align versions of all Kotlin components
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-    implementation(kotlinx.json)
+    implementation(kotlinx.coroutines.core)
+    implementation(kotlinx.serialization.core)
+    implementation(kotlinx.serialization.cbor)
 
+    implementation(libs.slf4j)
+    implementation(libs.apache.lang3)
     implementation(libs.arrow.core)
-    implementation(libs.antlr.runtime)
-    implementation(libs.apache.commons)
-    implementation(libs.apache.commons.io)
+    implementation(libs.process)
+    implementation(project(":dobby"))
 
-    implementation(libs.picocli)
-    implementation(libs.jansi)
-
-    implementation(project(":shell-parser"))
-
-    // resources
-    runtimeOnly(files("./src/main/resources/clang.options.json"))
-
-    // test deps
-    testImplementation(kotlin("test"))
     testImplementation(libs.junit)
+    testImplementation(kotlin("test"))
 }
 
-tasks.test {
-    useJUnitPlatform()
-    testLogging {
-        events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
-        exceptionFormat = FULL
+tasks.named<Test>("test") {
+  useJUnitPlatform()
+  testLogging {
+    events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
+    exceptionFormat = FULL
+  }
+}
+
+tasks.compileKotlin {
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs = freeCompilerArgs +
+                "-Xjvm-default=all"
     }
 }
 
-tasks.withType<KotlinCompile> {
+tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = listOf()
+        freeCompilerArgs = freeCompilerArgs +
+                "-Xjvm-default=all"
     }
 }
 
@@ -66,14 +62,14 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = "riscure-dobby"
+            artifactId = "riscure-bumper-core"
             version    = version
 
             from(components["java"])
 
             pom {
                 name.set(rootProject.name)
-                description.set("The friendly compilation database elf")
+                description.set("A C frontend")
             }
         }
     }

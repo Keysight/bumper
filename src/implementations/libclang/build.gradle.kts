@@ -1,28 +1,40 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 
-description = "Riscure True Code C Frontend"
+description = "Riscure True Code C Frontend -- Libclang Implementation"
 
 plugins {
     kotlin("jvm")
-    kotlin("plugin.serialization")
     id("org.jetbrains.dokka")
 
     `maven-publish`
+    application
+
+    id("org.bytedeco.gradle-javacpp-platform") version "1.5.9"
+}
+
+// supported native platforms
+val javacppPlatform by extra {
+    "linux-x86_64,windows-x86_64"
+}
+
+application {
+    mainClass.set("com.riscure.bumper.BumperCmdKt")
 }
 
 dependencies {
     implementation(kotlinx.coroutines.core)
-    implementation(kotlinx.serialization.core)
-    implementation(kotlinx.serialization.cbor)
 
-    implementation(libs.slf4j)
-    implementation(libs.apache.lang3)
-    implementation(libs.arrow.core)
+    api(libs.bytedeco)
     implementation(libs.process)
-    implementation(libs.dobby)
+    implementation(libs.arrow.core)
+    implementation(libs.picocli)
+
+    implementation(project(":dobby"))
+    implementation(project(":bumper-core"))
 
     testImplementation(libs.junit)
+    testImplementation(project(":bumper-test"))
     testImplementation(kotlin("test"))
 }
 
@@ -37,16 +49,14 @@ tasks.named<Test>("test") {
 tasks.compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs +
-                "-Xjvm-default=all"
+        freeCompilerArgs = freeCompilerArgs
     }
 }
 
 tasks.compileTestKotlin {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs +
-                "-Xjvm-default=all"
+        freeCompilerArgs = freeCompilerArgs
     }
 }
 
@@ -62,14 +72,14 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = "riscure-bumper-core"
+            artifactId = "riscure-bumper-libclang"
             version    = version
 
             from(components["java"])
 
             pom {
                 name.set(rootProject.name)
-                description.set("A C frontend")
+                description.set("Bumper libclang implementation")
             }
         }
     }

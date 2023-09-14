@@ -39,6 +39,7 @@ pluginManagement {
 
         val serialization = "1.5.1"
         val coroutines = "1.7.3"
+        val antlr = "4.11.1"
 
         versionCatalogs {
             create("kotlinx") {
@@ -50,17 +51,20 @@ pluginManagement {
             }
 
             create("libs") {
-                library("arrow.core"     , "io.arrow-kt:arrow-core:1.1.2")
+                library("antlr.generator", "org.antlr:antlr4:$antlr")
+                library("antlr.runtime"  , "org.antlr:antlr4-runtime:$antlr")
+                library("apache.commons" , "org.apache.commons:commons-lang3:3.8.1")
+                library("apache.commons.io", "commons-io:commons-io:2.11.0")
                 library("apache.lang3"   , "org.apache.commons:commons-lang3:3.8.1")
-                library("slf4j"          , "org.slf4j:slf4j-api:1.7.25")
-                library("process"        , "com.github.pgreze:kotlin-process:1.4")
-                library("junit"          , "org.junit.jupiter:junit-jupiter:5.8.2")
-                library("dobby"          , "com.riscure:riscure-dobby:0.1.9-alpha-5")
+                library("arrow.core"     , "io.arrow-kt:arrow-core:1.1.2")
                 library("bytedeco"       , "org.bytedeco:llvm-platform:16.0.4-1.5.9")
-                library("picocli"        , "info.picocli:picocli:4.6.3")
-                library("antlr"          , "org.antlr:antlr4:4.11.1")
+                library("jansi", "org.fusesource.jansi:jansi:2.4.0")
                 library("jflex"          , "de.jflex:jflex:1.9.1")
+                library("junit"          , "org.junit.jupiter:junit-jupiter:5.8.2")
                 library("mordant"        , "com.github.ajalt.mordant:mordant:2.1.0")
+                library("process"        , "com.github.pgreze:kotlin-process:1.4")
+                library("picocli"        , "info.picocli:picocli:4.6.3")
+                library("slf4j"          , "org.slf4j:slf4j-api:1.7.25")
             }
         }
     }
@@ -69,16 +73,22 @@ pluginManagement {
 rootProject.name = "bumper"
 
 include(":bumper-core")
-project(":bumper-core").projectDir = file("core/")
+project(":bumper-core").projectDir = file("src/core/")
 
 include(":bumper-test")
-project(":bumper-test").projectDir = file("test/")
+project(":bumper-test").projectDir = file("src/test/")
 
 include(":bumper-libclang")
-project(":bumper-libclang").projectDir = file("implementations/libclang")
+project(":bumper-libclang").projectDir = file("src/implementations/libclang")
 
 include(":bumper-highlight")
-project(":bumper-highlight").projectDir = file("highlight/")
+project(":bumper-highlight").projectDir = file("src/highlight/")
+
+include(":shell-parser")
+project(":shell-parser").projectDir = file("src/shell-parser/")
+
+include(":dobby")
+project(":dobby").projectDir = file("src/dobby/")
 
 val localSettings = file("local.settings.gradle.kts")
 if (localSettings.exists()) {

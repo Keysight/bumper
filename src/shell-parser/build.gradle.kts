@@ -39,7 +39,7 @@ publishing {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
             artifactId = "riscure-shell-parser"
-            version    = version
+            version    = dobby.version
 
             from(components["java"])
 

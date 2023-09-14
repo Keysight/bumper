@@ -1,61 +1,56 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat.*
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 
-description = "Riscure True Code C Frontend -- Libclang Implementation"
-
 plugins {
+    `maven-publish`
+
     kotlin("jvm")
+    kotlin("plugin.serialization")
     id("org.jetbrains.dokka")
 
-    `maven-publish`
     application
-
-    id("org.bytedeco.gradle-javacpp-platform") version "1.5.9"
-}
-
-// supported native platforms
-val javacppPlatform by extra {
-    "linux-x86_64,windows-x86_64"
 }
 
 application {
-    mainClass.set("com.riscure.bumper.BumperCmdKt")
+    mainClass.set("com.riscure.dobby.DobbyCmdKt")
 }
 
 dependencies {
-    implementation(kotlinx.coroutines.core)
+    // Align versions of all Kotlin components
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
+    implementation(kotlinx.serialization.json)
 
-    api(libs.bytedeco)
-    implementation(libs.process)
     implementation(libs.arrow.core)
-    implementation(libs.dobby)
+    implementation(libs.antlr.runtime)
+    implementation(libs.apache.commons)
+    implementation(libs.apache.commons.io)
+
     implementation(libs.picocli)
-    implementation(project(":bumper-core"))
+    implementation(libs.jansi)
 
-    testImplementation(libs.junit)
-    testImplementation(project(":bumper-test"))
+    implementation(project(":shell-parser"))
+
+    // resources
+    runtimeOnly(files("./src/main/resources/clang.options.json"))
+
+    // test deps
     testImplementation(kotlin("test"))
+    testImplementation(libs.junit)
 }
 
-tasks.named<Test>("test") {
-  useJUnitPlatform()
-  testLogging {
-    events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
-    exceptionFormat = FULL
-  }
-}
-
-tasks.compileKotlin {
-    kotlinOptions {
-        jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events(PASSED, FAILED, STANDARD_OUT, STANDARD_ERROR, SKIPPED)
+        exceptionFormat = FULL
     }
 }
 
-tasks.compileTestKotlin {
+tasks.withType<KotlinCompile> {
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs = freeCompilerArgs
+        freeCompilerArgs = listOf()
     }
 }
 
@@ -71,14 +66,14 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId    = "com.riscure"
-            artifactId = "riscure-bumper-libclang"
-            version    = version
+            artifactId = "riscure-dobby"
+            version    = dobby.version
 
             from(components["java"])
 
             pom {
                 name.set(rootProject.name)
-                description.set("Bumper libclang implementation")
+                description.set("The friendly compilation database elf")
             }
         }
     }

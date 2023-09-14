@@ -22,7 +22,7 @@ repositories {
 
 dependencies {
     implementation(project(":bumper-core"))
-    implementation(libs.dobby)
+    implementation(project(":dobby"))
     implementation(libs.arrow.core)
     implementation(kotlinx.serialization.json)
     implementation(libs.junit)
