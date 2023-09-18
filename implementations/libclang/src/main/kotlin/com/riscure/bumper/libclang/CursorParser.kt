@@ -425,15 +425,20 @@ open class CursorParser(
         }
 
     /**
-     * return   true if the CXCursor is a global declaration. Even true if CXCursor is child of a
-     *          function definition, like and extern global variable declaration or a function declaration
-     *          inside a function body
+     * return   true if the CXCursor, as child of a function definition, is a global declaration.
+     *          Examples: an extern global variable declaration or a function declaration inside a function body
      */
     fun CXCursor.isEffectivelyGlobal() : Boolean =
-        when (getStorage()) {
-            is Storage.Static -> true
-            is Storage.Extern -> true
-            else -> kind() == CXCursor_FunctionDecl
+        when (kind() ) {
+            CXCursor_FunctionDecl -> true
+            CXCursor_VarDecl -> {
+                when (getStorage()) {
+                    is Storage.Static -> true
+                    is Storage.Extern -> true
+                    else -> false
+                }
+            }
+            else -> false
         }
 
     fun CXCursor.asFunctionDecl(): Result<UnitDeclaration.Fun<CXCursor>> =
