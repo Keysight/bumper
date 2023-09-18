@@ -87,28 +87,21 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
     fun test05() = bumped("""
         void f() {
           void f2(void);
-          f2;
+          f2();
         }
     """.trimIndent()) { ast, unit ->
         assertEquals(2, ast.functions.size)
         assertEquals( 0, ast.variables.size)
-        val f = assertNotNull(ast.functions.find { it.ident == "f2" })
-
-        //val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
-        //assertEquals(1, deps.size)
+        assertNotNull(ast.functions.find { it.ident == "f2" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "f2" })
     }
 
     @Test
-    @DisplayName("Function declaration in function body")
-    fun test06() = invalid("""
-        void f() {
-          f2;
-        }
-    """.trimIndent())
-
-    @Test
     @DisplayName("Extern global variable declaration in function body")
-    fun test07() = bumped("""
+    fun test06() = bumped("""
         int f() {
           extern int g_var;
           return g_var;
@@ -116,15 +109,16 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
     """.trimIndent()) { ast, unit ->
         assertEquals(1, ast.functions.size)
         assertEquals( 1, ast.variables.size)
-        val v = assertNotNull(ast.variables.find { it.ident == "g_var" })
-
-        //val deps = assertNotNull(unit.dependencies.assertOK().dependencies[v.mkSymbol(ast.tuid)])
-        //assertEquals(1, deps.size)
+        assertNotNull(ast.variables.find { it.ident == "g_var" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "g_var" })
     }
 
     @Test
     @DisplayName("Static global variable declaration in function body")
-    fun test08() = bumped("""
+    fun test07() = bumped("""
         int f() {
           static int g_var = 0;
           return g_var;
@@ -132,10 +126,23 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
     """.trimIndent()) { ast, unit ->
         assertEquals(1, ast.functions.size)
         assertEquals( 1, ast.variables.size)
-        val v = assertNotNull(ast.variables.find { it.ident == "g_var" })
+        assertNotNull(ast.variables.find { it.ident == "g_var" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "g_var" })
+    }
 
-        //val deps = assertNotNull(unit.dependencies.assertOK().dependencies[v.mkSymbol(ast.tuid)])
-        //assertEquals(1, deps.size)
+    @Test
+    @DisplayName("Registered global variable declaration in function body")
+    fun test08() = bumped("""
+        int f() {
+          register int g_var = 0;
+          return g_var;
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(1, ast.functions.size)
+        assertEquals( 0, ast.variables.size)
     }
 
     @Test
