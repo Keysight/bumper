@@ -81,4 +81,79 @@ interface FunctionParseTest<E,S,U: UnitState<E, S, U>>: ParseTestBase<E,S,U> {
         assertEquals(1, f.params.size)
         assertTrue(f.vararg)
     }
+
+    @Test
+    @DisplayName("Function declaration in function body")
+    fun test05() = bumped("""
+        void f() {
+          void f2(void);
+          f2();
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(2, ast.functions.size)
+        assertEquals( 0, ast.variables.size)
+        assertNotNull(ast.functions.find { it.ident == "f2" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "f2" })
+    }
+
+    @Test
+    @DisplayName("Extern global variable declaration in function body")
+    fun test06() = bumped("""
+        int f() {
+          extern int g_var;
+          return g_var;
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(1, ast.functions.size)
+        assertEquals( 1, ast.variables.size)
+        assertNotNull(ast.variables.find { it.ident == "g_var" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "g_var" })
+    }
+
+    @Test
+    @DisplayName("Static global variable declaration in function body")
+    fun test07() = bumped("""
+        int f() {
+          static int g_var = 0;
+          return g_var;
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(1, ast.functions.size)
+        assertEquals( 1, ast.variables.size)
+        assertNotNull(ast.variables.find { it.ident == "g_var" })
+        val f = assertNotNull(ast.functions.find { it.ident == "f" })
+        val deps = assertNotNull(unit.dependencies.assertOK().dependencies[f.mkSymbol(ast.tuid)])
+        assertEquals(1, deps.size)
+        assertNotNull(deps.find { it.name == "g_var" })
+    }
+
+    @Test
+    @DisplayName("Registered global variable declaration in function body")
+    fun test08() = bumped("""
+        int f() {
+          register int g_var = 0;
+          return g_var;
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(1, ast.functions.size)
+        assertEquals( 0, ast.variables.size)
+    }
+
+    @Test
+    @DisplayName("Local variable declaration in function body")
+    fun test09() = bumped("""
+        int f() {
+          int var;
+          return var;
+        }
+    """.trimIndent()) { ast, unit ->
+        assertEquals(1, ast.functions.size)
+        assertEquals( 0, ast.variables.size)
+    }
 }
