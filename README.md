@@ -17,6 +17,9 @@ produce syntax-highlighted code, and some basic analyses for the model.
 To be able to process compiler options, it implements a parser generator for
 Clang options and a concrete parser generated from the Clang option specification.
 
+To get a decent impression of what it does and how it does it, check out the
+test module and the instantiation of those tests in the libclang implementation module.
+
 References
 ==========
 
