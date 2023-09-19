@@ -23,9 +23,31 @@ abstract syntax of [C](https://github.com/AbsInt/CompCert/blob/master/cparser/C.
 In turn, CompCert stands on the shoulders of [CIL](http://people.eecs.berkeley.edu/~necula/cil/) (Necula, G.C., et al.).
 
 Bumper itself was originally authored by Arjen Rouvoet at Riscure.
+This library is not officially supported or maintained by Riscure. 
+If it crashes or you have feature requests, please make contact through 
+Github where this code is hosted.
 
 How to Build?
 =============
 
 Run `gradlew tasks` to make Gradle print all tasks.
 Run `gradlew :bumper-libclang:test` to run the test suite of the libclang backend.
+
+License
+=======
+
+Bumper: a C Frontend for the JVM
+Copyright (C) 2023, Riscure
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
