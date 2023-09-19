@@ -15,11 +15,14 @@ statements. There is a model, but we do not parse them, because we do not need t
 In addition to the model and parser, Bumper also ships a module with an (approximate) C lexer to
 produce syntax-highlighted code, and some basic analyses for the model.
 
-## Bibliography
+References
+==========
 
 Bumper's model of C is inspired by [CompCert's](https://github.com/AbsInt/CompCert) (Leroy, X., et al.)
 abstract syntax of [C](https://github.com/AbsInt/CompCert/blob/master/cparser/C.mli) _after_ elaboration. 
 In turn, CompCert stands on the shoulders of [CIL](http://people.eecs.berkeley.edu/~necula/cil/) (Necula, G.C., et al.).
+
+Bumper itself was originally authored by Arjen Rouvoet at Riscure.
 
 How to Build?
 =============
