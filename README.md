@@ -14,6 +14,8 @@ statements. There is a model, but we do not parse them, because we do not need t
 
 In addition to the model and parser, Bumper also ships a module with an (approximate) C lexer to
 produce syntax-highlighted code, and some basic analyses for the model.
+To be able to process compiler options, it implements a parser generator for
+Clang options and a concrete parser generated from the Clang option specification.
 
 References
 ==========
